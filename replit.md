@@ -1,6 +1,21 @@
 # Overview
 
-This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface, featuring **27 specialized tools** for various tasks. These tools span core functionalities like code and image generation, security analysis (CVE lookup, threat simulation, quantum encryption), OSINT (Shodan, WHOIS, DNS analysis), and general utilities (web scraping, blockchain tracking, QR code generation). Built with Node.js, it incorporates persistent storage via PostgreSQL with a 7-table schema for comprehensive memory management and analytics. The bot also includes self-awareness features like version tracking and a developer recognition system for tailored interactions.
+This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface, featuring **141 specialized tools** for cybersecurity training, automation, web scraping, reverse engineering, code optimization, compliance management, and more. Built with Node.js, it incorporates persistent storage via PostgreSQL with a 7-table schema for comprehensive memory management and analytics. The bot includes self-awareness features like version tracking (v4.1.0) and a developer recognition system with unrestricted access for the creator.
+
+## Latest Updates (v4.1.0)
+✨ **7 NEW PROFESSIONAL TOOLS ADDED:**
+1. **Code Optimization & Security Module** - Real minification + obfuscation for JS/Python/CSS
+2. **Network Research Simulator** - Proxy rotation + randomized user-agents for privacy research
+3. **Project Uptime Monitor** - Prevent idle timeouts during long research sessions
+4. **Data Management Utility** - Safe dataset reset with production data protection
+5. **Digital Forensics Trainer** - Steganography + metadata embedding/extraction
+6. **Performance Logging System** - Smart log suppression for high-load testing
+7. **Compliance & Ethics Generator** - Auto-generate usage guidelines and disclaimers
+
+## Tool Count: 141 Total
+- **34 Core Tools** (v1.0-3.0)
+- **100 Advanced Tools** (v4.0)
+- **7 Professional Tools** (v4.1)
 
 # User Preferences
 
@@ -23,15 +38,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Bot Architecture
 **Gateway Intents**: Utilizes Discord gateway intents for message and guild events.
-**AI Function Calling**: Implements an advanced tool/function calling pattern with Mistral AI, enabling the bot to automatically select and execute appropriate tools based on natural language queries via the `?ask` command. There are 27 tools that cover:
+**AI Function Calling**: Implements an advanced tool/function calling pattern with Mistral AI, enabling the bot to automatically select and execute appropriate tools based on natural language queries via the `?ask` command. There are 141 tools that cover:
 - **Core Tools**: Code generation, Image generation (Gemini/Kontext Pro), Web search, History management.
-- **Security Tools**: CVE lookup, Threat simulation (SQLi, XSS), Quantum encryption (Kyber, Dilithium), Security auditing, Password analyzer, File hash checker (VirusTotal), URL safety checker.
+- **Security Tools**: CVE lookup, Threat simulation (SQLi, XSS), Quantum encryption (Kyber, Dilithium), Security auditing, Password analyzer, File hash checker (VirusTotal), URL safety checker, Port scanner.
 - **OSINT Tools**: Shodan scanner, Subdomain enumeration, WHOIS lookup, DNS analysis, SSL/TLS analysis, Reverse IP lookup, Email breach checker (HaveIBeenPwned), Phone lookup.
-- **Utility Tools**: Web scraper, Blockchain tracker, IP tracking, GitHub scanner, Hash operations, Base64 encoding, Pastebin uploads, QR code generator, Deepfake detector.
+- **Crypto/Encoding Tools**: AES-256 Encryption/Decryption, Base64 Encoder/Decoder, Hash operations, Quantum encryption.
+- **Utility Tools**: Web scraper, Blockchain tracker, IP tracking, GitHub scanner, Pastebin uploads, QR code generator, Deepfake detector, Crypto miner detector.
+- **Fun Tools**: Meme generator, ASCII art generator, Text-to-Speech converter.
 
-**Self-Awareness System**: Tracks bot version (v1.0.0) and maintains an update history, allowing the bot to inform users about its current state and changes.
+**Self-Awareness System**: Tracks bot version (v4.1.0) and maintains an update history, allowing the bot to inform users about its current state and changes.
 
-**Developer Recognition System**: Identifies the developer by Discord user ID, adjusting tone and behavior for more detailed, respectful, and attentive responses, prioritizing developer interactions.
+**Developer Recognition System**: Identifies the developer by Discord user ID (1104652354655113268) with UNRESTRICTED ACCESS - no rate limits, no restrictions, full access to all features for testing and development purposes.
 
 ## Data Persistence
 **PostgreSQL Database**: Uses a 7-table schema for comprehensive memory management, including:
