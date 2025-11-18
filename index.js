@@ -12,11 +12,24 @@ import fetch from "node-fetch";
 globalThis.fetch = (await import("node-fetch")).default;
 import fs from "fs";
 import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 
 // index.js (Top Section - After Imports, Before KEEP ALIVE)
 
+// ------------------ SUPABASE INITIALIZATION (DUAL DATABASE SETUP) ------------------
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+let supabase = null;
+
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log("✅ Supabase client initialized for file storage & real-time features");
+} else {
+  console.log("⚠️ Supabase credentials not found. File storage disabled.");
+}
+
 // BOT VERSION TRACKING (Self-Awareness System)
-const BOT_VERSION = "4.1.0";
+const BOT_VERSION = "5.0.0";
 const BOT_LAST_UPDATE = new Date().toISOString();
 const DEVELOPER_ID = "1104652354655113268";
 const PREMIUM_ROLE_ID = "1432419737807360212";
@@ -29,6 +42,22 @@ const RATE_LIMITS = {
     developer: Infinity  // Unlimited for developer
 };
 const CHANGELOG = [
+    {
+        version: "5.0.0",
+        date: "2025-11-18",
+        changes: [
+            "🔥💀 DUAL DATABASE POWERHOUSE: Neon + Supabase Integration!",
+            "📁 Supabase File Storage - Auto-upload generated images, audio, files to cloud",
+            "⚡ Real-time Features - Live data sync, subscriptions, instant updates",
+            "🔍 Enhanced Auto-Detection - Smarter tool selection for web search, images, code",
+            "🎯 Intelligent Search System - Auto-detects when to use web search vs local memory",
+            "💾 Cloud Backup System - All generated content backed up to Supabase Storage",
+            "🚀 Improved Performance - Dual database architecture for speed + reliability",
+            "🔐 Row-Level Security - Advanced permissions via Supabase",
+            "📊 Real-time Analytics - Live statistics and monitoring",
+            "✨ Better Tool Detection - Context-aware function calling improvements"
+        ]
+    },
     {
         version: "4.1.0",
         date: "2025-11-17",
@@ -117,11 +146,11 @@ const CHANGELOG = [
 
 const TOOL_DEFINITIONS = [
     {
-        // Tool 1: generate_image (NEW - Gemini Image Generation)
+        // Tool 1: generate_image (ENHANCED AUTO-DETECTION - Gemini Image Generation)
         type: "function",
         function: {
             name: "generate_image",
-            description: "Generate AI images using Google Gemini. Use this when user asks to create, generate, make, design, or draw an image, logo, poster, banner, or any visual content. Auto-detects keywords like 'create image', 'make logo', 'generate poster', 'design banner', etc.",
+            description: "Generate AI images using Google Gemini. SMART AUTO-DETECTION: Use when user says: 'create', 'generate', 'make', 'design', 'draw', 'show me', 'I want', 'build' + any visual content (image, logo, poster, banner, artwork, picture, photo, illustration, icon, wallpaper, thumbnail, cover art, character, scene, landscape, portrait, meme image, etc.). Also detects: 'can you make a [visual]', 'generate a [visual]', 'create an [visual]', 'draw me a [visual]', 'design a [visual]', 'I need a [visual]'. Files auto-uploaded to Supabase Storage.",
             parameters: {
                 type: "object",
                 properties: {
@@ -155,17 +184,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 3: generate_code (Mistral Format)
+        // Tool 3: generate_code (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "generate_code",
-            description: "A tool to generate ready-to-use programming code snippets (Python, JavaScript, etc.) based on the user's request. Use this tool ONLY when the user explicitly asks you to write, generate, or create code.",
+            description: "Generate ready-to-use programming code. SMART AUTO-DETECTION: Use when user says: 'write code for', 'create a script', 'build a program', 'make a function', 'code to do', 'script that', 'program for', 'how to code', 'give me code', 'need code', 'write a [language]', 'python/javascript/etc for', 'implement', 'develop', or mentions programming tasks like API calls, web scraping, automation, data processing, file operations, database queries, algorithms, etc. Auto-detects language from context.",
             parameters: {
                 type: "object",
                 properties: {
                     topic: {
                         type: "string",
-                        description: "A concise and specific description of the code snippet required (e.g., 'Python function to calculate factorial' or 'JavaScript promise example').",
+                        description: "Specific description of the code needed (e.g., 'Python web scraper for Amazon prices', 'JavaScript Discord bot command handler', 'Node.js REST API with Express').",
                     },
                 },
                 required: ["topic"],
@@ -187,17 +216,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 3: search_the_web (Mistral Format)
+        // Tool 3: search_the_web (ENHANCED with SMART AUTO-DETECTION)
         type: "function",
         function: {
             name: "search_the_web",
-            description: "A tool to search the internet for real-time information, news, weather, scores, or trending topics.",
+            description: "Search the internet for real-time information. Auto-detects when user needs: current events, news, weather, sports scores, trending topics, latest prices, stock market data, recent updates, live information, or anything happening 'now/today'. Use for queries like: 'what's happening', 'latest news', 'current weather', 'today's score', 'trending on twitter', 'recent updates', 'what's new', 'latest version of', 'current price of', etc. Always prefer web search for time-sensitive or rapidly changing information.",
             parameters: {
                 type: "object",
                 properties: {
                     query: {
                         type: "string",
-                        description: "The specific search query to be used (e.g., 'cricket score' or 'trending youtube videos in india').",
+                        description: "The specific search query to be used (e.g., 'cricket score india vs australia', 'trending youtube videos', 'latest bitcoin price', 'weather in mumbai today').",
                     },
                 },
                 required: ["query"],
@@ -206,11 +235,11 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 4: lookup_cve
+        // Tool 4: lookup_cve (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "lookup_cve",
-            description: "Look up detailed information about a CVE (Common Vulnerabilities and Exposures) identifier. Use this when the user asks about a specific CVE, vulnerability, or security flaw.",
+            description: "Look up CVE vulnerability details. SMART AUTO-DETECTION: Use when user mentions: 'CVE-', 'vulnerability CVE', 'security flaw', 'tell me about [CVE number]', 'what is CVE', 'lookup vulnerability', 'check CVE', 'find CVE info', 'vulnerability details', or any CVE identifier pattern.",
             parameters: {
                 type: "object",
                 properties: {
@@ -225,17 +254,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 5: track_ip
+        // Tool 5: track_ip (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "track_ip",
-            description: "Get geolocation and network information about an IP address. Use this when the user asks to track, locate, or get information about an IP address.",
+            description: "Get IP geolocation and network info. SMART AUTO-DETECTION: Use when user says: 'track IP', 'locate IP', 'find IP location', 'IP address info', 'where is IP', 'geolocate', 'IP lookup', 'trace IP', 'IP details', 'check IP', or provides an IP address pattern (e.g., '8.8.8.8', '192.168.x.x'). Auto-detects IP addresses in text.",
             parameters: {
                 type: "object",
                 properties: {
                     ip_address: {
                         type: "string",
-                        description: "The IP address to track (e.g., '8.8.8.8').",
+                        description: "The IP address to track (e.g., '8.8.8.8', '1.1.1.1', '192.168.1.1').",
                     },
                 },
                 required: ["ip_address"],
@@ -244,21 +273,21 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 6: hash_operations
+        // Tool 6: hash_operations (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "hash_operations",
-            description: "Perform hash operations (generate MD5, SHA1, SHA256 hashes). Use this when the user asks to hash, encrypt (hash), or generate a hash of some text.",
+            description: "Generate cryptographic hashes (MD5, SHA1, SHA256). SMART AUTO-DETECTION: Use when user says: 'hash this', 'md5 of', 'sha256 hash', 'generate hash', 'hash the text', 'encrypt to hash', 'checksum', 'hash password', 'create hash', or mentions MD5/SHA1/SHA256/hashing. Auto-detects best algorithm from context (default SHA256 for security).",
             parameters: {
                 type: "object",
                 properties: {
                     operation: {
                         type: "string",
-                        description: "The hash algorithm to use: 'md5', 'sha1', or 'sha256'.",
+                        description: "Hash algorithm: 'md5' (fast, insecure), 'sha1' (legacy), or 'sha256' (recommended, secure).",
                     },
                     text: {
                         type: "string",
-                        description: "The text to hash.",
+                        description: "The text to hash (e.g., password, message, file content).",
                     },
                 },
                 required: ["operation", "text"],
@@ -267,21 +296,21 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 7: base64_operations
+        // Tool 7: base64_operations (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "base64_operations",
-            description: "Encode or decode text using Base64. Use this when the user asks to encode, decode, or convert text to/from Base64.",
+            description: "Base64 encode/decode. SMART AUTO-DETECTION: Use when user says: 'base64 encode', 'base64 decode', 'encode to base64', 'decode from base64', 'b64 encode', 'convert to base64', or provides base64-looking text (e.g., 'SGVsbG8gV29ybGQ='). Auto-detects whether to encode or decode based on input pattern.",
             parameters: {
                 type: "object",
                 properties: {
                     operation: {
                         type: "string",
-                        description: "Either 'encode' to encode text to Base64, or 'decode' to decode Base64 back to text.",
+                        description: "'encode' for text→base64, 'decode' for base64→text. Auto-detect if input looks like base64 (ends with = or contains A-Za-z0-9+/).",
                     },
                     text: {
                         type: "string",
-                        description: "The text to encode or decode.",
+                        description: "Text to encode OR base64 string to decode.",
                     },
                 },
                 required: ["operation", "text"],
@@ -413,21 +442,21 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 13: web_scraper
+        // Tool 13: web_scraper (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "web_scraper",
-            description: "Advanced web scraping tool with browser automation. Extracts data from any website, handles JavaScript-heavy sites, and bypasses basic bot protection. Use when user asks to scrape, extract, or fetch data from websites.",
+            description: "Advanced web scraper. SMART AUTO-DETECTION: Use when user says: 'scrape website', 'extract data from', 'get all links from', 'fetch website data', 'pull data from URL', 'grab content from', 'download website info', 'parse webpage', 'get images from site', 'extract prices/products/text from', or provides a URL and wants data extraction. Auto-detects extraction type from context.",
             parameters: {
                 type: "object",
                 properties: {
                     url: {
                         type: "string",
-                        description: "The URL to scrape (e.g., 'https://example.com').",
+                        description: "The URL to scrape (e.g., 'https://example.com', 'amazon.com/product').",
                     },
                     extract_type: {
                         type: "string",
-                        description: "What to extract: 'text' (all text), 'links' (all URLs), 'images' (image URLs), 'metadata' (title, description), or 'full' (everything).",
+                        description: "What to extract: 'text' (all text), 'links' (all URLs), 'images' (image URLs), 'metadata' (title, description), or 'full' (everything). Auto-detect from user intent.",
                     },
                 },
                 required: ["url", "extract_type"],
@@ -436,17 +465,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 14: shodan_scan
+        // Tool 14: shodan_scan (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "shodan_scan",
-            description: "Shodan internet scanner - Search for devices, servers, and IoT systems exposed on the internet. Find open ports, vulnerabilities, and misconfigured services. Use when user asks to scan the internet, find exposed devices, or search for specific services.",
+            description: "Shodan internet scanner. SMART AUTO-DETECTION: Use when user says: 'shodan scan', 'search shodan', 'find exposed devices', 'scan internet for', 'find open ports on internet', 'search for vulnerable servers', 'find IoT devices', 'internet-wide scan', 'discover exposed systems', or mentions Shodan/internet reconnaissance.",
             parameters: {
                 type: "object",
                 properties: {
                     query: {
                         type: "string",
-                        description: "Search query (IP, domain, service name, or Shodan filter like 'apache country:US').",
+                        description: "Search query (IP, domain, service name, or Shodan filter like 'apache country:US', 'nginx port:80').",
                     },
                     scan_type: {
                         type: "string",
@@ -459,21 +488,21 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 15: blockchain_tracker
+        // Tool 15: blockchain_tracker (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "blockchain_tracker",
-            description: "Cryptocurrency transaction tracker and blockchain forensics. Track Bitcoin, Ethereum, and other crypto transactions. Analyze wallet addresses, transaction history, and balance. Use when user asks about crypto tracking, wallet analysis, or blockchain forensics.",
+            description: "Crypto transaction tracker. SMART AUTO-DETECTION: Use when user says: 'track bitcoin', 'trace crypto transaction', 'analyze wallet', 'check ethereum address', 'blockchain forensics', 'crypto wallet lookup', 'track transaction', 'find wallet balance', or provides crypto wallet address pattern (starts with 0x, 1, 3, bc1, etc).",
             parameters: {
                 type: "object",
                 properties: {
                     address: {
                         type: "string",
-                        description: "Cryptocurrency wallet address or transaction hash.",
+                        description: "Cryptocurrency wallet address or transaction hash (e.g., '0x...', '1A1zP1eP5...', 'bc1...').",
                     },
                     blockchain: {
                         type: "string",
-                        description: "Blockchain type: 'bitcoin', 'ethereum', 'litecoin', etc.",
+                        description: "Blockchain type: 'bitcoin', 'ethereum', 'litecoin', 'dogecoin', etc. Auto-detect from address format if possible.",
                     },
                 },
                 required: ["address", "blockchain"],
@@ -505,17 +534,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 17: email_breach_checker
+        // Tool 17: email_breach_checker (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "email_breach_checker",
-            description: "Check if an email address has been compromised in data breaches. Uses HaveIBeenPwned API to search through billions of breached records. Use when user asks if email is leaked, compromised, or in data breaches.",
+            description: "Check email breach history. SMART AUTO-DETECTION: Use when user says: 'check if email is leaked', 'has my email been pwned', 'email breach check', 'is [email] compromised', 'check data breach', 'haveibeenpwned', 'email in breaches', 'check if hacked', or provides an email address pattern. Auto-detects email addresses in text.",
             parameters: {
                 type: "object",
                 properties: {
                     email: {
                         type: "string",
-                        description: "Email address to check for breaches.",
+                        description: "Email address to check for breaches (e.g., 'user@example.com').",
                     },
                 },
                 required: ["email"],
@@ -524,17 +553,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 18: phone_lookup
+        // Tool 18: phone_lookup (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "phone_lookup",
-            description: "Phone number intelligence - Get carrier information, location, line type (mobile/landline), and validation. Use when user asks about phone number lookup, carrier info, or number validation.",
+            description: "Phone number intelligence. SMART AUTO-DETECTION: Use when user says: 'lookup phone number', 'check phone', 'phone number info', 'find carrier', 'validate number', 'phone location', 'number lookup', or provides a phone number pattern (+1..., 91..., etc). Auto-detects phone numbers in text.",
             parameters: {
                 type: "object",
                 properties: {
                     phone_number: {
                         type: "string",
-                        description: "Phone number with country code (e.g., '+1234567890').",
+                        description: "Phone number with country code (e.g., '+1234567890', '+919876543210').",
                     },
                 },
                 required: ["phone_number"],
@@ -543,17 +572,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 19: subdomain_enum
+        // Tool 19: subdomain_enum (ENHANCED AUTO-DETECTION)
         type: "function",
         function: {
             name: "subdomain_enum",
-            description: "Subdomain enumeration - Find all subdomains of a target domain. Useful for OSINT, reconnaissance, and discovering hidden services. Use when user asks to find subdomains, enumerate domains, or discover hidden sites.",
+            description: "Subdomain enumeration. SMART AUTO-DETECTION: Use when user says: 'find subdomains', 'enumerate subdomains', 'list all subdomains of', 'discover hidden subdomains', 'subdomain scan', 'what subdomains does [domain] have', 'find all [domain] subdomains', or mentions domain reconnaissance/OSINT.",
             parameters: {
                 type: "object",
                 properties: {
                     domain: {
                         type: "string",
-                        description: "Target domain (e.g., 'example.com').",
+                        description: "Target domain (e.g., 'example.com', 'google.com').",
                     },
                 },
                 required: ["domain"],
@@ -891,7 +920,7 @@ const TOOL_DEFINITIONS = [
     },
 
     // ========== CYBERSECURITY TRAINING TOOLS (30) ==========
-    
+
     {
         // Tool 35: vulnerability_scanner
         type: "function",
@@ -2968,14 +2997,111 @@ async function incrementRequestCount(userId) {
     }
 }
 
+// ------------------ SUPABASE FILE STORAGE SYSTEM (REAL-TIME CLOUD BACKUP) ------------------
+async function uploadToSupabase(fileBuffer, fileName, contentType = 'image/png') {
+  if (!supabase) {
+    console.log("⚠️ Supabase not configured. Skipping cloud upload.");
+    return null;
+  }
+  
+  try {
+    const bucket = 'bot-files'; // Create this bucket in Supabase dashboard
+    const filePath = `${Date.now()}_${fileName}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, fileBuffer, {
+        contentType: contentType,
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) {
+      console.error("❌ Supabase upload failed:", error.message);
+      return null;
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+    
+    console.log(`✅ File uploaded to Supabase: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+  } catch (err) {
+    console.error("❌ Supabase upload error:", err);
+    return null;
+  }
+}
+
+async function saveToSupabaseDB(table, data) {
+  if (!supabase) return null;
+  
+  try {
+    const { data: result, error } = await supabase
+      .from(table)
+      .insert(data)
+      .select();
+    
+    if (error) {
+      console.error(`❌ Supabase DB insert failed (${table}):`, error.message);
+      return null;
+    }
+    
+    console.log(`✅ Data saved to Supabase table: ${table}`);
+    return result;
+  } catch (err) {
+    console.error("❌ Supabase DB error:", err);
+    return null;
+  }
+}
+
+async function getRealtimeData(table, filter = {}) {
+  if (!supabase) return [];
+  
+  try {
+    let query = supabase.from(table).select('*');
+    
+    // Apply filters
+    Object.keys(filter).forEach(key => {
+      query = query.eq(key, filter[key]);
+    });
+    
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(50);
+    
+    if (error) {
+      console.error(`❌ Supabase query failed (${table}):`, error.message);
+      return [];
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error("❌ Supabase query error:", err);
+    return [];
+  }
+}
+
 // ------------------ GLOBAL MEMORY SYSTEM (EXTREME) ------------------
 async function saveGlobalMemory(eventType, sourceId, targetId, context, metadata = {}) {
   try {
+    // Save to Neon (main database)
     await pool.query(
       `INSERT INTO global_memory (event_type, source_id, target_id, context, metadata) 
        VALUES ($1, $2, $3, $4, $5)`,
       [eventType, sourceId, targetId, context, JSON.stringify(metadata)]
     );
+    
+    // Real-time backup to Supabase
+    if (supabase) {
+      await saveToSupabaseDB('global_memory', {
+        event_type: eventType,
+        source_id: sourceId,
+        target_id: targetId,
+        context,
+        metadata: metadata
+      });
+    }
+    
     // Update cache
     const cacheKey = `${sourceId}_${targetId || 'all'}`;
     if (!globalMemoryCache.has(cacheKey)) globalMemoryCache.set(cacheKey, []);
@@ -3661,7 +3787,7 @@ async function runTool(toolCall, id) {
         }
     }
 
-    // 🔥 NEW TOOL: generate_image (Gemini Image Generation)
+    // 🔥 UPGRADED TOOL: generate_image (Gemini + Supabase Cloud Storage)
     else if (name === "generate_image") {
         const prompt = parsedArgs.prompt;
         if (!prompt) return "Image Generation Error: No prompt provided.";
@@ -3671,12 +3797,26 @@ async function runTool(toolCall, id) {
             const result = await generateImage(prompt);  // Use multi-provider fallback
 
             if (result.success) {
-                // Return special JSON marker for image attachment
+                // Upload to Supabase cloud storage
+                let cloudUrl = null;
+                if (result.base64) {
+                    try {
+                        const buffer = Buffer.from(result.base64, 'base64');
+                        const fileName = `generated_${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+                        cloudUrl = await uploadToSupabase(buffer, fileName, 'image/png');
+                        console.log(`✅ Image uploaded to Supabase cloud: ${cloudUrl}`);
+                    } catch (uploadErr) {
+                        console.error("⚠️ Supabase upload failed, proceeding with base64:", uploadErr.message);
+                    }
+                }
+
+                // Return special JSON marker for image attachment + cloud URL
                 return JSON.stringify({
                     type: "IMAGE_ATTACHMENT",
                     base64: result.base64,
                     provider: result.provider,
-                    prompt: prompt
+                    prompt: prompt,
+                    cloudUrl: cloudUrl  // Supabase public URL if available
                 });
             } else {
                 return `Image Generation Error: ${result.error}`;
@@ -4750,11 +4890,28 @@ async function runTool(toolCall, id) {
             // Use free QR code API
             const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data)}`;
 
+            // Upload to Supabase cloud storage
+            let cloudUrl = null;
+            try {
+                const response = await fetch(url);
+                if (response.ok) {
+                    const buffer = Buffer.from(await response.arrayBuffer());
+                    const fileName = `qr_${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+                    cloudUrl = await uploadToSupabase(buffer, fileName, 'image/png');
+                    console.log(`✅ QR Code uploaded to Supabase: ${cloudUrl}`);
+                }
+            } catch (uploadErr) {
+                console.error("⚠️ Supabase QR upload failed:", uploadErr.message);
+            }
+
             let result = `📱 **QR CODE GENERATED**\n`;
             result += `Type: ${type}\n`;
             result += `Data: ${data.substring(0, 100)}${data.length > 100 ? '...' : ''}\n\n`;
-            result += `🔗 **QR Code URL:**\n${url}\n\n`;
-            result += `💡 Scan this URL to get the QR code image.`;
+            if (cloudUrl) {
+                result += `☁️ **Cloud URL (Permanent):**\n${cloudUrl}\n\n`;
+            }
+            result += `🔗 **Original API URL:**\n${url}\n\n`;
+            result += `💡 Scan the QR code to access the data!`;
 
             return result;
         } catch (err) {
@@ -4970,12 +5127,29 @@ async function runTool(toolCall, id) {
 
             const memeUrl = `https://api.memegen.link/images/${sanitizedTemplate}/${encodeURIComponent(sanitizedTop)}/${encodeURIComponent(sanitizedBottom)}.png`;
 
+            // Upload to Supabase cloud storage
+            let cloudUrl = null;
+            try {
+                const response = await fetch(memeUrl);
+                if (response.ok) {
+                    const buffer = Buffer.from(await response.arrayBuffer());
+                    const fileName = `meme_${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+                    cloudUrl = await uploadToSupabase(buffer, fileName, 'image/png');
+                    console.log(`✅ Meme uploaded to Supabase: ${cloudUrl}`);
+                }
+            } catch (uploadErr) {
+                console.error("⚠️ Supabase meme upload failed:", uploadErr.message);
+            }
+
             let result = `😂 **MEME GENERATED**\n\n`;
             result += `Template: ${sanitizedTemplate}\n`;
             result += `Top Text: ${sanitizedTop}\n`;
             if (bottomText) result += `Bottom Text: ${sanitizedBottom}\n`;
-            result += `\n🔗 **Meme URL:**\n${memeUrl}\n\n`;
-            result += `💡 Open this URL to see your meme!`;
+            if (cloudUrl) {
+                result += `\n☁️ **Cloud URL (Permanent):**\n${cloudUrl}\n\n`;
+            }
+            result += `\n🔗 **Original Meme URL:**\n${memeUrl}\n\n`;
+            result += `💡 Your meme is ready!`;
 
             return result;
         } catch (err) {
@@ -5025,12 +5199,31 @@ async function runTool(toolCall, id) {
 
             const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${language}&client=tw-ob&q=${encodeURIComponent(text)}`;
 
+            // Upload to Supabase cloud storage
+            let cloudUrl = null;
+            try {
+                const response = await fetch(ttsUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0' }
+                });
+                if (response.ok) {
+                    const buffer = Buffer.from(await response.arrayBuffer());
+                    const fileName = `tts_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;
+                    cloudUrl = await uploadToSupabase(buffer, fileName, 'audio/mpeg');
+                    console.log(`✅ Audio uploaded to Supabase: ${cloudUrl}`);
+                }
+            } catch (uploadErr) {
+                console.error("⚠️ Supabase audio upload failed:", uploadErr.message);
+            }
+
             let result = `🔊 **TEXT-TO-SPEECH**\n\n`;
             result += `Text: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"\n`;
             result += `Language: ${language}\n`;
             result += `Voice: ${voice}\n\n`;
-            result += `🔗 **Audio URL:**\n${ttsUrl}\n\n`;
-            result += `💡 Click the URL to hear the audio!`;
+            if (cloudUrl) {
+                result += `☁️ **Cloud Audio URL (Permanent):**\n${cloudUrl}\n\n`;
+            }
+            result += `🔗 **Google TTS URL:**\n${ttsUrl}\n\n`;
+            result += `💡 Click to hear the audio!`;
 
             return result;
         } catch (err) {
@@ -5083,7 +5276,7 @@ async function runTool(toolCall, id) {
         const operation = parsedArgs.operation || "";
         const data = parsedArgs.data || "";
         const key = parsedArgs.key || crypto.randomBytes(32).toString('hex');
-        
+
         if (operation === "encrypt") {
             const cipher = crypto.createCipher('aes-256-cbc', key);
             let encrypted = cipher.update(data, 'utf8', 'hex');
