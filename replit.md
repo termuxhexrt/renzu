@@ -1,21 +1,25 @@
 # Overview
 
-This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface, featuring **141 specialized tools** for cybersecurity training, automation, web scraping, reverse engineering, code optimization, compliance management, and more. Built with Node.js, it incorporates persistent storage via PostgreSQL with a 7-table schema for comprehensive memory management and analytics. The bot includes self-awareness features like version tracking (v4.1.0) and a developer recognition system with unrestricted access for the creator.
+This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface, featuring **141 specialized tools** for cybersecurity training, automation, web scraping, reverse engineering, code optimization, compliance management, and more. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (7-table schema) + Supabase (file storage + real-time features) for comprehensive memory management, cloud backup, and live analytics. The bot includes self-awareness features like version tracking (v5.0.0) and a developer recognition system with unrestricted access for the creator.
 
-## Latest Updates (v4.1.0)
-✨ **7 NEW PROFESSIONAL TOOLS ADDED:**
-1. **Code Optimization & Security Module** - Real minification + obfuscation for JS/Python/CSS
-2. **Network Research Simulator** - Proxy rotation + randomized user-agents for privacy research
-3. **Project Uptime Monitor** - Prevent idle timeouts during long research sessions
-4. **Data Management Utility** - Safe dataset reset with production data protection
-5. **Digital Forensics Trainer** - Steganography + metadata embedding/extraction
-6. **Performance Logging System** - Smart log suppression for high-load testing
-7. **Compliance & Ethics Generator** - Auto-generate usage guidelines and disclaimers
+## Latest Updates (v5.0.0) 🔥💀
+✨ **DUAL DATABASE POWERHOUSE - NEON + SUPABASE:**
+1. **Supabase File Storage** - Auto-upload generated images, audio, files to cloud with public URLs
+2. **Real-time Data Sync** - Live features, subscriptions, instant updates across dual databases
+3. **Enhanced Auto-Detection** - SMART tool selection for all 141 tools with context-aware descriptions
+4. **Intelligent Search System** - Auto-detects when to use web search vs local memory vs real-time data
+5. **Cloud Backup System** - All generated content automatically backed up to Supabase Storage
+6. **Improved Performance** - Dual database architecture for speed, reliability, and redundancy
+7. **Row-Level Security** - Advanced permissions and security via Supabase
+8. **Real-time Analytics** - Live statistics and monitoring across both databases
+9. **Better Tool Detection** - Context-aware function calling with improved auto-detection
+10. **Hybrid Storage** - Neon for conversations/analytics, Supabase for files/real-time features
 
-## Tool Count: 141 Total
+## Tool Count: 141 Total (All Enhanced with Smart Auto-Detection!)
 - **34 Core Tools** (v1.0-3.0)
 - **100 Advanced Tools** (v4.0)
 - **7 Professional Tools** (v4.1)
+- **v5.0: Enhanced Auto-Detection** for ALL tools!
 
 # User Preferences
 
@@ -32,7 +36,8 @@ Preferred communication style: Simple, everyday language.
 - **Runtime**: Node.js with ES6 modules
 - **Discord Integration**: discord.js v14.24.2 with Gateway Intents
 - **AI Provider**: Mistral AI SDK v1.10.0
-- **Database**: PostgreSQL with pg driver
+- **Primary Database**: Neon PostgreSQL with pg driver (conversations, analytics, memory)
+- **Cloud Database**: Supabase (file storage, real-time features, backup)
 - **HTTP Client**: node-fetch
 - **Environment Management**: dotenv
 
@@ -50,16 +55,24 @@ Preferred communication style: Simple, everyday language.
 
 **Developer Recognition System**: Identifies the developer by Discord user ID (1104652354655113268) with UNRESTRICTED ACCESS - no rate limits, no restrictions, full access to all features for testing and development purposes.
 
-## Data Persistence
-**PostgreSQL Database**: Uses a 7-table schema for comprehensive memory management, including:
-- `conversations`: User messages and bot responses.
-- `global_memory`: Cross-user and cross-bot interaction tracking.
-- `entities`: Extracted user-specific data.
-- `summaries`: Compressed conversation history.
-- `topics`: Conversation topic tracking.
-- `statistics`: Analytics on response times, tool usage, etc.
-- `quality_scores`: Response quality tracking.
-This provides ACID-compliant storage, supports concurrent conversations, enables personalized responses through entity extraction, and offers advanced analytics.
+## Data Persistence (DUAL DATABASE ARCHITECTURE)
+**Neon PostgreSQL (Primary)**: 7-table schema for comprehensive memory management:
+- `conversations`: User messages and bot responses
+- `global_memory`: Cross-user and cross-bot interaction tracking (synced to Supabase)
+- `entities`: Extracted user-specific data
+- `summaries`: Compressed conversation history
+- `topics`: Conversation topic tracking
+- `statistics`: Analytics on response times, tool usage, etc
+- `quality_scores`: Response quality tracking
+
+**Supabase (Cloud + Real-time)**:
+- **File Storage Bucket**: Auto-upload generated images, audio, documents with public URLs
+- **Real-time Tables**: Live data sync for analytics, statistics, global memory
+- **Backup System**: Redundant storage for critical data
+- **Row-Level Security**: Advanced permissions and access control
+- **Public URLs**: Instantly shareable links for generated content
+
+This provides ACID-compliant storage, cloud backup, real-time features, file storage, and hybrid database reliability.
 
 ## Conversation Flow
 1. User sends a message via `?ask`.
