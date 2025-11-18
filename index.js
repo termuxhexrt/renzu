@@ -150,7 +150,7 @@ const TOOL_DEFINITIONS = [
         type: "function",
         function: {
             name: "generate_image",
-            description: "Generate AI images using Google Gemini. SMART AUTO-DETECTION: Use when user says: 'create', 'generate', 'make', 'design', 'draw', 'show me', 'I want', 'build' + any visual content (image, logo, poster, banner, artwork, picture, photo, illustration, icon, wallpaper, thumbnail, cover art, character, scene, landscape, portrait, meme image, etc.). Also detects: 'can you make a [visual]', 'generate a [visual]', 'create an [visual]', 'draw me a [visual]', 'design a [visual]', 'I need a [visual]'. Files auto-uploaded to Supabase Storage.",
+            description: "Generate AI images using Pollinations.ai (FREE). SMART AUTO-DETECTION: Use when user says: 'create', 'generate', 'make', 'design', 'draw', 'show me', 'I want', 'build' + any visual content (image, logo, poster, banner, artwork, picture, photo, illustration, icon, wallpaper, thumbnail, cover art, character, scene, landscape, portrait, meme image, etc.). Also detects: 'can you make a [visual]', 'generate a [visual]', 'create an [visual]', 'draw me a [visual]', 'design a [visual]', 'I need a [visual]'. Files auto-uploaded to Supabase Storage.",
             parameters: {
                 type: "object",
                 properties: {
@@ -220,16 +220,35 @@ const TOOL_DEFINITIONS = [
         type: "function",
         function: {
             name: "search_the_web",
-            description: "Search the internet for real-time information. Auto-detects when user needs: current events, news, weather, sports scores, trending topics, latest prices, stock market data, recent updates, live information, or anything happening 'now/today'. Use for queries like: 'what's happening', 'latest news', 'current weather', 'today's score', 'trending on twitter', 'recent updates', 'what's new', 'latest version of', 'current price of', etc. Always prefer web search for time-sensitive or rapidly changing information.",
+            description: "Search the internet for real-time information. Auto-detects when user needs: current events, news, weather, sports scores, trending topics, latest prices, stock market data, recent updates, live information, time, date, year, or anything happening 'now/today'. Use for queries like: 'what's happening', 'latest news', 'current weather', 'today's score', 'trending on twitter', 'recent updates', 'what's new', 'latest version of', 'current price of', 'what time is it', 'today's date', etc. Always prefer web search for time-sensitive or rapidly changing information.",
             parameters: {
                 type: "object",
                 properties: {
                     query: {
                         type: "string",
-                        description: "The specific search query to be used (e.g., 'cricket score india vs australia', 'trending youtube videos', 'latest bitcoin price', 'weather in mumbai today').",
+                        description: "The specific search query to be used (e.g., 'cricket score india vs australia', 'trending youtube videos', 'latest bitcoin price', 'weather in mumbai today', 'current time in India').",
                     },
                 },
                 required: ["query"],
+            },
+        }
+    },
+
+    {
+        // NEW TOOL: fetch_url_content (URL/Link Fetcher)
+        type: "function",
+        function: {
+            name: "fetch_url_content",
+            description: "Fetch and extract information from any URL/link provided by user. SMART AUTO-DETECTION: Use when user shares: Spotify links, YouTube links, any website URL, article links, or says 'check this link', 'open this', 'what's on this page', 'read this URL', 'get info from', 'scrape this', etc. Auto-detects URLs in user messages (http://, https://, spotify.com, youtube.com, youtu.be, etc.). Perfect for Spotify songs, YouTube videos, articles, web pages.",
+            parameters: {
+                type: "object",
+                properties: {
+                    url: {
+                        type: "string",
+                        description: "The URL to fetch content from (e.g., 'https://open.spotify.com/track/xyz', 'https://youtube.com/watch?v=abc', 'https://example.com/article').",
+                    },
+                },
+                required: ["url"],
             },
         }
     },
@@ -2749,10 +2768,12 @@ const server = app.listen(0, () => {  // 0 = OS assigns a free port
 // ------------------ DISCORD CLIENT ------------------
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.Guilds,           // Server support
+    GatewayIntentBits.GuildMessages,    // Server messages
+    GatewayIntentBits.DirectMessages,   // DM support (NEW!)
+    GatewayIntentBits.MessageContent,   // Read message content
   ],
+  partials: ['CHANNEL'], // Required for DM support
 });
 
 // ------------------ DATABASE ------------------
@@ -3003,11 +3024,11 @@ async function uploadToSupabase(fileBuffer, fileName, contentType = 'image/png')
     console.log("⚠️ Supabase not configured. Skipping cloud upload.");
     return null;
   }
-  
+
   try {
     const bucket = 'bot-files'; // Create this bucket in Supabase dashboard
     const filePath = `${Date.now()}_${fileName}`;
-    
+
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(filePath, fileBuffer, {
@@ -3015,17 +3036,17 @@ async function uploadToSupabase(fileBuffer, fileName, contentType = 'image/png')
         cacheControl: '3600',
         upsert: false
       });
-    
+
     if (error) {
       console.error("❌ Supabase upload failed:", error.message);
       return null;
     }
-    
+
     // Get public URL
     const { data: urlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(filePath);
-    
+
     console.log(`✅ File uploaded to Supabase: ${urlData.publicUrl}`);
     return urlData.publicUrl;
   } catch (err) {
@@ -3036,18 +3057,18 @@ async function uploadToSupabase(fileBuffer, fileName, contentType = 'image/png')
 
 async function saveToSupabaseDB(table, data) {
   if (!supabase) return null;
-  
+
   try {
     const { data: result, error } = await supabase
       .from(table)
       .insert(data)
       .select();
-    
+
     if (error) {
       console.error(`❌ Supabase DB insert failed (${table}):`, error.message);
       return null;
     }
-    
+
     console.log(`✅ Data saved to Supabase table: ${table}`);
     return result;
   } catch (err) {
@@ -3058,22 +3079,22 @@ async function saveToSupabaseDB(table, data) {
 
 async function getRealtimeData(table, filter = {}) {
   if (!supabase) return [];
-  
+
   try {
     let query = supabase.from(table).select('*');
-    
+
     // Apply filters
     Object.keys(filter).forEach(key => {
       query = query.eq(key, filter[key]);
     });
-    
+
     const { data, error } = await query.order('created_at', { ascending: false }).limit(50);
-    
+
     if (error) {
       console.error(`❌ Supabase query failed (${table}):`, error.message);
       return [];
     }
-    
+
     return data || [];
   } catch (err) {
     console.error("❌ Supabase query error:", err);
@@ -3090,18 +3111,18 @@ async function saveGlobalMemory(eventType, sourceId, targetId, context, metadata
        VALUES ($1, $2, $3, $4, $5)`,
       [eventType, sourceId, targetId, context, JSON.stringify(metadata)]
     );
-    
-    // Real-time backup to Supabase
-    if (supabase) {
-      await saveToSupabaseDB('global_memory', {
-        event_type: eventType,
-        source_id: sourceId,
-        target_id: targetId,
-        context,
-        metadata: metadata
-      });
-    }
-    
+
+    // Real-time backup to Supabase (DISABLED - Schema mismatch fixed)
+    // if (supabase) {
+    //   await saveToSupabaseDB('global_memory', {
+    //     event_type: eventType,
+    //     source_id: sourceId,
+    //     target_id: targetId,
+    //     context,
+    //     metadata: metadata
+    //   });
+    // }
+
     // Update cache
     const cacheKey = `${sourceId}_${targetId || 'all'}`;
     if (!globalMemoryCache.has(cacheKey)) globalMemoryCache.set(cacheKey, []);
@@ -3405,18 +3426,136 @@ function getCurrentTime() {
     };
 
     const timeString = now.toLocaleDateString('en-IN', options);
+    
+    // Additional details
+    const dayName = now.toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'Asia/Kolkata' });
+    const dateOnly = now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+    const timeOnly = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+    
+    return `⏰ **Current Time & Date (IST - India):**
 
-    return `Tool Executed: The current date and time in India (IST) is ${timeString}.`;
+📅 **Full:** ${timeString}
+🗓️ **Date:** ${dateOnly}
+⏱️ **Time:** ${timeOnly}
+📆 **Day:** ${dayName}
+🌍 **Timezone:** Asia/Kolkata (IST, UTC+5:30)`;
 }
 
-// 🔥 GEMINI IMAGE GENERATION & VISION FUNCTIONS (NEW) 🔥
+// 🔥 POLLINATIONS.AI IMAGE GENERATION (FREE - NO API KEY REQUIRED) 🔥
 
-// Gemini API Helper with Failover
+// Generate Image using Pollinations.ai (Completely FREE!)
+async function generateImagePollinations(prompt) {
+    try {
+        console.log(`🎨 [Pollinations.ai] Attempting FREE image generation...`);
+        
+        // URL-based API - No API key needed!
+        const encodedPrompt = encodeURIComponent(prompt);
+        const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux&nologo=true&enhance=true`;
+        
+        console.log(`🌐 Pollinations URL: ${url}`);
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Discord Bot)'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        // Get image as buffer
+        const imageBuffer = await response.arrayBuffer();
+        const base64Image = Buffer.from(imageBuffer).toString('base64');
+        
+        console.log(`✅ [Pollinations.ai] Image generated successfully! (${(imageBuffer.byteLength / 1024).toFixed(2)} KB)`);
+        
+        return { 
+            success: true, 
+            base64: base64Image, 
+            provider: "Pollinations.ai (FREE)",
+            url: url 
+        };
+    } catch (err) {
+        console.error(`❌ [Pollinations.ai] Failed:`, err.message);
+        return { success: false, error: err.message, provider: "Pollinations.ai" };
+    }
+}
+
+// DeviantArt Image Search (Fallback)
+async function searchDeviantArt(prompt) {
+    try {
+        console.log(`🎨 [DeviantArt] Searching for artwork: "${prompt}"`);
+        
+        const googleApiKey = process.env.GOOGLE_API_KEY;
+        const googleCxId = process.env.GOOGLE_CX_ID;
+        
+        if (!googleApiKey || !googleCxId) {
+            throw new Error("Google API not configured");
+        }
+        
+        // Search DeviantArt specifically
+        const searchQuery = `${prompt} site:deviantart.com`;
+        const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCxId}&q=${encodeURIComponent(searchQuery)}&searchType=image&num=3`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.items && data.items.length > 0) {
+            const artworks = data.items.slice(0, 3).map((item, i) => 
+                `${i+1}. **${item.title}**\n🔗 ${item.link}\n🖼️ ${item.image?.thumbnailLink || item.link}`
+            ).join('\n\n');
+            
+            return {
+                success: true,
+                message: `🎨 **DeviantArt Search Results for "${prompt}":**\n\n${artworks}\n\n💡 Click any link above to view the artwork!`,
+                isSearch: true
+            };
+        }
+        
+        throw new Error("No DeviantArt results found");
+    } catch (err) {
+        console.error(`❌ [DeviantArt] Search failed:`, err);
+        return { success: false, error: err.message };
+    }
+}
+
+// Multi-Provider Image Generation with Smart Fallback
+async function generateImage(prompt) {
+    console.log(`🎨 Starting FREE image generation for: "${prompt.substring(0, 50)}..."`);
+
+    // Primary provider: Pollinations.ai (FREE!)
+    const startTime = Date.now();
+    const result = await generateImagePollinations(prompt);
+    const latency = Date.now() - startTime;
+
+    console.log(`📊 [Pollinations.ai] Status: ${result.success ? "✅ SUCCESS" : "❌ FAILED"}, Latency: ${latency}ms`);
+
+    if (result.success) {
+        const imageUrl = `data:image/png;base64,${result.base64}`;
+        return { success: true, imageUrl, base64: result.base64, provider: result.provider, pollinationsUrl: result.url };
+    }
+
+    // SMART FALLBACK: DeviantArt search if generation fails
+    console.log(`⚠️ Image generation failed, searching DeviantArt for existing artwork...`);
+    const deviantArtResult = await searchDeviantArt(prompt);
+    
+    if (deviantArtResult.success) {
+        return deviantArtResult; // Return search results instead
+    }
+
+    // If both failed, return error
+    console.error(`❌ All image options failed`);
+    return { success: false, error: `Image generation and DeviantArt search both failed. Please try a different prompt.` };
+}
+
+// Gemini Vision API Helper (kept for gender detection only)
 async function callGeminiAPI(endpoint, payload) {
     const apiKeys = [
         process.env.GEMINI_API_KEY,
         process.env.GEMINI_API_KEY_BACKUP
-    ].filter(Boolean); // Remove undefined keys
+    ].filter(Boolean);
 
     if (apiKeys.length === 0) {
         throw new Error("No Gemini API keys configured");
@@ -3424,157 +3563,29 @@ async function callGeminiAPI(endpoint, payload) {
 
     for (let i = 0; i < apiKeys.length; i++) {
         try {
-            console.log(`🔑 Trying Gemini API key ${i + 1}/${apiKeys.length}...`);
             const url = `https://generativelanguage.googleapis.com/v1beta/${endpoint}`;
             const res = await fetch(url, {
                 method: "POST",
                 headers: { 
                     "Content-Type": "application/json",
-                    "x-goog-api-key": apiKeys[i]  // Correct header format for Gemini API
+                    "x-goog-api-key": apiKeys[i]
                 },
                 body: JSON.stringify(payload),
             });
 
             if (!res.ok) {
                 const errorText = await res.text();
-                console.error(`❌ Gemini API key ${i + 1} failed:`, res.status, errorText);
                 if (i === apiKeys.length - 1) {
                     throw new Error(`All API keys failed. Last error: ${errorText}`);
                 }
-                continue; // Try next key
-            }
-
-            const data = await res.json();
-            console.log(`✅ Gemini API key ${i + 1} succeeded!`);
-            return data;
-        } catch (err) {
-            console.error(`❌ Gemini API key ${i + 1} error:`, err.message);
-            if (i === apiKeys.length - 1) {
-                throw err;
-            }
-        }
-    }
-}
-
-// Generate Image using Gemini (Provider 1 - quota limited in free tier)
-async function generateImageGemini(prompt) {
-    try {
-        console.log(`🎨 [Gemini] Attempting image generation...`);
-
-        const payload = {
-            contents: [{
-                role: "user",
-                parts: [{ text: `Generate an image: ${prompt}` }]
-            }],
-            generationConfig: {
-                responseModalities: ["TEXT", "IMAGE"]
-            }
-        };
-
-        const data = await callGeminiAPI("models/gemini-2.0-flash-exp:generateContent", payload);
-
-        if (data.candidates && data.candidates[0]?.content?.parts) {
-            const parts = data.candidates[0].content.parts;
-            const imagePart = parts.find(p => p.inlineData || p.inline_data);
-
-            if (imagePart) {
-                const imageData = imagePart.inlineData?.data || imagePart.inline_data?.data;
-                console.log("✅ [Gemini] Image generated successfully!");
-                return { success: true, base64: imageData, provider: "Gemini" };
-            }
-        }
-
-        throw new Error("No image data in response");
-    } catch (err) {
-        console.error(`❌ [Gemini] Failed:`, err.message);
-        // Check if quota exceeded
-        if (err.message && err.message.includes("429")) {
-            return { success: false, error: "Quota exceeded", provider: "Gemini", quotaExceeded: true };
-        }
-        return { success: false, error: err.message, provider: "Gemini" };
-    }
-}
-
-// Generate Image using Kontext Pro (Provider 2 - FREE fallback)
-async function generateImageKontext(prompt) {
-    try {
-        console.log(`🎨 [Kontext Pro] Attempting image generation...`);
-
-        const apiKey = process.env.KONTEXT_API_KEY;
-        if (!apiKey) {
-            throw new Error("KONTEXT_API_KEY not configured");
-        }
-
-        const response = await fetch('https://api.kontext.pro/v1/imagine', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                prompt: prompt,
-                aspect_ratio: "1:1"  // Square images
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-
-        const data = await response.json();
-
-        // Extract base64 image from response
-        if (data.image_base64) {
-            console.log("✅ [Kontext Pro] Image generated successfully!");
-            return { success: true, base64: data.image_base64, provider: "Kontext Pro" };
-        } else if (Array.isArray(data) && data.length > 0) {
-            // Handle array response
-            return { success: true, base64: data[0], provider: "Kontext Pro" };
-        }
-
-        throw new Error("No image data in response");
-    } catch (err) {
-        console.error(`❌ [Kontext Pro] Failed:`, err.message);
-        return { success: false, error: err.message, provider: "Kontext Pro" };
-    }
-}
-
-// Multi-Provider Image Generation with Fallback
-async function generateImage(prompt) {
-    console.log(`🎨 Starting multi-provider image generation for: "${prompt.substring(0, 50)}..."`);
-
-    const providers = [
-        { name: "Gemini", fn: generateImageGemini },
-        { name: "Kontext Pro", fn: generateImageKontext }
-    ];
-
-    const errors = [];
-
-    for (const provider of providers) {
-        const startTime = Date.now();
-        const result = await provider.fn(prompt);
-        const latency = Date.now() - startTime;
-
-        console.log(`📊 [${provider.name}] Status: ${result.success ? "✅ SUCCESS" : "❌ FAILED"}, Latency: ${latency}ms`);
-
-        if (result.success) {
-            const imageUrl = `data:image/png;base64,${result.base64}`;
-            return { success: true, imageUrl, base64: result.base64, provider: provider.name };
-        } else {
-            errors.push(`${provider.name}: ${result.error}`);
-            // If quota exceeded, skip to next provider immediately
-            if (result.quotaExceeded) {
-                console.log(`⚠️ [${provider.name}] Quota exceeded, trying next provider...`);
                 continue;
             }
+
+            return await res.json();
+        } catch (err) {
+            if (i === apiKeys.length - 1) throw err;
         }
     }
-
-    // All providers failed
-    const errorSummary = errors.join(" | ");
-    console.error(`❌ All image generation providers failed: ${errorSummary}`);
-    return { success: false, error: `All providers failed: ${errorSummary}` };
 }
 
 // Detect Gender from Profile Picture using Gemini Vision
@@ -3700,68 +3711,222 @@ async function detectAndCacheGender(userId, avatarUrl) {
 async function runTool(toolCall, id) {
     const { name, arguments: args } = toolCall.function;
 
+    // 🎯 AUTO-DETECTION LOGGING SYSTEM 🎯
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`🤖 TOOL AUTO-DETECTED: ${name.toUpperCase()}`);
+    console.log(`👤 User ID: ${id}`);
+    console.log(`📦 Arguments: ${args}`);
+    console.log(`⏰ Timestamp: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+    console.log(`${'='.repeat(80)}\n`);
+
     let parsedArgs;
     try {
         parsedArgs = JSON.parse(args);
     } catch (e) {
-        console.error("Error parsing tool arguments:", e);
+        console.error("❌ Error parsing tool arguments:", e);
         // Fallback for non-JSON arguments, assuming the first argument is the query/topic
         parsedArgs = { query: args, topic: args }; // Added 'query' for search fallback
     }
 
+    // Log parsed arguments for debugging
+    console.log(`✅ Parsed Arguments:`, parsedArgs);
+
     // --- TOOL HANDLING LOGIC STARTS HERE ---
 
-    if (name === "search_the_web") { // <--- SEARCH LOGIC WAPAS AA GAYA HAI!
+    if (name === "search_the_web") {
         const query = parsedArgs.query;
-
-        // --- INTERCEPT TIME/DATE QUERIES (Jo tumhare code mein tha) ---
         const lowerQuery = query.toLowerCase();
-        if (lowerQuery.includes("time") || lowerQuery.includes("date") || lowerQuery.includes("year")) {
+
+        // --- SUPER IMPROVED TIME/DATE DETECTION ---
+        const timeDetectionPatterns = [
+            // Time queries
+            /\b(time|samay|waqt|kya time|kitna baje|kitne baje)\b/i,
+            /\b(abhi kitne baje|current time|what time)\b/i,
+            /\b(clock|ghadi|ghanta)\b/i,
+            
+            // Date queries
+            /\b(date|tarikh|aaj ki date|today's date|kya date)\b/i,
+            /\b(aaj ka din|aaj kya hai|din batao|current date)\b/i,
+            /\b(calendar|mahina|month)\b/i,
+            
+            // Year queries
+            /\b(year|saal|konsa saal|which year|kya year)\b/i,
+            /\b(abhi ka year|current year|is saal)\b/i,
+            
+            // Day queries
+            /\b(day|din|aaj kaunsa din|which day|today)\b/i,
+            /\b(kaun sa din|weekday|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
+            
+            // Combined queries
+            /\b(time and date|date and time|samay aur din)\b/i,
+            /\b(aaj kya hai|what is today|today's)\b/i
+        ];
+        
+        // Check if query matches any time/date pattern
+        const isTimeQuery = timeDetectionPatterns.some(pattern => pattern.test(lowerQuery));
+        
+        if (isTimeQuery) {
+            console.log(`⏰ TIME/DATE QUERY DETECTED: "${query}"`);
             return getCurrentTime(); 
         }
-        // --- END INTERCEPT ---
 
-        // If not time/date, run the external web search (SerpAPI)
+        // --- IMPROVED DUAL SEARCH ENGINE (Google Custom Search + SerpAPI) ---
         try {
-            const apiKey = process.env.SERPAPI_KEY; 
-            if (!apiKey) return "Search Tool Error: API Key not found.";
+            // Try Google Custom Search first (better performance with CX ID)
+            const googleApiKey = process.env.GOOGLE_API_KEY;
+            const googleCxId = process.env.GOOGLE_CX_ID;
+            
+            if (googleApiKey && googleCxId) {
+                console.log("🔍 Using Google Custom Search for better performance...");
+                const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCxId}&q=${encodeURIComponent(query)}&num=5`;
+                
+                const googleRes = await fetch(googleUrl);
+                const googleData = await googleRes.json();
+                
+                if (googleData.items && googleData.items.length > 0) {
+                    const topResults = googleData.items.slice(0, 3).map(item => 
+                        `📌 **${item.title}**\n${item.snippet}\n🔗 Source: ${item.link}`
+                    ).join('\n\n');
+                    
+                    return `🔍 **Real-time Search Results (Google Custom Search):**\n\n${topResults}`;
+                }
+            }
 
-            // 🎯 CRITICAL: Force specific engine for YouTube queries 🎯
+            // Fallback to SerpAPI if Google Custom Search not available or failed
+            console.log("🔍 Falling back to SerpAPI...");
+            const serpApiKey = process.env.SERPAPI_KEY; 
+            if (!serpApiKey) return "Search Tool Error: No search API keys configured.";
+
             let engine = 'google'; 
-            if (lowerQuery.includes('youtube') || lowerQuery.includes('yt trending') || lowerQuery.includes('video')) {
-                engine = 'youtube'; // Use the dedicated YouTube engine if keywords found
+            if (lowerQuery.includes('youtube') || lowerQuery.includes('yt') || lowerQuery.includes('video')) {
+                engine = 'youtube';
             }
 
-            const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&hl=en&gl=in&api_key=${apiKey}&engine=${engine}`;
-            const res = await fetch(url);
-            const data = await res.json();
+            const serpUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&hl=en&gl=in&api_key=${serpApiKey}&engine=${engine}`;
+            const serpRes = await fetch(serpUrl);
+            const serpData = await serpRes.json();
 
-            // --- 🌟 NEW YOUTUBE/TRENDING PARSING LOGIC 🌟 ---
-            if (data.video_results && data.video_results.length > 0) {
-                const trendingVideos = data.video_results.slice(0, 5).map(v => 
-                    `Title: ${v.title} | Channel: ${v.channel_name || 'N/A'} | Views: ${v.views || 'N/A'}`
-                ).join('\n');
-
-                return `The search found the following top videos:\n${trendingVideos}`;
-            }
-            // --- END YOUTUBE PARSING ---
-
-            // --- General Answer Parsing ---
-            if (data.answer_box?.answer) {
-                return `The search found a direct answer: ${data.answer_box.answer}. Source: ${data.answer_box.source?.link || 'Web'}`;
-            } else if (data.organic_results?.length > 0) {
-                const top = data.organic_results[0];
-                return `The search found a top snippet: ${top.snippet}. Title: ${top.title}`;
+            // YouTube results
+            if (serpData.video_results && serpData.video_results.length > 0) {
+                const videos = serpData.video_results.slice(0, 5).map(v => 
+                    `🎥 ${v.title}\n👤 ${v.channel_name || 'N/A'} | 👁️ ${v.views || 'N/A'}`
+                ).join('\n\n');
+                return `📺 **YouTube Search Results:**\n\n${videos}`;
             }
 
-            // If no structured data found, instruct Miyu to avoid guessing
-            return "Search Tool found no clear external data. Miyu must avoid guessing and reply based only on personality.";
+            // Direct answer
+            if (serpData.answer_box?.answer) {
+                return `💡 **Direct Answer:** ${serpData.answer_box.answer}\n🔗 Source: ${serpData.answer_box.source?.link || 'Web'}`;
+            }
+            
+            // Organic results
+            if (serpData.organic_results?.length > 0) {
+                const top = serpData.organic_results[0];
+                return `🔍 **Search Result:**\n📌 ${top.title}\n📝 ${top.snippet}`;
+            }
+
+            return "Search found no clear results. Please try different keywords.";
 
         } catch (err) {
-            console.error("Search Tool Error:", err);
-            return "Search Tool Error: Failed to retrieve real-time data due to API error. Miyu must reply based only on personality and context.";
+            console.error("❌ Search Tool Error:", err);
+            return `Search Error: ${err.message}. Please try again.`;
         }
-    } // <--- search_the_web ENDS HERE
+    }
+
+    // 🔥 NEW TOOL: fetch_url_content (URL/Link Fetcher for Spotify, YouTube, etc)
+    else if (name === "fetch_url_content") {
+        const url = parsedArgs.url;
+        if (!url) return "URL Fetch Error: No URL provided.";
+
+        try {
+            console.log(`🌐 Fetching URL content: ${url}`);
+            
+            // Security check - validate URL
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                return "URL Fetch Error: Invalid URL format. Must start with http:// or https://";
+            }
+
+            // Fetch the URL content
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                timeout: 10000 // 10 second timeout
+            });
+
+            if (!response.ok) {
+                return `URL Fetch Error: HTTP ${response.status} - ${response.statusText}`;
+            }
+
+            const contentType = response.headers.get('content-type');
+            
+            // Handle HTML content (YouTube, Spotify, websites)
+            if (contentType?.includes('text/html')) {
+                const html = await response.text();
+                
+                // Extract meta tags and title
+                const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+                const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+                const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
+                const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+                
+                let result = `🌐 **URL Content Fetched:**\n\n`;
+                
+                // Spotify-specific extraction
+                if (url.includes('spotify.com')) {
+                    const songTitle = ogTitleMatch ? ogTitleMatch[1] : titleMatch ? titleMatch[1] : 'Unknown';
+                    const description = ogDescMatch ? ogDescMatch[1] : descMatch ? descMatch[1] : 'No description';
+                    result += `🎵 **Spotify Track/Playlist:**\n`;
+                    result += `📌 Title: ${songTitle}\n`;
+                    result += `📝 Description: ${description}\n`;
+                    result += `🔗 Link: ${url}`;
+                }
+                // YouTube-specific extraction
+                else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    const videoTitle = ogTitleMatch ? ogTitleMatch[1] : titleMatch ? titleMatch[1] : 'Unknown';
+                    const description = ogDescMatch ? ogDescMatch[1] : descMatch ? descMatch[1] : 'No description';
+                    result += `🎥 **YouTube Video:**\n`;
+                    result += `📌 Title: ${videoTitle}\n`;
+                    result += `📝 Description: ${description.substring(0, 200)}...\n`;
+                    result += `🔗 Link: ${url}`;
+                }
+                // General website
+                else {
+                    const pageTitle = titleMatch ? titleMatch[1] : 'No title found';
+                    const description = descMatch ? descMatch[1] : ogDescMatch ? ogDescMatch[1] : 'No description';
+                    result += `📄 **Website Content:**\n`;
+                    result += `📌 Title: ${pageTitle}\n`;
+                    result += `📝 Description: ${description.substring(0, 300)}...\n`;
+                    result += `🔗 URL: ${url}`;
+                }
+                
+                if (ogImageMatch) {
+                    result += `\n🖼️ Image: ${ogImageMatch[1]}`;
+                }
+                
+                return result;
+            }
+            // Handle JSON APIs
+            else if (contentType?.includes('application/json')) {
+                const json = await response.json();
+                return `📊 **JSON Data Fetched:**\n\`\`\`json\n${JSON.stringify(json, null, 2).substring(0, 1000)}\n\`\`\``;
+            }
+            // Handle plain text
+            else if (contentType?.includes('text/plain')) {
+                const text = await response.text();
+                return `📄 **Text Content:**\n${text.substring(0, 1500)}`;
+            }
+            else {
+                return `URL Fetched Successfully!\nContent-Type: ${contentType}\nSize: ${response.headers.get('content-length') || 'Unknown'} bytes`;
+            }
+
+        } catch (err) {
+            console.error("❌ URL Fetch Error:", err);
+            return `URL Fetch Error: ${err.message}`;
+        }
+    }
 
     else if (name === "generate_code") { // <--- generate_code LOGIC
         const topic = parsedArgs.topic || parsedArgs.query;
@@ -3797,7 +3962,12 @@ async function runTool(toolCall, id) {
             const result = await generateImage(prompt);  // Use multi-provider fallback
 
             if (result.success) {
-                // Upload to Supabase cloud storage
+                // Check if it's a DeviantArt search result (fallback)
+                if (result.isSearch) {
+                    return result.message; // Return search results as text
+                }
+                
+                // Normal image generation - Upload to Supabase cloud storage
                 let cloudUrl = null;
                 if (result.base64) {
                     try {
@@ -3810,13 +3980,14 @@ async function runTool(toolCall, id) {
                     }
                 }
 
-                // Return special JSON marker for image attachment + cloud URL
+                // Return special JSON marker for image attachment + cloud URL + auto message
                 return JSON.stringify({
                     type: "IMAGE_ATTACHMENT",
                     base64: result.base64,
                     provider: result.provider,
                     prompt: prompt,
-                    cloudUrl: cloudUrl  // Supabase public URL if available
+                    cloudUrl: cloudUrl,  // Supabase public URL if available
+                    autoMessage: `Here's your generated image: "${prompt}". Created using ${result.provider} - completely FREE, no API keys needed! 🎨✨`
                 });
             } else {
                 return `Image Generation Error: ${result.error}`;
@@ -6139,8 +6310,10 @@ client.on(Events.MessageCreate, async (msg) => {
   const content = msg.content.trim();
   const id = user.id;
 
-  // DEBUG: Log ALL messages received
-  console.log(`📨 Message received from ${user.tag} (${id}): "${content.substring(0, 50)}"`);
+  // DEBUG: Log ALL messages received (DM or Server)
+  const isDM = msg.channel.type === 1; // 1 = DM, 0 = Guild Text Channel
+  const channelType = isDM ? '📬 DM' : '💬 Server';
+  console.log(`📨 ${channelType} Message from ${user.tag} (${id}): "${content.substring(0, 50)}"`);
 
   // CRITICAL: Check for Miyu BEFORE blocking all bots
   const isMiyu = msg.author.id === MIYU_BOT_ID;
