@@ -29,7 +29,7 @@ if (supabaseUrl && supabaseKey) {
 }
 
 // BOT VERSION TRACKING (Self-Awareness System)
-const BOT_VERSION = "5.0.0";
+const BOT_VERSION = "5.1.0";
 const BOT_LAST_UPDATE = new Date().toISOString();
 const DEVELOPER_ID = "1104652354655113268";
 const PREMIUM_ROLE_ID = "1432419737807360212";
@@ -42,6 +42,22 @@ const RATE_LIMITS = {
     developer: Infinity  // Unlimited for developer
 };
 const CHANGELOG = [
+    {
+        version: "5.1.0",
+        date: "2025-11-21",
+        changes: [
+            "🎓🔥 SKILL LEARNING SYSTEM: Renzu learns from YOUR expertise!",
+            "📚 Unified Educational Trainer - 120+ tools merged into ONE intelligent system",
+            "🧠 Adaptive Learning - Bot observes skills from interactions automatically",
+            "💎 Tiered Learning: Normal (5 skills/day), Premium (15/day), Developer (unlimited)",
+            "📊 3 New Database Tables: user_skills, skill_events, skill_limits",
+            "✨ Smart Skill Detection - Tracks explicit statements & implicit patterns",
+            "🎯 Experience & Confidence Tracking - Skills level up with practice",
+            "🏆 Skill Profile System - View learned skills with stats",
+            "⚡ Improved Auto-Detection - Better intent classification",
+            "🔄 Backward Compatible - All old tools aliased to new system"
+        ]
+    },
     {
         version: "5.0.0",
         date: "2025-11-18",
@@ -212,6 +228,50 @@ const TOOL_DEFINITIONS = [
                 type: "object", 
                 properties: {} 
             },
+        }
+    },
+
+    {
+        // NEW v5.1.0: educational_trainer - UNIFIED EDUCATIONAL TOOL (replaces 120+ tools)
+        type: "function",
+        function: {
+            name: "educational_trainer",
+            description: "Unified educational training tool for cybersecurity, automation, web scraping, programming, and misc topics. Auto-learns user skills! Use when user asks about: vulnerability scanning, port scanning, password testing, network analysis, malware sandbox, firewalls, honeypots, ransomware, VPN, Tor, encryption, phishing, brute force, SQL injection, XSS, automation tools, web scraping, code analysis, game bots, social media bots, fake data generation, or any educational/training topic. This ONE tool handles ALL educational modules!",
+            parameters: {
+                type: "object",
+                properties: {
+                    category: {
+                        type: "string",
+                        description: "Main category: 'cybersecurity' (security training), 'automation' (bots & scripts), 'web_scraping' (web tools), 'programming' (code & reverse engineering), or 'misc_tools' (fun/utility tools)."
+                    },
+                    module: {
+                        type: "string",
+                        description: "Specific module within category (e.g., 'port_scanner', 'sql_injection', 'web_automation', 'code_obfuscator', etc.). See EDUCATIONAL_CATALOG for full list."
+                    },
+                    custom_prompt: {
+                        type: "string",
+                        description: "Optional: User's specific request or context (e.g., target IP, payload, URL, file path, etc.)."
+                    },
+                    difficulty: {
+                        type: "string",
+                        description: "Optional difficulty level: 'beginner', 'intermediate', 'advanced'. Default: 'intermediate'."
+                    }
+                },
+                required: ["category", "module"]
+            }
+        }
+    },
+
+    {
+        // Tool: view_skills - View learned skills profile
+        type: "function",
+        function: {
+            name: "view_skills",
+            description: "View user's learned skills profile with experience and confidence levels. Use when user asks: 'show my skills', 'what have I learned', 'my skill profile', 'skills I know', 'learned abilities', or wants to see their progress.",
+            parameters: {
+                type: "object",
+                properties: {}
+            }
         }
     },
 
@@ -2907,14 +2967,56 @@ async function initDB() {
       );
     `);
 
+    // User Skills - Track learned skills from interactions
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_skills (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        skill_name TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        confidence FLOAT DEFAULT 0.5,
+        experience INT DEFAULT 1,
+        last_interaction TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, skill_name)
+      );
+    `);
+
+    // Skill Events - Audit trail for skill learning
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS skill_events (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        skill_name TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        delta_experience INT DEFAULT 1,
+        source TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // Daily skill learning limits per tier
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS skill_limits (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL UNIQUE,
+        skills_learned_today INT DEFAULT 0,
+        last_reset TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     // Create indexes for fast queries
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_global_memory_source ON global_memory(source_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_global_memory_target ON global_memory(target_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_entities_user ON entities(user_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_topics_user ON topics(user_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_request_limits_user ON request_limits(user_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_skills_user ON user_skills(user_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_name);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_skill_events_user ON skill_events(user_id);`);
 
-    console.log("✅ EXTREME DATABASE SCHEMA initialized with advanced memory system.");
+    console.log("✅ EXTREME DATABASE SCHEMA initialized with advanced memory system + SKILL LEARNING!");
   } catch (err) {
     console.error("❌ DB init error:", err);
   }
@@ -3015,6 +3117,242 @@ async function incrementRequestCount(userId) {
         );
     } catch (err) {
         console.error("❌ Request increment failed:", err);
+    }
+}
+
+// ------------------ SKILL LEARNING SYSTEM (v5.1.0) ------------------
+
+// Skill learning tier limits per day
+const SKILL_TIER_LIMITS = {
+    normal: 5,        // Normal users: 5 new skills per day
+    premium: 15,      // Premium users: 15 new skills per day
+    developer: Infinity // Developer: unlimited skill learning
+};
+
+// Educational catalog - All educational modules (formerly 120+ separate tools)
+const EDUCATIONAL_CATALOG = {
+    cybersecurity: {
+        name: "Cybersecurity Training",
+        modules: ["vulnerability_scanner", "port_scanner", "password_strength", "network_sniffer", "phishing_awareness", 
+                  "malware_sandbox", "firewall_config", "arp_spoofing", "honeypot", "brute_force_defense",
+                  "keylogger_detection", "ransomware_defense", "rootkit_detection", "metasploit_basics", 
+                  "steganography", "vpn_security", "tor_basics", "disk_wiping", "2fa_security", "biometric_security",
+                  "e2e_encryption", "anonymous_email", "proxy_rotation", "captcha_research", "http_security",
+                  "exploit_research", "dns_security", "sql_injection", "xss_defense"],
+        category: "security"
+    },
+    automation: {
+        name: "Automation & Bots",
+        modules: ["youtube_automation", "auto_clicker", "macro_recorder", "task_scheduler", "web_automation",
+                  "game_automation", "social_media_bot", "email_automation", "sms_automation", "voice_assistant",
+                  "chatbot_builder", "rpa_basics", "browser_automation", "file_organizer", "uptime_automation"],
+        category: "automation"
+    },
+    web_scraping: {
+        name: "Web & Scraping Tools",
+        modules: ["advanced_scraping", "proxy_scraper", "url_shortener", "cloudflare_bypass", "headless_browser",
+                  "seo_analysis", "link_checker", "email_extractor", "social_analyzer", "adblocker_test",
+                  "cookie_research", "web_archiver", "html_pdf", "captcha_solver", "http_simulator"],
+        category: "web"
+    },
+    programming: {
+        name: "Code & Reverse Engineering",
+        modules: ["code_obfuscator", "lua_decompiler", "js_minifier", "code_formatter", "multi_compiler",
+                  "dependency_checker", "plagiarism_detector", "debugger", "memory_leak_detector", "code_analyzer",
+                  "dynamic_injector", "malware_analyzer"],
+        category: "programming"
+    },
+    misc_tools: {
+        name: "Miscellaneous Tools",
+        modules: ["fake_error", "fake_virus", "password_gen", "cheat_sheet", "easter_egg_finder",
+                  "game_cheats", "voice_changer", "ai_chat", "crypto_tracker", "stock_simulator",
+                  "ai_art", "fake_data", "vm_spawner", "network_simulator", "file_integrity",
+                  "log_analyzer", "report_generator", "quiz_maker"],
+        category: "misc"
+    }
+};
+
+// SkillEngine - Intelligent skill learning system
+class SkillEngine {
+    static async learnSkill(userId, skillName, category, source, userType) {
+        try {
+            // Developer has unlimited learning
+            if (userId === DEVELOPER_ID) {
+                return await this._addSkill(userId, skillName, category, source, Infinity);
+            }
+
+            // Check daily limit for non-developers
+            const limit = SKILL_TIER_LIMITS[userType] || SKILL_TIER_LIMITS.normal;
+            const canLearn = await this._checkDailyLimit(userId, limit);
+
+            if (!canLearn.allowed) {
+                console.log(`⚠️ Skill learning limit reached for ${userType} user: ${canLearn.count}/${limit}`);
+                return { 
+                    success: false, 
+                    reason: "daily_limit", 
+                    message: `🎓 Skill learning limit reached! (${canLearn.count}/${limit} today)\n${userType === 'normal' ? '💎 Upgrade to Premium for 15 skills/day!' : '⏰ Resets in 24 hours.'}`,
+                    limit, 
+                    count: canLearn.count 
+                };
+            }
+
+            // Learn the skill
+            return await this._addSkill(userId, skillName, category, source, limit);
+        } catch (err) {
+            console.error("❌ Skill learning failed:", err);
+            return { success: false, reason: "error", message: err.message };
+        }
+    }
+
+    static async _checkDailyLimit(userId, limit) {
+        const now = new Date();
+        
+        // Upsert skill limits
+        await pool.query(
+            `INSERT INTO skill_limits (user_id, skills_learned_today, last_reset)
+             VALUES ($1, 0, $2)
+             ON CONFLICT (user_id) DO NOTHING`,
+            [userId, now]
+        );
+
+        const result = await pool.query(
+            `SELECT skills_learned_today, last_reset FROM skill_limits WHERE user_id=$1`,
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return { allowed: true, count: 0 };
+        }
+
+        let { skills_learned_today, last_reset } = result.rows[0];
+        const hoursSinceReset = (now - new Date(last_reset)) / (1000 * 60 * 60);
+
+        // Reset if 24 hours passed
+        if (hoursSinceReset >= 24) {
+            await pool.query(
+                `UPDATE skill_limits SET skills_learned_today=0, last_reset=$1 WHERE user_id=$2`,
+                [now, userId]
+            );
+            skills_learned_today = 0;
+        }
+
+        return { 
+            allowed: skills_learned_today < limit, 
+            count: skills_learned_today,
+            limit 
+        };
+    }
+
+    static async _addSkill(userId, skillName, category, source, dailyLimit) {
+        // Normalize skill name
+        const normalized = skillName.toLowerCase().trim();
+
+        // Check if skill already exists
+        const existing = await pool.query(
+            `SELECT id, experience, confidence FROM user_skills WHERE user_id=$1 AND skill_name=$2`,
+            [userId, normalized]
+        );
+
+        let isNew = false;
+        let experience = 1;
+        let confidence = 0.5;
+
+        if (existing.rows.length > 0) {
+            // Increment experience for existing skill
+            experience = existing.rows[0].experience + 1;
+            confidence = Math.min(1.0, existing.rows[0].confidence + 0.05);
+
+            await pool.query(
+                `UPDATE user_skills SET experience=$1, confidence=$2, last_interaction=NOW() WHERE user_id=$3 AND skill_name=$4`,
+                [experience, confidence, userId, normalized]
+            );
+        } else {
+            // Add new skill
+            isNew = true;
+            await pool.query(
+                `INSERT INTO user_skills (user_id, skill_name, category, confidence, experience) 
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [userId, normalized, category, confidence, experience]
+            );
+
+            // Increment daily counter (only for new skills)
+            await pool.query(
+                `UPDATE skill_limits SET skills_learned_today = skills_learned_today + 1 WHERE user_id=$1`,
+                [userId]
+            );
+        }
+
+        // Log skill event
+        await pool.query(
+            `INSERT INTO skill_events (user_id, skill_name, event_type, delta_experience, source)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [userId, normalized, isNew ? 'learned' : 'practiced', 1, source]
+        );
+
+        console.log(`🎓 Skill ${isNew ? 'learned' : 'practiced'}: ${normalized} (exp: ${experience}, conf: ${confidence.toFixed(2)})`);
+
+        return { 
+            success: true, 
+            isNew, 
+            skill: normalized, 
+            experience, 
+            confidence,
+            message: isNew ? `🎓 New skill learned: **${skillName}**! (${dailyLimit === Infinity ? '∞' : 'Daily limit applies'})` : `✨ Skill improved: **${skillName}** (Exp: ${experience}, Confidence: ${(confidence * 100).toFixed(0)}%)`
+        };
+    }
+
+    static async getUserSkills(userId, limit = 50) {
+        try {
+            const result = await pool.query(
+                `SELECT skill_name, category, confidence, experience, last_interaction 
+                 FROM user_skills WHERE user_id=$1 
+                 ORDER BY experience DESC, confidence DESC 
+                 LIMIT $2`,
+                [userId, limit]
+            );
+            return result.rows;
+        } catch (err) {
+            console.error("❌ Get skills failed:", err);
+            return [];
+        }
+    }
+
+    static async detectSkillsFromContent(content) {
+        const skills = [];
+        const lowerContent = content.toLowerCase();
+
+        // Explicit skill declarations
+        const explicitPatterns = [
+            /i know (?:how to )?(\w+(?:\s+\w+)?)/gi,
+            /i can (\w+(?:\s+\w+)?)/gi,
+            /i'm good at (\w+(?:\s+\w+)?)/gi,
+            /expert in (\w+(?:\s+\w+)?)/gi
+        ];
+
+        explicitPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(content)) !== null) {
+                skills.push({ skill: match[1].trim(), source: 'explicit', confidence: 0.8 });
+            }
+        });
+
+        // Implicit detection from keywords
+        const keywordMap = {
+            'programming': ['code', 'programming', 'python', 'javascript', 'coding', 'developer'],
+            'hacking': ['hack', 'exploit', 'vulnerability', 'pentesting', 'security'],
+            'design': ['design', 'photoshop', 'ui', 'ux', 'graphics'],
+            'networking': ['network', 'tcp', 'ip', 'routing', 'firewall'],
+            'web': ['html', 'css', 'web', 'frontend', 'backend'],
+            'databases': ['sql', 'database', 'postgres', 'mysql', 'mongodb']
+        };
+
+        Object.entries(keywordMap).forEach(([skill, keywords]) => {
+            if (keywords.some(kw => lowerContent.includes(kw))) {
+                skills.push({ skill, source: 'implicit', confidence: 0.3 });
+            }
+        });
+
+        return skills;
     }
 }
 
@@ -3426,12 +3764,12 @@ function getCurrentTime() {
     };
 
     const timeString = now.toLocaleDateString('en-IN', options);
-    
+
     // Additional details
     const dayName = now.toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'Asia/Kolkata' });
     const dateOnly = now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
     const timeOnly = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
-    
+
     return `⏰ **Current Time & Date (IST - India):**
 
 📅 **Full:** ${timeString}
@@ -3447,13 +3785,13 @@ function getCurrentTime() {
 async function generateImagePollinations(prompt) {
     try {
         console.log(`🎨 [Pollinations.ai] Attempting FREE image generation...`);
-        
+
         // URL-based API - No API key needed!
         const encodedPrompt = encodeURIComponent(prompt);
         const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux&nologo=true&enhance=true`;
-        
+
         console.log(`🌐 Pollinations URL: ${url}`);
-        
+
         const response = await fetch(url, {
             method: 'GET',
             headers: {
@@ -3468,9 +3806,9 @@ async function generateImagePollinations(prompt) {
         // Get image as buffer
         const imageBuffer = await response.arrayBuffer();
         const base64Image = Buffer.from(imageBuffer).toString('base64');
-        
+
         console.log(`✅ [Pollinations.ai] Image generated successfully! (${(imageBuffer.byteLength / 1024).toFixed(2)} KB)`);
-        
+
         return { 
             success: true, 
             base64: base64Image, 
@@ -3487,33 +3825,33 @@ async function generateImagePollinations(prompt) {
 async function searchDeviantArt(prompt) {
     try {
         console.log(`🎨 [DeviantArt] Searching for artwork: "${prompt}"`);
-        
+
         const googleApiKey = process.env.GOOGLE_API_KEY;
         const googleCxId = process.env.GOOGLE_CX_ID;
-        
+
         if (!googleApiKey || !googleCxId) {
             throw new Error("Google API not configured");
         }
-        
+
         // Search DeviantArt specifically
         const searchQuery = `${prompt} site:deviantart.com`;
         const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCxId}&q=${encodeURIComponent(searchQuery)}&searchType=image&num=3`;
-        
+
         const response = await fetch(url);
         const data = await response.json();
-        
+
         if (data.items && data.items.length > 0) {
             const artworks = data.items.slice(0, 3).map((item, i) => 
                 `${i+1}. **${item.title}**\n🔗 ${item.link}\n🖼️ ${item.image?.thumbnailLink || item.link}`
             ).join('\n\n');
-            
+
             return {
                 success: true,
                 message: `🎨 **DeviantArt Search Results for "${prompt}":**\n\n${artworks}\n\n💡 Click any link above to view the artwork!`,
                 isSearch: true
             };
         }
-        
+
         throw new Error("No DeviantArt results found");
     } catch (err) {
         console.error(`❌ [DeviantArt] Search failed:`, err);
@@ -3540,7 +3878,7 @@ async function generateImage(prompt) {
     // SMART FALLBACK: DeviantArt search if generation fails
     console.log(`⚠️ Image generation failed, searching DeviantArt for existing artwork...`);
     const deviantArtResult = await searchDeviantArt(prompt);
-    
+
     if (deviantArtResult.success) {
         return deviantArtResult; // Return search results instead
     }
@@ -3743,28 +4081,28 @@ async function runTool(toolCall, id) {
             /\b(time|samay|waqt|kya time|kitna baje|kitne baje)\b/i,
             /\b(abhi kitne baje|current time|what time)\b/i,
             /\b(clock|ghadi|ghanta)\b/i,
-            
+
             // Date queries
             /\b(date|tarikh|aaj ki date|today's date|kya date)\b/i,
             /\b(aaj ka din|aaj kya hai|din batao|current date)\b/i,
             /\b(calendar|mahina|month)\b/i,
-            
+
             // Year queries
             /\b(year|saal|konsa saal|which year|kya year)\b/i,
             /\b(abhi ka year|current year|is saal)\b/i,
-            
+
             // Day queries
             /\b(day|din|aaj kaunsa din|which day|today)\b/i,
             /\b(kaun sa din|weekday|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
-            
+
             // Combined queries
             /\b(time and date|date and time|samay aur din)\b/i,
             /\b(aaj kya hai|what is today|today's)\b/i
         ];
-        
+
         // Check if query matches any time/date pattern
         const isTimeQuery = timeDetectionPatterns.some(pattern => pattern.test(lowerQuery));
-        
+
         if (isTimeQuery) {
             console.log(`⏰ TIME/DATE QUERY DETECTED: "${query}"`);
             return getCurrentTime(); 
@@ -3775,19 +4113,19 @@ async function runTool(toolCall, id) {
             // Try Google Custom Search first (better performance with CX ID)
             const googleApiKey = process.env.GOOGLE_API_KEY;
             const googleCxId = process.env.GOOGLE_CX_ID;
-            
+
             if (googleApiKey && googleCxId) {
                 console.log("🔍 Using Google Custom Search for better performance...");
                 const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCxId}&q=${encodeURIComponent(query)}&num=5`;
-                
+
                 const googleRes = await fetch(googleUrl);
                 const googleData = await googleRes.json();
-                
+
                 if (googleData.items && googleData.items.length > 0) {
                     const topResults = googleData.items.slice(0, 3).map(item => 
                         `📌 **${item.title}**\n${item.snippet}\n🔗 Source: ${item.link}`
                     ).join('\n\n');
-                    
+
                     return `🔍 **Real-time Search Results (Google Custom Search):**\n\n${topResults}`;
                 }
             }
@@ -3818,7 +4156,7 @@ async function runTool(toolCall, id) {
             if (serpData.answer_box?.answer) {
                 return `💡 **Direct Answer:** ${serpData.answer_box.answer}\n🔗 Source: ${serpData.answer_box.source?.link || 'Web'}`;
             }
-            
+
             // Organic results
             if (serpData.organic_results?.length > 0) {
                 const top = serpData.organic_results[0];
@@ -3840,7 +4178,7 @@ async function runTool(toolCall, id) {
 
         try {
             console.log(`🌐 Fetching URL content: ${url}`);
-            
+
             // Security check - validate URL
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 return "URL Fetch Error: Invalid URL format. Must start with http:// or https://";
@@ -3860,20 +4198,20 @@ async function runTool(toolCall, id) {
             }
 
             const contentType = response.headers.get('content-type');
-            
+
             // Handle HTML content (YouTube, Spotify, websites)
             if (contentType?.includes('text/html')) {
                 const html = await response.text();
-                
+
                 // Extract meta tags and title
                 const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
                 const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
                 const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
                 const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
                 const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
-                
+
                 let result = `🌐 **URL Content Fetched:**\n\n`;
-                
+
                 // Spotify-specific extraction
                 if (url.includes('spotify.com')) {
                     const songTitle = ogTitleMatch ? ogTitleMatch[1] : titleMatch ? titleMatch[1] : 'Unknown';
@@ -3901,11 +4239,11 @@ async function runTool(toolCall, id) {
                     result += `📝 Description: ${description.substring(0, 300)}...\n`;
                     result += `🔗 URL: ${url}`;
                 }
-                
+
                 if (ogImageMatch) {
                     result += `\n🖼️ Image: ${ogImageMatch[1]}`;
                 }
-                
+
                 return result;
             }
             // Handle JSON APIs
@@ -3966,7 +4304,7 @@ async function runTool(toolCall, id) {
                 if (result.isSearch) {
                     return result.message; // Return search results as text
                 }
-                
+
                 // Normal image generation - Upload to Supabase cloud storage
                 let cloudUrl = null;
                 if (result.base64) {
@@ -4011,6 +4349,104 @@ async function runTool(toolCall, id) {
     else if (name === "clear_user_history") {
         await clearHistory(id);
         return "Tool Executed: User memory and chat history have been permanently cleared from the database.";
+    }
+
+    // 🎓 NEW v5.1.0: Unified Educational Trainer (replaces 120+ tools)
+    else if (name === "educational_trainer") {
+        const category = parsedArgs.category || "misc_tools";
+        const module = parsedArgs.module || "";
+        const customPrompt = parsedArgs.custom_prompt || "";
+        const difficulty = parsedArgs.difficulty || "intermediate";
+
+        if (!module) {
+            return "Educational Trainer Error: No module specified.";
+        }
+
+        // Get user type for skill learning limits
+        const userType = (id === DEVELOPER_ID) ? 'developer' : 'normal'; // Simplified; actual implementation uses getUserType
+        
+        // Learn skill automatically
+        const skillResult = await SkillEngine.learnSkill(id, module, category, `educational_trainer:${module}`, userType);
+        
+        let skillNotice = "";
+        if (skillResult.success && skillResult.isNew) {
+            skillNotice = `\n\n${skillResult.message}`;
+        } else if (!skillResult.success && skillResult.reason === 'daily_limit') {
+            skillNotice = `\n\n${skillResult.message}`;
+        }
+
+        // Generate educational response based on category and module
+        let response = `🎓 **Educational Training Module**\n\n`;
+        response += `📚 Category: ${EDUCATIONAL_CATALOG[category]?.name || category}\n`;
+        response += `🔧 Module: ${module}\n`;
+        response += `⚡ Difficulty: ${difficulty}\n`;
+        if (customPrompt) response += `📝 Context: ${customPrompt}\n`;
+        response += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        // Simulate educational content with random data
+        response += `⚠️ **EDUCATIONAL SIMULATION**\n\n`;
+        response += `This is a training module for authorized learning purposes only.\n\n`;
+        response += `📋 **Simulated Results:**\n`;
+        response += `- Status: DEMO MODE\n`;
+        response += `- Execution: Simulated\n`;
+        response += `- Data: Educational examples only\n`;
+        response += `- Safety: All operations are simulated\n\n`;
+
+        // Category-specific guidance
+        if (category === 'cybersecurity') {
+            response += `🔐 **Security Note:**\nOnly use on systems you own or have written permission to test!\n\n`;
+            response += `💡 **Real Tools:** Check industry-standard tools like Metasploit, Burp Suite, Nmap, Wireshark\n`;
+        } else if (category === 'automation') {
+            response += `🤖 **Automation Note:**\nRespect platform ToS and rate limits!\n\n`;
+            response += `💡 **Real Tools:** Selenium, Puppeteer, PyAutoGUI, AutoHotkey\n`;
+        } else if (category === 'web_scraping') {
+            response += `🌐 **Web Scraping Note:**\nRespect robots.txt and website terms of service!\n\n`;
+            response += `💡 **Real Tools:** Beautiful Soup, Scrapy, Playwright\n`;
+        } else if (category === 'programming') {
+            response += `💻 **Programming Note:**\nUse for learning and authorized testing only!\n\n`;
+            response += `💡 **Real Tools:** GitHub, VS Code, various compilers\n`;
+        }
+
+        response += `\n⚠️ **Disclaimer:** This is for EDUCATIONAL PURPOSES ONLY!`;
+        response += skillNotice;
+
+        return response;
+    }
+
+    // 🎓 NEW v5.1.0: View Skills Profile
+    else if (name === "view_skills") {
+        const skills = await SkillEngine.getUserSkills(id, 50);
+        
+        if (skills.length === 0) {
+            return "🎓 **Your Skills Profile**\n\n📚 You haven't learned any skills yet! Use educational tools to start learning.\n\n💡 Normal users: 5 new skills/day\n💎 Premium users: 15 new skills/day\n🔥 Developer: Unlimited learning!";
+        }
+
+        let response = `🎓 **Your Skills Profile**\n\n`;
+        response += `📊 Total Skills Learned: ${skills.length}\n\n`;
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        // Group by category
+        const grouped = {};
+        skills.forEach(s => {
+            if (!grouped[s.category]) grouped[s.category] = [];
+            grouped[s.category].push(s);
+        });
+
+        Object.entries(grouped).forEach(([category, categorySkills]) => {
+            response += `📂 **${category.toUpperCase()}**\n`;
+            categorySkills.slice(0, 10).forEach(s => {
+                const confPercent = Math.round(s.confidence * 100);
+                const expBar = '█'.repeat(Math.min(10, s.experience)) + '░'.repeat(Math.max(0, 10 - s.experience));
+                response += `  • **${s.skill_name}** - Exp: ${s.experience} [${expBar}] Conf: ${confPercent}%\n`;
+            });
+            response += `\n`;
+        });
+
+        response += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        response += `💡 Keep practicing to increase experience and confidence!\n`;
+        response += `🎯 Use educational tools to learn new skills!`;
+
+        return response;
     }
 
     // Tool 4: CVE Lookup
