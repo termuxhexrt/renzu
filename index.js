@@ -7752,12 +7752,15 @@ client.once("clientReady", () => {
 });
 
 // ------------------ LOGIN ------------------
-const token = process.env.DISCORD_TOKEN;
+const token = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN;
 if (!token) {
-  console.error("❌ DISCORD_TOKEN missing!");
+  console.error("❌ DISCORD_TOKEN or DISCORD_BOT_TOKEN missing!");
+  console.error("Available env vars:", Object.keys(process.env).filter(k => k.includes('DISCORD')));
   process.exit(1);
 }
+console.log("🔑 Attempting Discord login...");
 client.login(token).catch((e) => {
   console.error("❌ Failed to login:", e.message);
+  console.error("Error code:", e.code);
   process.exit(1);
 });
