@@ -1,25 +1,26 @@
 # Overview
 
-This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface, featuring **141 specialized tools** for cybersecurity training, automation, web scraping, reverse engineering, code optimization, compliance management, and more. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (7-table schema) + Supabase (file storage + real-time features) for comprehensive memory management, cloud backup, and live analytics. The bot includes self-awareness features like version tracking (v5.0.0) and a developer recognition system with unrestricted access for the creator.
+This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface, featuring **INTELLIGENT SKILL LEARNING SYSTEM** and a **unified educational trainer** replacing 120+ simulated tools. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema including skill tracking) + Supabase (file storage + real-time features) for comprehensive memory management, cloud backup, and adaptive skill learning. The bot includes self-awareness features like version tracking (v5.1.0), skill learning from user interactions, and a developer recognition system with unrestricted access for the creator.
 
-## Latest Updates (v5.0.0) 🔥💀
-✨ **DUAL DATABASE POWERHOUSE - NEON + SUPABASE:**
-1. **Supabase File Storage** - Auto-upload generated images, audio, files to cloud with public URLs
-2. **Real-time Data Sync** - Live features, subscriptions, instant updates across dual databases
-3. **Enhanced Auto-Detection** - SMART tool selection for all 141 tools with context-aware descriptions
-4. **Intelligent Search System** - Auto-detects when to use web search vs local memory vs real-time data
-5. **Cloud Backup System** - All generated content automatically backed up to Supabase Storage
-6. **Improved Performance** - Dual database architecture for speed, reliability, and redundancy
-7. **Row-Level Security** - Advanced permissions and security via Supabase
-8. **Real-time Analytics** - Live statistics and monitoring across both databases
-9. **Better Tool Detection** - Context-aware function calling with improved auto-detection
-10. **Hybrid Storage** - Neon for conversations/analytics, Supabase for files/real-time features
+## Latest Updates (v5.1.0) 🎓🔥
+✨ **SKILL LEARNING SYSTEM - RENZU LEARNS FROM YOU!**
+1. **Adaptive Skill Learning** - Bot observes and learns skills from user interactions automatically
+2. **Unified Educational Trainer** - 120+ educational tools merged into ONE intelligent system  
+3. **Tiered Learning Access** - Normal users (5 skills/day), Premium (15/day), Developer (unlimited)
+4. **3 New Database Tables** - user_skills, skill_events, skill_limits for comprehensive tracking
+5. **Smart Skill Detection** - Tracks explicit statements ("I know X") and implicit patterns
+6. **Experience & Confidence** - Skills level up with practice, confidence increases over time
+7. **Skill Profile System** - View learned skills with stats using `?ask show my skills`
+8. **Educational Catalog** - 100+ modules across cybersecurity, automation, web, programming, misc
+9. **Backward Compatible** - All old educational tools aliased to new unified system
+10. **Improved Auto-Detection** - Better intent classification for real vs educational tools
 
-## Tool Count: 141 Total (All Enhanced with Smart Auto-Detection!)
-- **34 Core Tools** (v1.0-3.0)
-- **100 Advanced Tools** (v4.0)
-- **7 Professional Tools** (v4.1)
-- **v5.0: Enhanced Auto-Detection** for ALL tools!
+## Tool Count: 20+ Real Tools + Unified Educational Trainer!
+- **15 Real API-Integrated Tools** (SerpAPI, Shodan, VirusTotal, Gemini, etc.)
+- **5 Core Tools** (Image gen, Code gen, Web search, History, Skill viewer)
+- **1 Unified Educational Trainer** (replaces 120+ simulated tools)
+- **100+ Educational Modules** across 5 categories (cybersecurity, automation, web, programming, misc)
+- **v5.1.0: Skill Learning** - Bot learns from YOUR expertise!
 
 # User Preferences
 
@@ -55,8 +56,8 @@ Preferred communication style: Simple, everyday language.
 
 **Developer Recognition System**: Identifies the developer by Discord user ID (1104652354655113268) with UNRESTRICTED ACCESS - no rate limits, no restrictions, full access to all features for testing and development purposes.
 
-## Data Persistence (DUAL DATABASE ARCHITECTURE)
-**Neon PostgreSQL (Primary)**: 7-table schema for comprehensive memory management:
+## Data Persistence (DUAL DATABASE ARCHITECTURE + SKILL LEARNING)
+**Neon PostgreSQL (Primary)**: 10-table schema for comprehensive memory + skill management:
 - `conversations`: User messages and bot responses
 - `global_memory`: Cross-user and cross-bot interaction tracking (synced to Supabase)
 - `entities`: Extracted user-specific data
@@ -64,6 +65,9 @@ Preferred communication style: Simple, everyday language.
 - `topics`: Conversation topic tracking
 - `statistics`: Analytics on response times, tool usage, etc
 - `quality_scores`: Response quality tracking
+- `user_skills`: 🆕 Tracks learned skills with confidence & experience levels
+- `skill_events`: 🆕 Audit trail for all skill learning interactions
+- `skill_limits`: 🆕 Daily learning limits per tier (normal/premium/developer)
 
 **Supabase (Cloud + Real-time)**:
 - **File Storage Bucket**: Auto-upload generated images, audio, documents with public URLs
@@ -72,7 +76,7 @@ Preferred communication style: Simple, everyday language.
 - **Row-Level Security**: Advanced permissions and access control
 - **Public URLs**: Instantly shareable links for generated content
 
-This provides ACID-compliant storage, cloud backup, real-time features, file storage, and hybrid database reliability.
+This provides ACID-compliant storage, cloud backup, real-time features, file storage, skill learning, and hybrid database reliability.
 
 ## Conversation Flow
 1. User sends a message via `?ask`.
