@@ -4381,8 +4381,7 @@ async function detectAndCacheGender(userId, avatarUrl) {
 }
 
 // Helper Function to execute the tool requested by the LLM (FINAL VERSION)
-// Now accepts optional msg parameter for immediate Discord replies on failures
-async function runTool(toolCall, id, msg = null) {
+async function runTool(toolCall, id) {
     const { name, arguments: args } = toolCall.function;
 
     // 🎯 AUTO-DETECTION LOGGING SYSTEM 🎯
@@ -4641,55 +4640,37 @@ async function runTool(toolCall, id, msg = null) {
                     return result.message; // Return search results as text
                 }
 
-                // Normal image generation - Upload to Supabase cloud storage
-                let cloudUrl = null;
+                // 🔥 RETURN DIRECT URL ONLY (NO IMAGE ATTACHMENT)
+                let imageUrl = result.provider === 'Pollinations.ai' 
+                    ? `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&enhance=true`
+                    : result.url;
+                
+                // Try cloud URL if available, fallback to direct URL
                 if (result.base64) {
                     try {
                         const buffer = Buffer.from(result.base64, 'base64');
                         const fileName = `generated_${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
-                        cloudUrl = await uploadToSupabase(buffer, fileName, 'image/png');
+                        const cloudUrl = await uploadToSupabase(buffer, fileName, 'image/png');
+                        if (cloudUrl) imageUrl = cloudUrl;
                         console.log(`✅ Image uploaded to Supabase cloud: ${cloudUrl}`);
                     } catch (uploadErr) {
-                        console.error("⚠️ Supabase upload failed, proceeding with base64:", uploadErr.message);
+                        console.error("⚠️ Supabase upload failed, using Pollination URL:", uploadErr.message);
                     }
                 }
 
-                // Return special JSON marker for image attachment + cloud URL + auto message
-                return JSON.stringify({
-                    type: "IMAGE_ATTACHMENT",
-                    base64: result.base64,
-                    provider: result.provider,
-                    prompt: prompt,
-                    cloudUrl: cloudUrl,  // Supabase public URL if available
-                    autoMessage: `Here's your generated image: "${prompt}". Created using ${result.provider} - completely FREE, no API keys needed! 🎨✨`
-                });
+                // Return ONLY the URL as text message (seedha URL)
+                return `🎨 **Image Generated!**\n📎 Direct URL: ${imageUrl}\n💡 Open in browser to view\n\n✨ Created via ${result.provider}`;
             } else {
-                // 🔥 IMMEDIATE FALLBACK: Send Pollination URL right now
-                const encodedPrompt = encodeURIComponent(prompt);
-                const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
-                
-                const fallbackMsg = `🎨 **Image generation failed**, but here's a direct Pollination URL:\n📎 ${pollinationUrl}\n💡 Open it in your browser to see your image!`;
-                
-                if (msg) {
-                    await msg.reply(fallbackMsg);
-                    console.log(`✅ Sent immediate Pollination fallback to user ${id}`);
-                }
-                
+                // 🔥 TRACK FAILED GENERATION - Will auto-provide Pollination URL in next message
+                failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
+                console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
                 return `Image Generation Error: ${result.error}`;
             }
         } catch (err) {
-            // 🔥 IMMEDIATE FALLBACK: Send Pollination URL right now
-            const encodedPrompt = encodeURIComponent(prompt);
-            const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
-            
-            const fallbackMsg = `🎨 **Image generation failed**, but here's a direct Pollination URL:\n📎 ${pollinationUrl}\n💡 Open it in your browser to see your image!`;
-            
-            if (msg) {
-                await msg.reply(fallbackMsg);
-                console.log(`✅ Sent immediate Pollination fallback to user ${id}`);
-            }
-            
+            // 🔥 TRACK FAILED GENERATION - Will auto-provide Pollination URL in next message
+            failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
             console.error("Image generation error:", err);
+            console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
             return `Image Generation Error: ${err.message}`;
         }
     }
@@ -7011,39 +6992,28 @@ async function runTool(toolCall, id, msg = null) {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const imageBuffer = await response.arrayBuffer();
-            const base64Image = Buffer.from(imageBuffer).toString('base64');
 
-            // Upload to Supabase
-            let cloudUrl = null;
+            // 🔥 RETURN DIRECT URL ONLY (NO IMAGE ATTACHMENT)
+            let imageUrl = url; // Direct Pollination URL
+            
+            // Try cloud URL if available, fallback to direct URL
             try {
                 const buffer = Buffer.from(imageBuffer);
                 const fileName = `puter_${Date.now()}.png`;
-                cloudUrl = await uploadToSupabase(buffer, fileName, 'image/png');
+                const cloudUrl = await uploadToSupabase(buffer, fileName, 'image/png');
+                if (cloudUrl) imageUrl = cloudUrl;
+                console.log(`✅ Image uploaded to Supabase: ${cloudUrl}`);
             } catch (uploadErr) {
-                console.warn("Supabase upload failed:", uploadErr.message);
+                console.warn("⚠️ Supabase upload failed, using direct Pollination URL:", uploadErr.message);
             }
 
-            return JSON.stringify({
-                type: "IMAGE_ATTACHMENT",
-                base64: base64Image,
-                provider: "Puter.js (Unlimited)",
-                prompt: prompt,
-                cloudUrl: cloudUrl,
-                autoMessage: `✨ Unlimited image generated with Puter.js (model: ${model})! NO API key needed! 🎨🔥`
-            });
+            // Return ONLY the URL as text message (seedha URL)
+            return `🎨 **Image Generated with Puter.js!**\n📎 Direct URL: ${imageUrl}\n💡 Open in browser to view\n✨ Model: ${model} | NO API key needed! 🔥`;
         } catch (err) {
-            // 🔥 IMMEDIATE FALLBACK: Send Pollination URL right now
-            const encodedPrompt = encodeURIComponent(prompt);
-            const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
-            
-            const fallbackMsg = `🎨 **Image generation failed**, but here's a direct Pollination URL:\n📎 ${pollinationUrl}\n💡 Open it in your browser to see your image!`;
-            
-            if (msg) {
-                await msg.reply(fallbackMsg);
-                console.log(`✅ Sent immediate Pollination fallback to user ${id}`);
-            }
-            
+            // 🔥 TRACK FAILED GENERATION - Will auto-provide Pollination URL in next message
+            failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
             console.error("Puter.js generation error:", err);
+            console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
             return `Image Generation Error: ${err.message}`;
         }
     }
@@ -7873,6 +7843,32 @@ if (content === "?help")
 
           currentMessages.push({ role: "user", content: userContent });
 
+          // 🔥 AUTO-FALLBACK: Check if THIS USER's previous image generation failed
+          let imageFallbackMessage = "";
+          if (failedImageGeneration.has(id)) {
+              const failed = failedImageGeneration.get(id);
+              const timeSince = Date.now() - failed.timestamp;
+              
+              // Only provide fallback if failure was within last 5 minutes
+              if (timeSince < 5 * 60 * 1000) {
+                  const encodedPrompt = encodeURIComponent(failed.prompt);
+                  const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
+                  
+                  imageFallbackMessage = `\n\n🎨 **Image Generation Fallback:**\n` +
+                      `Your previous image request failed, but here's a direct Pollination URL you can use:\n` +
+                      `📎 **Direct Image URL:** ${pollinationUrl}\n` +
+                      `💡 Just open this link in your browser to see the image!\n\n`;
+                  
+                  console.log(`✅ Auto-provided Pollination fallback URL for user ${id}, prompt: "${failed.prompt}"`);
+                  
+                  // Clear the failed generation entry for this user
+                  failedImageGeneration.delete(id);
+              } else {
+                  // Entry too old, clear it
+                  failedImageGeneration.delete(id);
+              }
+          }
+
           // Build enhanced context with entities
           let entityContext = "";
           if (histData.entities && histData.entities.length > 0) {
@@ -7950,7 +7946,7 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
                           content: null,
                           tool_calls: [toolCall],
                       });
-                      const toolResultContent = await runTool(toolCall, id, msg);
+                      const toolResultContent = await runTool(toolCall, id);
 
                       // TRACK TOOL USAGE
                       await trackStatistic(id, 'tool_calls', 1);
@@ -8016,7 +8012,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
                           content: null,
                           tool_calls: [toolCall],
                       });
-                      const toolResultContent = await runTool(toolCall, id, msg);
+                      const toolResultContent = await runTool(toolCall, id);
 
                       // TRACK TOOL USAGE
                       await trackStatistic(id, 'tool_calls', 1);
@@ -8067,7 +8063,12 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
               // 🧠 APPLY PSYCHOLOGICAL MANIPULATION ENHANCEMENT
               const userType = await getUserType(msg);
               const userTypeString = isDeveloper ? 'developer' : (userType === 'premium' ? 'premium' : 'normal');
-              const enhancedAnswer = await enhanceResponsePsychology(answerText, id, histData.messages || [], userTypeString);
+              let enhancedAnswer = await enhanceResponsePsychology(answerText, id, histData.messages || [], userTypeString);
+              
+              // 🔥 PREPEND IMAGE FALLBACK MESSAGE IF EXISTS
+              if (imageFallbackMessage) {
+                  enhancedAnswer = imageFallbackMessage + enhancedAnswer;
+              }
               
               console.log(`🧠 Psychology enhanced response for ${userTypeString} user`);
 
