@@ -3,11 +3,12 @@
 This Discord bot integrates with Mistral AI to provide an **ultra-addictive AI-powered conversational interface** featuring **PSYCHOLOGICAL MANIPULATION ENGINE** with 20+ proven psychology tricks, **ULTRA-AGGRESSIVE AUTONOMOUS LEARNING** (every 20 seconds), and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers **ChatGPT-level engagement** to ALL users (normal/premium/developer) with expressive responses, natural emojis, and Hinglish support.
 
 ## Latest Updates (v7.1.0) 🎨🔗
-✨ **AUTOMATIC POLLINATION FALLBACK SYSTEM!**
-1. **Smart Image Generation Fallback** - When image generation models (Gemini/Kontext/Puter) fail or are exhausted, bot automatically provides Pollination direct URL in next message
-2. **5-Minute Window** - Tracks failed image requests for 5 minutes to provide seamless fallback
-3. **Zero User Action Required** - User gets direct Pollination URL automatically without asking
-4. **Graceful Degradation** - Never leaves users hanging when image generation fails
+✨ **IMMEDIATE AUTOMATIC POLLINATION FALLBACK SYSTEM!**
+1. **INSTANT Fallback Response** - When image generation models (Gemini/Kontext/Puter) fail or exhausted, bot sends Pollination direct URL IMMEDIATELY in same thread
+2. **Zero Delay** - User gets working image URL in under 1 second, no waiting for next message
+3. **Per-User Tracking** - Each user gets their own fallback URL for their specific image request
+4. **Graceful Degradation** - Never leaves users hanging: image generation fails → Pollination URL appears instantly
+5. **Message Parameter** - runTool() now accepts msg object for immediate Discord replies on failures
 
 ## Previous Updates (v7.0.0) 🧠💀🔥
 ✨ **ULTRA-ADDICTIVE PSYCHOLOGY ENGINE + ULTRA-AGGRESSIVE LEARNING!**
