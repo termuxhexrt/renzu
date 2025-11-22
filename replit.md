@@ -1,26 +1,34 @@
 # Overview
 
-This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface, featuring **INTELLIGENT SKILL LEARNING SYSTEM** and a **unified educational trainer** replacing 120+ simulated tools. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema including skill tracking) + Supabase (file storage + real-time features) for comprehensive memory management, cloud backup, and adaptive skill learning. The bot includes self-awareness features like version tracking (v5.1.0), skill learning from user interactions, and a developer recognition system with unrestricted access for the creator.
+This Discord bot integrates with Mistral AI to provide an **ultra-addictive AI-powered conversational interface** featuring **PSYCHOLOGICAL MANIPULATION ENGINE** with 20+ proven psychology tricks, **ULTRA-AGGRESSIVE AUTONOMOUS LEARNING** (every 20 seconds), and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers **ChatGPT-level engagement** to ALL users (normal/premium/developer) with expressive responses, natural emojis, and Hinglish support.
 
-## Latest Updates (v5.1.0) 🎓🔥
-✨ **SKILL LEARNING SYSTEM - RENZU LEARNS FROM YOU!**
-1. **Adaptive Skill Learning** - Bot observes and learns skills from user interactions automatically
-2. **Unified Educational Trainer** - 120+ educational tools merged into ONE intelligent system  
-3. **Tiered Learning Access** - Normal users (5 skills/day), Premium (15/day), Developer (unlimited)
-4. **3 New Database Tables** - user_skills, skill_events, skill_limits for comprehensive tracking
-5. **Smart Skill Detection** - Tracks explicit statements ("I know X") and implicit patterns
-6. **Experience & Confidence** - Skills level up with practice, confidence increases over time
-7. **Skill Profile System** - View learned skills with stats using `?ask show my skills`
-8. **Educational Catalog** - 100+ modules across cybersecurity, automation, web, programming, misc
-9. **Backward Compatible** - All old educational tools aliased to new unified system
-10. **Improved Auto-Detection** - Better intent classification for real vs educational tools
+## Latest Updates (v7.1.0) 🎨🔗
+✨ **AUTOMATIC POLLINATION FALLBACK SYSTEM!**
+1. **Smart Image Generation Fallback** - When image generation models (Gemini/Kontext/Puter) fail or are exhausted, bot automatically provides Pollination direct URL in next message
+2. **5-Minute Window** - Tracks failed image requests for 5 minutes to provide seamless fallback
+3. **Zero User Action Required** - User gets direct Pollination URL automatically without asking
+4. **Graceful Degradation** - Never leaves users hanging when image generation fails
 
-## Tool Count: 20+ Real Tools + Unified Educational Trainer!
-- **15 Real API-Integrated Tools** (SerpAPI, Shodan, VirusTotal, Gemini, etc.)
-- **5 Core Tools** (Image gen, Code gen, Web search, History, Skill viewer)
-- **1 Unified Educational Trainer** (replaces 120+ simulated tools)
-- **100+ Educational Modules** across 5 categories (cybersecurity, automation, web, programming, misc)
-- **v5.1.0: Skill Learning** - Bot learns from YOUR expertise!
+## Previous Updates (v7.0.0) 🧠💀🔥
+✨ **ULTRA-ADDICTIVE PSYCHOLOGY ENGINE + ULTRA-AGGRESSIVE LEARNING!**
+1. **Psychological Manipulation System** - 20+ proven psychology tricks (Curiosity Gap, Zeigarnik Effect, Social Proof, FOMO, Reciprocity, Ben Franklin Effect, Pattern Interrupts, Loss Aversion, etc.)
+2. **Universal Expressive Quality** - ALL users (normal/premium/developer) get same engaging conversation style with emojis 😎🔥💀 and casual Hinglish
+3. **Ultra-Aggressive Learning** - Bot learns from web every 20 SECONDS (was 2 minutes) across 120+ diverse topics
+4. **Intelligent Rate Limiting** - Auto-detects API limits, implements cooldowns, handles errors gracefully with daily quota tracking (80 calls/day)
+5. **5x Knowledge Acquisition** - Fetches 5 sources per cycle (was 3) for faster knowledge growth
+6. **Dark Psychology Integration** - Love bombing, scarcity, choice restriction, urgency triggers
+7. **Gamification & Dopamine** - Achievement unlocks, validation, confidence boosts, engagement loops
+8. **Anticipation & Prediction** - Bot predicts what you'll ask next, anticipates needs proactively
+9. **Smart Enhancement** - 5-8 psychology tricks randomly applied per response for natural feel
+10. **Addictiveness Metrics** - Logs which tricks were applied for optimization
+
+## Features Summary:
+- **140+ Advanced Tools** - Security, OSINT, crypto, image gen, code gen, web search, etc.
+- **Psychological Manipulation** - 20+ proven tactics to maximize engagement and retention
+- **Ultra-Aggressive Learning** - Learns everything every 20 seconds (120+ topic categories)
+- **Universal Quality** - Same expressive, emoji-rich responses for all user tiers
+- **ChatGPT-Level Psychology** - Curiosity hooks, social proof, FOMO, validation, reciprocity
+- **Smart Rate Limiting** - Automatic cooldowns and error handling for sustainable operation
 
 # User Preferences
 
@@ -111,6 +119,26 @@ This provides ACID-compliant storage, cloud backup, real-time features, file sto
 - **HaveIBeenPwned**: For email breach checking (no key required).
 - Other tools use free APIs or require no keys.
 
-## Optional Environment Variables
-- `MIYU_BOT_ID`: For bot-to-bot conversations.
-- `MIYU_CHANNEL_ID`: For Miyu conversation channel.
+## Environment Variables (All Configured)
+The following environment variables are set in the shared environment:
+
+**Discord Configuration**
+- `DISCORD_BOT_TOKEN`: Primary Discord bot token
+- `DISCORD_TOKEN`: Backup Discord token (same as DISCORD_BOT_TOKEN)
+- `MIYU_CHANNEL_ID`: Channel ID for Miyu bot conversations (1434166838937391184)
+
+**AI Services**
+- `MISTRAL_API_KEY`: Mistral AI API key for conversational AI
+- `GEMINI_API_KEY`: Google Gemini API key for image generation
+- `GEMINI_API_KEY_BACKUP`: Backup Gemini API key
+
+**Database Services**
+- `DATABASE_URL`: Neon PostgreSQL connection string
+- `SUPABASE_URL`: Supabase project URL (https://pimlbmlnoptcuzgkwkdx.supabase.co)
+- `SUPABASE_ANON_KEY`: Supabase anonymous key for client access
+
+**API Services**
+- `SERPAPI_KEY`: SerpAPI key for web search and CVE lookups
+- `SHODAN_API_KEY`: Shodan API key for internet-wide scanning
+- `VIRUSTOTAL_API_KEY`: VirusTotal API key for file hash checking
+- `KONTEXT_API_KEY`: Kontext Pro API key for image generation
