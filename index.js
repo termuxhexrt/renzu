@@ -3078,8 +3078,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// 🔥 TRACK FAILED IMAGE GENERATIONS FOR AUTO-FALLBACK (v7.1.0)
-const failedImageGeneration = new Map(); // userId -> {prompt, timestamp}
 
 // Initialize EXTREME DATABASE SCHEMA with Advanced Memory System
 async function initDB() {
@@ -4383,7 +4381,8 @@ async function detectAndCacheGender(userId, avatarUrl) {
 }
 
 // Helper Function to execute the tool requested by the LLM (FINAL VERSION)
-async function runTool(toolCall, id) {
+// Now accepts optional msg parameter for immediate Discord replies on failures
+async function runTool(toolCall, id, msg = null) {
     const { name, arguments: args } = toolCall.function;
 
     // 🎯 AUTO-DETECTION LOGGING SYSTEM 🎯
@@ -4665,16 +4664,32 @@ async function runTool(toolCall, id) {
                     autoMessage: `Here's your generated image: "${prompt}". Created using ${result.provider} - completely FREE, no API keys needed! 🎨✨`
                 });
             } else {
-                // 🔥 TRACK FAILED GENERATION PER USER - Will auto-provide Pollination URL in next message
-                failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
-                console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
+                // 🔥 IMMEDIATE FALLBACK: Send Pollination URL right now
+                const encodedPrompt = encodeURIComponent(prompt);
+                const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
+                
+                const fallbackMsg = `🎨 **Image generation failed**, but here's a direct Pollination URL:\n📎 ${pollinationUrl}\n💡 Open it in your browser to see your image!`;
+                
+                if (msg) {
+                    await msg.reply(fallbackMsg);
+                    console.log(`✅ Sent immediate Pollination fallback to user ${id}`);
+                }
+                
                 return `Image Generation Error: ${result.error}`;
             }
         } catch (err) {
-            // 🔥 TRACK FAILED GENERATION PER USER - Will auto-provide Pollination URL in next message
-            failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
+            // 🔥 IMMEDIATE FALLBACK: Send Pollination URL right now
+            const encodedPrompt = encodeURIComponent(prompt);
+            const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
+            
+            const fallbackMsg = `🎨 **Image generation failed**, but here's a direct Pollination URL:\n📎 ${pollinationUrl}\n💡 Open it in your browser to see your image!`;
+            
+            if (msg) {
+                await msg.reply(fallbackMsg);
+                console.log(`✅ Sent immediate Pollination fallback to user ${id}`);
+            }
+            
             console.error("Image generation error:", err);
-            console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
             return `Image Generation Error: ${err.message}`;
         }
     }
@@ -7017,10 +7032,18 @@ async function runTool(toolCall, id) {
                 autoMessage: `✨ Unlimited image generated with Puter.js (model: ${model})! NO API key needed! 🎨🔥`
             });
         } catch (err) {
-            // 🔥 TRACK FAILED GENERATION PER USER - Will auto-provide Pollination URL in next message
-            failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
+            // 🔥 IMMEDIATE FALLBACK: Send Pollination URL right now
+            const encodedPrompt = encodeURIComponent(prompt);
+            const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
+            
+            const fallbackMsg = `🎨 **Image generation failed**, but here's a direct Pollination URL:\n📎 ${pollinationUrl}\n💡 Open it in your browser to see your image!`;
+            
+            if (msg) {
+                await msg.reply(fallbackMsg);
+                console.log(`✅ Sent immediate Pollination fallback to user ${id}`);
+            }
+            
             console.error("Puter.js generation error:", err);
-            console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
             return `Image Generation Error: ${err.message}`;
         }
     }
@@ -7850,32 +7873,6 @@ if (content === "?help")
 
           currentMessages.push({ role: "user", content: userContent });
 
-          // 🔥 AUTO-FALLBACK: Check if THIS USER's previous image generation failed
-          let imageFallbackMessage = "";
-          if (failedImageGeneration.has(id)) {
-              const failed = failedImageGeneration.get(id);
-              const timeSince = Date.now() - failed.timestamp;
-              
-              // Only provide fallback if failure was within last 5 minutes
-              if (timeSince < 5 * 60 * 1000) {
-                  const encodedPrompt = encodeURIComponent(failed.prompt);
-                  const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
-                  
-                  imageFallbackMessage = `\n\n🎨 **Image Generation Fallback:**\n` +
-                      `Your previous image request failed, but here's a direct Pollination URL you can use:\n` +
-                      `📎 **Direct Image URL:** ${pollinationUrl}\n` +
-                      `💡 Just open this link in your browser to see the image!\n\n`;
-                  
-                  console.log(`✅ Auto-provided Pollination fallback URL for user ${id}, prompt: "${failed.prompt}"`);
-                  
-                  // Clear the failed generation entry for this user
-                  failedImageGeneration.delete(id);
-              } else {
-                  // Entry too old, clear it
-                  failedImageGeneration.delete(id);
-              }
-          }
-
           // Build enhanced context with entities
           let entityContext = "";
           if (histData.entities && histData.entities.length > 0) {
@@ -7953,7 +7950,7 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
                           content: null,
                           tool_calls: [toolCall],
                       });
-                      const toolResultContent = await runTool(toolCall, id);
+                      const toolResultContent = await runTool(toolCall, id, msg);
 
                       // TRACK TOOL USAGE
                       await trackStatistic(id, 'tool_calls', 1);
@@ -8019,7 +8016,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
                           content: null,
                           tool_calls: [toolCall],
                       });
-                      const toolResultContent = await runTool(toolCall, id);
+                      const toolResultContent = await runTool(toolCall, id, msg);
 
                       // TRACK TOOL USAGE
                       await trackStatistic(id, 'tool_calls', 1);
@@ -8070,12 +8067,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
               // 🧠 APPLY PSYCHOLOGICAL MANIPULATION ENHANCEMENT
               const userType = await getUserType(msg);
               const userTypeString = isDeveloper ? 'developer' : (userType === 'premium' ? 'premium' : 'normal');
-              let enhancedAnswer = await enhanceResponsePsychology(answerText, id, histData.messages || [], userTypeString);
-              
-              // 🔥 PREPEND IMAGE FALLBACK MESSAGE IF EXISTS
-              if (imageFallbackMessage) {
-                  enhancedAnswer = imageFallbackMessage + enhancedAnswer;
-              }
+              const enhancedAnswer = await enhanceResponsePsychology(answerText, id, histData.messages || [], userTypeString);
               
               console.log(`🧠 Psychology enhanced response for ${userTypeString} user`);
 
