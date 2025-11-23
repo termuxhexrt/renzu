@@ -207,17 +207,21 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 2: edit_image (NEW - Gemini Image Editing)
+        // Tool 2: edit_image (ENHANCED - Track Recent Images)
         type: "function",
         function: {
             name: "edit_image",
-            description: "Edit or modify an existing image based on user instructions. Use this when user provides an image attachment along with editing instructions like 'add text', 'change color', 'remove background', 'add elements', etc.",
+            description: "CRITICAL: Use ONLY when user wants to EDIT/MODIFY previously generated images. Keywords: 'edit', 'modify', 'change', 'update', 'fix', 'adjust' + reference to existing images ('that image', 'first image', 'second image', 'pichli image', 'wo image', 'usko edit karo'). Examples: 'edit first image', 'modify second one', 'pichli image edit karo', 'usko change karo', 'first image me flowers add karo'. DO NOT use for generating NEW images - use generate_image or generate_puter_image for new images.",
             parameters: {
                 type: "object",
                 properties: {
                     instruction: {
                         type: "string",
-                        description: "What changes to make to the image (e.g., 'add red border', 'make it darker', 'add text saying Hello').",
+                        description: "What modifications to make (e.g., 'add flowers', 'make darker', 'change colors', 'add text', 'remove background').",
+                    },
+                    image_reference: {
+                        type: "string",
+                        description: "Which existing image to edit: 'first', 'second', 'last', 'all', 'both', 'image 1', 'image 2', 'pichli', 'wo'. Defaults to most recent.",
                     },
                 },
                 required: ["instruction"],
@@ -3335,6 +3339,20 @@ async function initDB() {
       );
     `);
 
+    // 🎨 Generated Images Tracking - Remember which images bot created (v6.0.1)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS generated_images (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        message_id TEXT,
+        image_url TEXT NOT NULL,
+        prompt TEXT,
+        model TEXT,
+        image_order INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     // Create indexes for fast queries
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_global_memory_source ON global_memory(source_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_global_memory_target ON global_memory(target_id);`);
@@ -3344,6 +3362,7 @@ async function initDB() {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_skills_user ON user_skills(user_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_name);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_skill_events_user ON skill_events(user_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_generated_images_user ON generated_images(user_id);`);
 
     // v6.0.0 indexes
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_web_knowledge_topic ON web_knowledge_base(topic);`);
@@ -4125,7 +4144,7 @@ async function generateImagePollinations(prompt, model = 'turbo') {
 
         // URL-based API - No API key needed!
         const encodedPrompt = encodeURIComponent(prompt);
-        
+
         // 🔥 PREMIUM MODELS FOR REALISTIC, HIGH-QUALITY IMAGES
         // Map turbo to actual Pollinations.ai model
         const modelMap = {
@@ -4213,14 +4232,14 @@ async function searchDeviantArt(prompt) {
 // 🔥 MULTI-MODEL FUSION MODE: Pollinations with different models in parallel
 async function generateMultiModelFusion(prompt) {
     console.log(`🎨🔥 **MULTI-MODEL FUSION MODE ACTIVATED** - flux-pro + flux-realism in parallel!`);
-    
+
     // Promise 1: Pollinations with flux-pro
     const fluxProPromise = (async () => {
         try {
             const startTime = Date.now();
             const result = await generateImagePollinations(prompt, 'flux-pro');
             const latency = Date.now() - startTime;
-            
+
             if (result.success) {
                 console.log(`✅ [Flux-Pro] SUCCESS (${latency}ms)`);
                 return {
@@ -4235,14 +4254,14 @@ async function generateMultiModelFusion(prompt) {
         }
         return { success: false };
     })();
-    
+
     // Promise 2: Pollinations with flux-realism
     const fluxRealismPromise = (async () => {
         try {
             const startTime = Date.now();
             const result = await generateImagePollinations(prompt, 'flux-realism');
             const latency = Date.now() - startTime;
-            
+
             if (result.success) {
                 console.log(`✅ [Flux-Realism] SUCCESS (${latency}ms)`);
                 return {
@@ -4257,13 +4276,13 @@ async function generateMultiModelFusion(prompt) {
         }
         return { success: false };
     })();
-    
+
     // Wait for both in parallel
     const [proResult, realismResult] = await Promise.all([fluxProPromise, fluxRealismPromise]);
     const successfulResults = [proResult, realismResult].filter(r => r.success);
-    
+
     console.log(`🎨 FUSION COMPLETE: ${successfulResults.length}/2 models succeeded`);
-    
+
     return {
         success: successfulResults.length > 0,
         images: successfulResults,
@@ -4738,12 +4757,13 @@ async function runTool(toolCall, id, msg = null) {
                 if (result.buffer) {
                     try {
                         console.log(`📤 Preparing premium image for Discord upload...`);
-                        
+
                         // Return with buffer so replyWithImages can handle it
                         return JSON.stringify({
                             type: "PREMIUM_IMAGE",
                             imageBuffer: result.base64,
                             model: result.provider,
+                            prompt: prompt,
                             success: true
                         });
                     } catch (uploadErr) {
@@ -4763,13 +4783,144 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // 🔥 NEW TOOL: edit_image (Gemini Image Editing - placeholder for now)
+    // 🔥 ENHANCED TOOL: edit_image (v6.0.1 - AI-Powered Image Editing)
     else if (name === "edit_image") {
         const instruction = parsedArgs.instruction;
+        const imageRef = parsedArgs.image_reference || "last";
         if (!instruction) return "Image Edit Error: No instruction provided.";
 
-        // For now, return a message that image editing requires image upload
-        return "Image Edit Note: To edit an image, please upload the image along with your editing instructions in the same message. I'll analyze and modify it accordingly.";
+        try {
+            // Fetch recent images for this user (last 10 images)
+            const recentImages = await pool.query(
+                `SELECT id, image_url, prompt, model, image_order, created_at 
+                 FROM generated_images 
+                 WHERE user_id = $1 
+                 ORDER BY created_at DESC 
+                 LIMIT 10`,
+                [id]
+            );
+
+            if (!recentImages.rows || recentImages.rows.length === 0) {
+                return "Image Edit Error: No recent images found. Please generate an image first, then I can edit it for you.";
+            }
+
+            // Parse image reference
+            let selectedImages = [];
+            const lowerRef = imageRef.toLowerCase();
+            
+            if (lowerRef.includes('all') || lowerRef.includes('both')) {
+                selectedImages = recentImages.rows.slice(0, 2);
+            } else if (lowerRef.includes('first') || lowerRef.includes('1')) {
+                selectedImages = [recentImages.rows[recentImages.rows.length - 1]];
+            } else if (lowerRef.includes('second') || lowerRef.includes('2')) {
+                if (recentImages.rows.length >= 2) {
+                    selectedImages = [recentImages.rows[recentImages.rows.length - 2]];
+                } else {
+                    return "Image Edit Error: There is no second image. Only one image was generated.";
+                }
+            } else {
+                selectedImages = [recentImages.rows[0]];
+            }
+
+            // 🔥 SMART EDITING: Use original Discord image as seed + preserve style
+            const editedImages = [];
+            
+            for (const img of selectedImages) {
+                try {
+                    const originalPrompt = img.prompt || "anime style image";
+                    
+                    // Download original Discord image to use as seed
+                    let originalImageData = null;
+                    try {
+                        const imgResponse = await fetch(img.image_url);
+                        if (imgResponse.ok) {
+                            const imgBuffer = await imgResponse.arrayBuffer();
+                            originalImageData = Buffer.from(imgBuffer).toString('base64');
+                            console.log(`✅ Downloaded original image from Discord (${(imgBuffer.byteLength / 1024).toFixed(2)} KB)`);
+                        }
+                    } catch (dlErr) {
+                        console.warn(`⚠️ Could not download original image:`, dlErr.message);
+                    }
+                    
+                    // Build enhanced prompt CAREFULLY - preserve original style
+                    let enhancedPrompt = originalPrompt;
+                    
+                    // Only add instruction if it's a modification, not a replacement
+                    const modificationKeywords = ['add', 'remove', 'change color', 'make darker', 'make lighter', 'change background'];
+                    const isModification = modificationKeywords.some(kw => instruction.toLowerCase().includes(kw));
+                    
+                    if (isModification) {
+                        enhancedPrompt = `${originalPrompt}, ${instruction}`;
+                    } else {
+                        // If instruction seems like a full description, use it but keep style hints
+                        const styleHints = originalPrompt.match(/(anime|realistic|photorealistic|manga|style|8K|ultra|detailed|art)/gi);
+                        if (styleHints) {
+                            enhancedPrompt = `${instruction}, ${styleHints.join(', ')}`;
+                        } else {
+                            enhancedPrompt = instruction;
+                        }
+                    }
+                    
+                    console.log(`🎨 Editing with prompt: "${enhancedPrompt}"`);
+                    
+                    // Use same model as original if possible
+                    const model = img.model?.toLowerCase().includes('flux') ? 'flux' : 'flux-pro';
+                    
+                    // Generate edited version with preserved seed from image hash
+                    const encodedPrompt = encodeURIComponent(enhancedPrompt);
+                    const imageSeed = img.image_url.match(/(\d{10,})/)?.[0] || Date.now();
+                    const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=${model}&nologo=true&enhance=true&seed=${imageSeed}`;
+                    
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const imageBuffer = await response.arrayBuffer();
+                    const base64 = Buffer.from(imageBuffer).toString('base64');
+                    
+                    editedImages.push({
+                        base64: base64,
+                        originalPrompt: img.prompt,
+                        editInstruction: instruction,
+                        model: `${model} (Edited)`
+                    });
+                    
+                    console.log(`✅ Successfully edited image ${editedImages.length}`);
+                } catch (editErr) {
+                    console.error(`❌ Failed to edit image:`, editErr.message);
+                }
+            }
+
+            if (editedImages.length === 0) {
+                return "Image Edit Error: Failed to generate edited versions. Please try again.";
+            }
+
+            // Return edited images for Discord upload
+            if (editedImages.length === 1) {
+                return JSON.stringify({
+                    type: "PREMIUM_IMAGE",
+                    imageBuffer: editedImages[0].base64,
+                    model: editedImages[0].model,
+                    prompt: `${editedImages[0].originalPrompt} (Edited: ${instruction})`,
+                    success: true
+                });
+            } else {
+                return JSON.stringify({
+                    type: "FUSION_IMAGES",
+                    images: editedImages.map((img, idx) => ({
+                        imageBuffer: img.base64,
+                        model: `${img.model} #${idx + 1}`,
+                        prompt: `${img.originalPrompt} (Edited: ${instruction})`,
+                        latency: 0
+                    })),
+                    totalCount: editedImages.length,
+                    success: true
+                });
+            }
+
+        } catch (err) {
+            console.error("Image edit error:", err);
+            return `Image Edit Error: ${err.message}`;
+        }
     }
 
     // Fallback for clear history
@@ -7071,21 +7222,22 @@ async function runTool(toolCall, id, msg = null) {
             if (mode === 'fusion' || prompt.toLowerCase().includes('fusion') || prompt.toLowerCase().includes('all models')) {
                 console.log(`🔥 **FUSION MODE** - Flux-Pro + Flux-Realism comparison!`);
                 const fusionResult = await generateMultiModelFusion(prompt);
-                
+
                 if (fusionResult.success && fusionResult.images.length > 0) {
                     return JSON.stringify({
                         type: "FUSION_IMAGES",
                         images: fusionResult.images.map(img => ({
                             imageBuffer: img.base64,
                             model: img.provider,
-                            latency: img.latency
+                            latency: img.latency,
+                            prompt: prompt
                         })),
                         totalCount: fusionResult.images.length,
                         success: true
                     });
                 }
             }
-            
+
             // SINGLE MODEL MODE (default)
             console.log(`🎨 [Puter.js] Generating premium image with model: ${model}`);
 
@@ -7105,12 +7257,13 @@ async function runTool(toolCall, id, msg = null) {
             // 🔥 DISCORD UPLOAD ONLY - Return buffer for replyWithImages
             try {
                 console.log(`📤 Preparing Puter.js image for Discord upload...`);
-                
+
                 // Return with buffer so replyWithImages can handle it
                 return JSON.stringify({
                     type: "PUTER_IMAGE",
                     imageBuffer: Buffer.from(imageBuffer).toString('base64'),
                     model: model,
+                    prompt: prompt,
                     success: true
                 });
             } catch (uploadErr) {
@@ -7551,7 +7704,7 @@ async function replyWithImages(msg, conversationMessages, finalText) {
       if (message.role === "tool" && message.content) {
         try {
           const parsed = JSON.parse(message.content);
-          
+
           // Handle all image types
           if (parsed.type === "IMAGE_ATTACHMENT" && parsed.base64) {
             imageAttachments.push({
@@ -7564,12 +7717,14 @@ async function replyWithImages(msg, conversationMessages, finalText) {
             imageAttachments.push({
               base64: parsed.imageBuffer,
               provider: parsed.model || "Premium AI",
+              prompt: parsed.prompt || null,
               type: "PREMIUM_IMAGE"
             });
           } else if (parsed.type === "PUTER_IMAGE" && parsed.imageBuffer) {
             imageAttachments.push({
               base64: parsed.imageBuffer,
               provider: parsed.model || "Puter.js",
+              prompt: parsed.prompt || null,
               type: "PUTER_IMAGE"
             });
           } else if (parsed.type === "FUSION_IMAGES" && parsed.images) {
@@ -7578,6 +7733,7 @@ async function replyWithImages(msg, conversationMessages, finalText) {
               imageAttachments.push({
                 base64: img.imageBuffer,
                 provider: `${img.model} (${img.latency}ms)`,
+                prompt: img.prompt || null,
                 type: "FUSION_IMAGE"
               });
             });
@@ -7590,6 +7746,7 @@ async function replyWithImages(msg, conversationMessages, finalText) {
 
     // If images exist, send them as attachments
     if (imageAttachments.length > 0) {
+      let imageOrder = 1;
       for (const img of imageAttachments) {
         try {
           const buffer = Buffer.from(img.base64, 'base64');
@@ -7597,9 +7754,25 @@ async function replyWithImages(msg, conversationMessages, finalText) {
 
           let caption = `🎨 **Image Generated!**\n✨ Model: ${img.provider}`;
           if (img.prompt) caption += `\n📝 Prompt: "${img.prompt}"`;
-          
-          await msg.reply({ content: caption, files: [attachment] });
+
+          const replyMsg = await msg.reply({ content: caption, files: [attachment] });
           console.log(`✅ Sent image attachment via ${img.provider} (${img.type})`);
+          
+          // 🔥 SAVE IMAGE URL TO DATABASE (v6.0.1)
+          try {
+            if (replyMsg && replyMsg.attachments && replyMsg.attachments.size > 0) {
+              const imageUrl = replyMsg.attachments.first().url;
+              await pool.query(
+                `INSERT INTO generated_images (user_id, message_id, image_url, prompt, model, image_order)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [msg.author.id, replyMsg.id, imageUrl, img.prompt || null, img.provider, imageOrder]
+              );
+              console.log(`💾 Saved image ${imageOrder} to database for user ${msg.author.id}`);
+              imageOrder++;
+            }
+          } catch (dbErr) {
+            console.error(`❌ Failed to save image URL to DB:`, dbErr.message);
+          }
         } catch (imgErr) {
           console.error(`❌ Failed to send image:`, imgErr.message);
         }
@@ -8085,13 +8258,13 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
               // 🔥 AUTO-DETECT IMAGE REQUESTS (ONLY CLEAR REQUESTS)
               const imageRequestKeywords = ['bana', 'banao', 'dede', 'banata', 'create', 'make', 'draw', 'design', 'generate', 'render'];
               const hasImageRequest = imageRequestKeywords.some(keyword => q.toLowerCase().includes(keyword));
-              
+
               // Check if it's actually a REQUEST (not past tense or comment)
               const pastTenseIndicators = ['banaya', 'banai', 'banya', 'dekh', 'dikhao', 'galat', 'theek', 'accha', 'badla'];
               const isPastTenseComment = pastTenseIndicators.some(word => q.toLowerCase().includes(word));
-              
+
               const isImageRequest = hasImageRequest && !isPastTenseComment;
-              
+
               if (isImageRequest) {
                   console.log(`🎨 AUTO-DETECTED IMAGE REQUEST: "${q}"`);
                   // Directly call image generation
@@ -8102,29 +8275,29 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
                           arguments: JSON.stringify({ prompt: q })
                       }
                   };
-                  
+
                   currentMessages.push({
                       role: "assistant",
                       content: null,
                       tool_calls: [toolCall],
                   });
                   const toolResultContent = await runTool(toolCall, id, msg);
-                  
+
                   await trackStatistic(id, 'tool_calls', 1);
                   await trackStatistic(id, 'tool_generate_puter_image', 1);
-                  
+
                   currentMessages.push({
                       role: "tool",
                       content: toolResultContent,
                       tool_call_id: toolCall.id
                   });
-                  
+
                   // 🔥 STORE IMAGE METADATA FOR FUTURE REFERENCE (SIMPLE & CLEAN)
                   currentMessages.push({
                       role: "user",
                       content: `[SYSTEM: Image generated with prompt: "${q.substring(0, 100)}...". This image is now visible in Discord above.]`
                   });
-                  
+
                   finalAnswer = `🎨 **Image Generated & Uploaded!** ✨`;
               } else {
                   // Normal response with tool handling loop
