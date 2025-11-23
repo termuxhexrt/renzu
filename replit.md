@@ -2,14 +2,15 @@
 
 This Discord bot integrates with Mistral AI to provide an **ultra-addictive AI-powered conversational interface** featuring **PSYCHOLOGICAL MANIPULATION ENGINE** with 20+ proven psychology tricks, **ULTRA-AGGRESSIVE AUTONOMOUS LEARNING** (every 20 seconds), and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers **ChatGPT-level engagement** to ALL users (normal/premium/developer) with expressive responses, natural emojis, and Hinglish support.
 
-## Latest Updates (v7.1.0) 🎨✨
-✨ **INSTANT POLLINATION IMAGE GENERATION + AUTOMATIC FALLBACK!**
-1. **Seedha URL Response** - Image generation returns DIRECT Pollination URL (no attachments, no broken links)
-2. **Zero Psychology Overhead** - Image URL responses skip all enhancement - clean and instant
-3. **Automatic Pollination Fallback** - When models fail, next message auto-provides working Pollination URL
-4. **5-Minute Tracking Window** - Tracks failed requests per-user for 5 minutes
-5. **Broken Link Cleanup** - Auto-removes any [undefined] or [null] markdown artifacts
-6. **FREE & UNLIMITED** - Uses Pollinations.ai (no API key, no limits, instant generation)
+## Latest Updates (v7.2.0) 🎨✨
+✨ **REMOVED IMAGE EDITING + GENERATION ONLY MODE!**
+1. **Edit Tool Removed** - `edit_image` tool completely removed from TOOL_DEFINITIONS
+2. **Generation-Only Support** - Bot now ONLY supports image generation via Pollinations API
+3. **Custom Edit Response** - When users ask to edit images, bot responds with:
+   > "🎨 Bhai, ye high quality model ke saath generate hui hai image isliye edit nahi kar sakta! 😅\n\nBas generate kar sakta hun nai image - custom jo tu chahe! 🎯\n\nKya prompt de mujhe? Aur kaunsa style chahiye - anime, realistic, dark, vibrant? 💪"
+4. **Auto-Detection** - Edit requests detected by keywords: 'edit', 'modify', 'change', 'pichli', 'first image', 'second image', 'wo image', 'usko'
+5. **Smart Routing** - Custom response only triggers if user mentions BOTH edit keywords + image reference
+6. **Hinglish Support** - Custom message in user's preferred Hindi/English mix style
 
 ## Previous Updates (v7.0.0) 🧠💀🔥
 ✨ **ULTRA-ADDICTIVE PSYCHOLOGY ENGINE + ULTRA-AGGRESSIVE LEARNING!**
@@ -25,12 +26,14 @@ This Discord bot integrates with Mistral AI to provide an **ultra-addictive AI-p
 10. **Addictiveness Metrics** - Logs which tricks were applied for optimization
 
 ## Features Summary:
-- **140+ Advanced Tools** - Security, OSINT, crypto, image gen, code gen, web search, etc.
+- **140+ Advanced Tools** - Security, OSINT, crypto, image generation (NO editing), code gen, web search, etc.
+- **Image Generation Only** - Pollinations API (Flux Pro/Flux Realism) for unlimited free image creation, custom edit rejection
 - **Psychological Manipulation** - 20+ proven tactics to maximize engagement and retention
 - **Ultra-Aggressive Learning** - Learns everything every 20 seconds (120+ topic categories)
 - **Universal Quality** - Same expressive, emoji-rich responses for all user tiers
 - **ChatGPT-Level Psychology** - Curiosity hooks, social proof, FOMO, validation, reciprocity
 - **Smart Rate Limiting** - Automatic cooldowns and error handling for sustainable operation
+- **Hinglish Conversations** - Natural Hindi/English mix in all bot responses
 
 # User Preferences
 
@@ -54,8 +57,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Bot Architecture
 **Gateway Intents**: Utilizes Discord gateway intents for message and guild events.
-**AI Function Calling**: Implements an advanced tool/function calling pattern with Mistral AI, enabling the bot to automatically select and execute appropriate tools based on natural language queries via the `?ask` command. There are 141 tools that cover:
-- **Core Tools**: Code generation, Image generation (Gemini/Kontext Pro), Web search, History management.
+**AI Function Calling**: Implements an advanced tool/function calling pattern with Mistral AI, enabling the bot to automatically select and execute appropriate tools based on natural language queries via the `?ask` command. There are 140+ tools that cover:
+- **Core Tools**: Code generation, Image generation only (Pollinations API - Flux Pro/Flux Realism), Web search, History management. **NOTE: Image editing is NOT supported - bot responds with custom message explaining generation-only mode**.
 - **Security Tools**: CVE lookup, Threat simulation (SQLi, XSS), Quantum encryption (Kyber, Dilithium), Security auditing, Password analyzer, File hash checker (VirusTotal), URL safety checker, Port scanner.
 - **OSINT Tools**: Shodan scanner, Subdomain enumeration, WHOIS lookup, DNS analysis, SSL/TLS analysis, Reverse IP lookup, Email breach checker (HaveIBeenPwned), Phone lookup.
 - **Crypto/Encoding Tools**: AES-256 Encryption/Decryption, Base64 Encoder/Decoder, Hash operations, Quantum encryption.
