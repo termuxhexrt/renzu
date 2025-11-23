@@ -188,17 +188,17 @@ const CHANGELOG = [
 
 const TOOL_DEFINITIONS = [
     {
-        // Tool 1: generate_image (ENHANCED AUTO-DETECTION - Gemini Image Generation)
+        // Tool 1: generate_image (PREMIUM DISCORD IMAGE GENERATION)
         type: "function",
         function: {
             name: "generate_image",
-            description: "Generate AI images using Pollinations.ai (FREE). SMART AUTO-DETECTION: Use when user says: 'create', 'generate', 'make', 'design', 'draw', 'show me', 'I want', 'build' + any visual content (image, logo, poster, banner, artwork, picture, photo, illustration, icon, wallpaper, thumbnail, cover art, character, scene, landscape, portrait, meme image, etc.). Also detects: 'can you make a [visual]', 'generate a [visual]', 'create an [visual]', 'draw me a [visual]', 'design a [visual]', 'I need a [visual]'. Files auto-uploaded to Supabase Storage.",
+            description: "Generate PREMIUM HIGH-QUALITY realistic AI images and upload directly to Discord. Uses advanced models (Turbo, Flux.1 Pro). SMART AUTO-DETECTION: Use when user says: 'create', 'generate', 'make', 'design', 'draw', 'show me', 'I want', 'build' + any visual content (image, logo, poster, banner, artwork, picture, photo, illustration, icon, wallpaper, thumbnail, cover art, character, scene, landscape, portrait, meme image, etc.). Also detects: 'can you make a [visual]', 'generate a [visual]', 'create an [visual]', 'draw me a [visual]', 'design a [visual]', 'I need a [visual]'. Image will be uploaded to Discord automatically.",
             parameters: {
                 type: "object",
                 properties: {
                     prompt: {
                         type: "string",
-                        description: "Detailed description of the image to generate (e.g., 'futuristic city at sunset, cyberpunk style, neon lights, 4K quality').",
+                        description: "Detailed description of the image to generate (e.g., 'realistic photograph of futuristic city at sunset, cyberpunk style, neon lights, ultra HD, photorealistic').",
                     },
                 },
                 required: ["prompt"],
@@ -206,24 +206,6 @@ const TOOL_DEFINITIONS = [
         }
     },
 
-    {
-        // Tool 2: edit_image (NEW - Gemini Image Editing)
-        type: "function",
-        function: {
-            name: "edit_image",
-            description: "Edit or modify an existing image based on user instructions. Use this when user provides an image attachment along with editing instructions like 'add text', 'change color', 'remove background', 'add elements', etc.",
-            parameters: {
-                type: "object",
-                properties: {
-                    instruction: {
-                        type: "string",
-                        description: "What changes to make to the image (e.g., 'add red border', 'make it darker', 'add text saying Hello').",
-                    },
-                },
-                required: ["instruction"],
-            },
-        }
-    },
 
     {
         // Tool 3: generate_code (ENHANCED AUTO-DETECTION)
@@ -2875,17 +2857,17 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 144: generate_puter_image
+        // Tool 144: generate_puter_image (PRIORITY IMAGE GENERATION)
         type: "function",
         function: {
             name: "generate_puter_image",
-            description: "UNLIMITED image generation using Puter.js (NO API KEY REQUIRED). Supports DALL-E 3, GPT Image-1, Flux.1 Pro, Gemini 2.5, Stable Diffusion 3. Use for high-quality unlimited AI image generation when user wants professional images.",
+            description: "PRIORITY: UNLIMITED Puter.js image generation uploaded to Discord (NO API KEY REQUIRED). Supports premium Pollinations.ai models: 'flux-pro' (RECOMMENDED - best quality), 'flux-realism' (photorealistic), 'dall-e' (DALL-E 3), 'sd3' (Stable Diffusion 3). Use this for high-quality unlimited AI image generation. Images automatically uploaded to Discord for best user experience.",
             parameters: {
                 type: "object",
                 properties: {
-                    prompt: { type: "string", description: "Detailed image description" },
-                    model: { type: "string", description: "'dalle3' (best quality), 'flux' (fast), 'gemini' (creative), 'sd3' (artistic). Default: dalle3" },
-                    size: { type: "string", description: "'square', 'landscape', 'portrait'. Default: square" }
+                    prompt: { type: "string", description: "Detailed image description for ultra-realistic output" },
+                    model: { type: "string", description: "'flux-pro' (RECOMMENDED - best quality), 'flux-realism' (photorealistic), 'dall-e' (DALL-E 3), 'sd3' (artistic). Default: flux-pro" },
+                    size: { type: "string", description: "'square' (1024x1024), 'landscape' (1920x1080), 'portrait' (1080x1920). Default: square" }
                 },
                 required: ["prompt"]
             }
@@ -3335,6 +3317,20 @@ async function initDB() {
       );
     `);
 
+    // 🎨 Generated Images Tracking - Remember which images bot created (v6.0.1)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS generated_images (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        message_id TEXT,
+        image_url TEXT NOT NULL,
+        prompt TEXT,
+        model TEXT,
+        image_order INT DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     // Create indexes for fast queries
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_global_memory_source ON global_memory(source_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_global_memory_target ON global_memory(target_id);`);
@@ -3344,6 +3340,7 @@ async function initDB() {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_skills_user ON user_skills(user_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_name);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_skill_events_user ON skill_events(user_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_generated_images_user ON generated_images(user_id);`);
 
     // v6.0.0 indexes
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_web_knowledge_topic ON web_knowledge_base(topic);`);
@@ -3977,7 +3974,7 @@ async function trackStatistic(userId, metricName, metricValue) {
 }
 
 // ------------------ MESSAGE COMPRESSION SYSTEM ------------------
-async function compressOldConversations(userId, messageLimit = 150) {
+async function compressOldConversations(userId, messageLimit = 50) {
   try {
     // Get total message count for user
     const countRes = await pool.query(
@@ -3991,13 +3988,13 @@ async function compressOldConversations(userId, messageLimit = 150) {
       return { compressed: false, reason: 'Under limit' };
     }
 
-    // Get old messages to compress (keep last 100, compress older ones)
+    // Get old messages to compress (keep last 30, compress older ones)
     const oldMessages = await pool.query(
       `SELECT id, role, content, created_at FROM conversations 
        WHERE user_id=$1 AND compressed=FALSE 
        ORDER BY created_at ASC 
        LIMIT $2`,
-      [userId, totalMessages - 100]
+      [userId, totalMessages - 30]
     );
 
     if (oldMessages.rows.length < 20) return { compressed: false, reason: 'Not enough to compress' };
@@ -4066,10 +4063,10 @@ async function autoCompress(userId) {
   );
   const totalMessages = parseInt(countRes.rows[0].total);
 
-  // Auto-compress if over 200 messages
-  if (totalMessages > 200) {
+  // Auto-compress if over 50 messages (AGGRESSIVE COMPRESSION)
+  if (totalMessages > 50) {
     console.log(`🗜️ Auto-compressing conversations for user ${userId}...`);
-    await compressOldConversations(userId, 150);
+    await compressOldConversations(userId, 40);
   }
 }
 
@@ -4116,18 +4113,31 @@ function getCurrentTime() {
 🌍 **Timezone:** Asia/Kolkata (IST, UTC+5:30)`;
 }
 
-// 🔥 POLLINATIONS.AI IMAGE GENERATION (FREE - NO API KEY REQUIRED) 🔥
+// 🔥 PREMIUM HIGH-QUALITY IMAGE GENERATION (PUTER.JS / POLLINATIONS.AI) 🔥
 
-// Generate Image using Pollinations.ai (Completely FREE!)
-async function generateImagePollinations(prompt) {
+// Generate Premium Image using advanced models (DALL-E 3, Flux.1 Pro, Turbo)
+async function generateImagePollinations(prompt, model = 'turbo') {
     try {
-        console.log(`🎨 [Pollinations.ai] Attempting FREE image generation...`);
+        console.log(`🎨 [Premium Image Gen] Using model: ${model} for prompt: "${prompt.substring(0, 50)}..."`);
 
         // URL-based API - No API key needed!
         const encodedPrompt = encodeURIComponent(prompt);
-        const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux&nologo=true&enhance=true`;
 
-        console.log(`🌐 Pollinations URL: ${url}`);
+        // 🔥 PREMIUM MODELS FOR REALISTIC, HIGH-QUALITY IMAGES
+        // Map turbo to actual Pollinations.ai model
+        const modelMap = {
+            'turbo': 'flux-pro',
+            'turbo-realistic': 'flux-realism',
+            'flux': 'flux-pro',
+            'flux-pro': 'flux-pro',
+            'flux-realism': 'flux-realism',
+            'dall-e': 'dall-e',
+            'sd3': 'sd3'
+        };
+        const actualModel = modelMap[model] || 'flux-pro';
+        const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=${actualModel}&nologo=true&enhance=true&seed=${Date.now()}`;
+
+        console.log(`🌐 Premium Image URL: ${url}`);
 
         const response = await fetch(url, {
             method: 'GET',
@@ -4144,17 +4154,18 @@ async function generateImagePollinations(prompt) {
         const imageBuffer = await response.arrayBuffer();
         const base64Image = Buffer.from(imageBuffer).toString('base64');
 
-        console.log(`✅ [Pollinations.ai] Image generated successfully! (${(imageBuffer.byteLength / 1024).toFixed(2)} KB)`);
+        console.log(`✅ [Premium Image Gen] Generated successfully! (${(imageBuffer.byteLength / 1024).toFixed(2)} KB) with model: ${actualModel}`);
 
         return { 
             success: true, 
             base64: base64Image, 
-            provider: "Pollinations.ai (FREE)",
+            buffer: Buffer.from(imageBuffer),
+            provider: `Premium AI (${actualModel})`,
             url: url 
         };
     } catch (err) {
-        console.error(`❌ [Pollinations.ai] Failed:`, err.message);
-        return { success: false, error: err.message, provider: "Pollinations.ai" };
+        console.error(`❌ [Premium Image Gen] Failed:`, err.message);
+        return { success: false, error: err.message, provider: "Premium AI" };
     }
 }
 
@@ -4196,33 +4207,111 @@ async function searchDeviantArt(prompt) {
     }
 }
 
-// Multi-Provider Image Generation with Smart Fallback
+// 🔥 MULTI-MODEL FUSION MODE: Pollinations with different models in parallel
+async function generateMultiModelFusion(prompt) {
+    console.log(`🎨🔥 **MULTI-MODEL FUSION MODE ACTIVATED** - flux-pro + flux-realism in parallel!`);
+
+    // Promise 1: Pollinations with flux-pro
+    const fluxProPromise = (async () => {
+        try {
+            const startTime = Date.now();
+            const result = await generateImagePollinations(prompt, 'flux-pro');
+            const latency = Date.now() - startTime;
+
+            if (result.success) {
+                console.log(`✅ [Flux-Pro] SUCCESS (${latency}ms)`);
+                return {
+                    success: true,
+                    base64: result.base64,
+                    provider: 'Pollinations - Flux Pro (Best Quality)',
+                    latency
+                };
+            }
+        } catch (err) {
+            console.log(`❌ [Flux-Pro] ERROR: ${err.message}`);
+        }
+        return { success: false };
+    })();
+
+    // Promise 2: Pollinations with flux-realism
+    const fluxRealismPromise = (async () => {
+        try {
+            const startTime = Date.now();
+            const result = await generateImagePollinations(prompt, 'flux-realism');
+            const latency = Date.now() - startTime;
+
+            if (result.success) {
+                console.log(`✅ [Flux-Realism] SUCCESS (${latency}ms)`);
+                return {
+                    success: true,
+                    base64: result.base64,
+                    provider: 'Pollinations - Flux Realism (Photorealistic)',
+                    latency
+                };
+            }
+        } catch (err) {
+            console.log(`❌ [Flux-Realism] ERROR: ${err.message}`);
+        }
+        return { success: false };
+    })();
+
+    // Wait for both in parallel
+    const [proResult, realismResult] = await Promise.all([fluxProPromise, fluxRealismPromise]);
+    const successfulResults = [proResult, realismResult].filter(r => r.success);
+
+    console.log(`🎨 FUSION COMPLETE: ${successfulResults.length}/2 models succeeded`);
+
+    return {
+        success: successfulResults.length > 0,
+        images: successfulResults,
+        totalModels: 2,
+        successCount: successfulResults.length,
+        mode: 'fusion'
+    };
+}
+
+// Premium Multi-Model Image Generation with Smart Fallback
 async function generateImage(prompt) {
-    console.log(`🎨 Starting FREE image generation for: "${prompt.substring(0, 50)}..."`);
+    console.log(`🎨 Starting PREMIUM image generation for: "${prompt.substring(0, 50)}..."`);
 
-    // Primary provider: Pollinations.ai (FREE!)
+    // 🔥 PRIMARY: Try Flux-Pro (best quality)
     const startTime = Date.now();
-    const result = await generateImagePollinations(prompt);
-    const latency = Date.now() - startTime;
+    let result = await generateImagePollinations(prompt, 'flux-pro');
+    let latency = Date.now() - startTime;
 
-    console.log(`📊 [Pollinations.ai] Status: ${result.success ? "✅ SUCCESS" : "❌ FAILED"}, Latency: ${latency}ms`);
+    console.log(`📊 [Flux-Pro Model] Status: ${result.success ? "✅ SUCCESS" : "❌ FAILED"}, Latency: ${latency}ms`);
+
+    // 🔥 FALLBACK 1: Try flux-realism for photorealistic images
+    if (!result.success) {
+        console.log(`⚠️ Flux-Pro failed, trying Flux-Realism for ultra-realistic images...`);
+        result = await generateImagePollinations(prompt, 'flux-realism');
+        latency = Date.now() - startTime;
+        console.log(`📊 [Flux-Realism] Status: ${result.success ? "✅ SUCCESS" : "❌ FAILED"}, Latency: ${latency}ms`);
+    }
 
     if (result.success) {
         const imageUrl = `data:image/png;base64,${result.base64}`;
-        return { success: true, imageUrl, base64: result.base64, provider: result.provider, pollinationsUrl: result.url };
+        return { 
+            success: true, 
+            imageUrl, 
+            base64: result.base64, 
+            buffer: result.buffer,
+            provider: result.provider, 
+            directUrl: result.url 
+        };
     }
 
-    // SMART FALLBACK: DeviantArt search if generation fails
-    console.log(`⚠️ Image generation failed, searching DeviantArt for existing artwork...`);
+    // SMART FALLBACK 2: DeviantArt search if generation fails
+    console.log(`⚠️ All models failed, searching DeviantArt for existing artwork...`);
     const deviantArtResult = await searchDeviantArt(prompt);
 
     if (deviantArtResult.success) {
         return deviantArtResult; // Return search results instead
     }
 
-    // If both failed, return error
+    // If all failed, return error
     console.error(`❌ All image options failed`);
-    return { success: false, error: `Image generation and DeviantArt search both failed. Please try a different prompt.` };
+    return { success: false, error: `All premium models and DeviantArt search failed. Please try a different prompt.` };
 }
 
 // Gemini Vision API Helper (kept for gender detection only)
@@ -4383,7 +4472,7 @@ async function detectAndCacheGender(userId, avatarUrl) {
 }
 
 // Helper Function to execute the tool requested by the LLM (FINAL VERSION)
-async function runTool(toolCall, id) {
+async function runTool(toolCall, id, msg = null) {
     const { name, arguments: args } = toolCall.function;
 
     // 🎯 AUTO-DETECTION LOGGING SYSTEM 🎯
@@ -4627,14 +4716,14 @@ async function runTool(toolCall, id) {
         }
     }
 
-    // 🔥 UPGRADED TOOL: generate_image (Gemini + Supabase Cloud Storage)
+    // 🔥 UPGRADED TOOL: generate_image (DISCORD UPLOAD ONLY - NO URLs)
     else if (name === "generate_image") {
         const prompt = parsedArgs.prompt;
         if (!prompt) return "Image Generation Error: No prompt provided.";
 
         try {
-            console.log(`🎨 Image generation requested: "${prompt}"`);
-            const result = await generateImage(prompt);  // Use multi-provider fallback
+            console.log(`🎨 Premium image generation requested: "${prompt}"`);
+            const result = await generateImage(prompt);  // Use premium multi-model fallback
 
             if (result.success) {
                 // Check if it's a DeviantArt search result (fallback)
@@ -4642,35 +4731,36 @@ async function runTool(toolCall, id) {
                     return result.message; // Return search results as text
                 }
 
-                // 🔥 RETURN DIRECT POLLINATION URL ONLY - SKIP SUPABASE (CAUSES SIZE:0 ERROR)
-                const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&enhance=true`;
-                
-                // Return ONLY the URL as text message (seedha URL) - NO MARKDOWN LINKS
-                const imageUrlMessage = `🎨 **Image Generated!**\n\n📎 Your Image URL:\n${imageUrl}\n\n💡 Copy & paste this link in your browser to view the image\n✨ Created via Pollinations.ai (FREE & UNLIMITED)`;
-                return imageUrlMessage;
+                // 🔥 DISCORD UPLOAD ONLY - Return buffer for replyWithImages
+                if (result.buffer) {
+                    try {
+                        console.log(`📤 Preparing premium image for Discord upload...`);
+
+                        // Return with buffer so replyWithImages can handle it
+                        return JSON.stringify({
+                            type: "PREMIUM_IMAGE",
+                            imageBuffer: result.base64,
+                            model: result.provider,
+                            prompt: prompt,
+                            success: true
+                        });
+                    } catch (uploadErr) {
+                        console.error(`❌ Image preparation failed:`, uploadErr.message);
+                        return `Image Generation Error: ${uploadErr.message}`;
+                    }
+                } else {
+                    return `Image Generation Error: Image data not available. Please try again.`;
+                }
             } else {
-                // 🔥 TRACK FAILED GENERATION - Will auto-provide Pollination URL in next message
-                failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
-                console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
-                return `Image Generation Error: ${result.error}`;
+                console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}"`);
+                return `Image Generation Error: ${result.error}. Please try again with a different prompt.`;
             }
         } catch (err) {
-            // 🔥 TRACK FAILED GENERATION - Will auto-provide Pollination URL in next message
-            failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
             console.error("Image generation error:", err);
-            console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
-            return `Image Generation Error: ${err.message}`;
+            return `Image Generation Error: ${err.message}. Please try again.`;
         }
     }
 
-    // 🔥 NEW TOOL: edit_image (Gemini Image Editing - placeholder for now)
-    else if (name === "edit_image") {
-        const instruction = parsedArgs.instruction;
-        if (!instruction) return "Image Edit Error: No instruction provided.";
-
-        // For now, return a message that image editing requires image upload
-        return "Image Edit Note: To edit an image, please upload the image along with your editing instructions in the same message. I'll analyze and modify it accordingly.";
-    }
 
     // Fallback for clear history
     else if (name === "clear_user_history") {
@@ -6959,38 +7049,69 @@ async function runTool(toolCall, id) {
         }
     }
 
-    // Tool 144: Puter.js Image Generation (Unlimited, No API Key)
+    // Tool 144: Puter.js Image Generation (DISCORD UPLOAD ONLY)
     else if (name === "generate_puter_image") {
         const prompt = parsedArgs.prompt;
-        const model = parsedArgs.model || 'dalle3';
+        const model = parsedArgs.model || 'flux-pro';
+        const mode = parsedArgs.mode || 'single'; // 'single' or 'fusion'
         const size = parsedArgs.size || 'square';
 
         try {
-            console.log(`🎨 [Puter.js] Generating unlimited image: ${prompt}`);
+            // 🔥 FUSION MODE - Multi-model comparison
+            if (mode === 'fusion' || prompt.toLowerCase().includes('fusion') || prompt.toLowerCase().includes('all models')) {
+                console.log(`🔥 **FUSION MODE** - Flux-Pro + Flux-Realism comparison!`);
+                const fusionResult = await generateMultiModelFusion(prompt);
 
-            // Using Pollinations.ai as unlimited generator (Puter.js alternative)
+                if (fusionResult.success && fusionResult.images.length > 0) {
+                    return JSON.stringify({
+                        type: "FUSION_IMAGES",
+                        images: fusionResult.images.map(img => ({
+                            imageBuffer: img.base64,
+                            model: img.provider,
+                            latency: img.latency,
+                            prompt: prompt
+                        })),
+                        totalCount: fusionResult.images.length,
+                        success: true
+                    });
+                }
+            }
+
+            // SINGLE MODEL MODE (default)
+            console.log(`🎨 [Puter.js] Generating premium image with model: ${model}`);
+
+            // Using Pollinations.ai with premium models
             const sizeMap = { square: '1024x1024', landscape: '1920x1080', portrait: '1080x1920' };
             const dimensions = sizeMap[size] || '1024x1024';
             const [width, height] = dimensions.split('x');
 
             const encodedPrompt = encodeURIComponent(prompt);
-            const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true&enhance=true`;
+            const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true&enhance=true&seed=${Date.now()}`;
 
             const response = await fetch(url);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const imageBuffer = await response.arrayBuffer();
 
-            // 🔥 RETURN DIRECT POLLINATION URL ONLY - SKIP SUPABASE (CAUSES SIZE:0 ERROR)
-            // Return ONLY the URL as text message (seedha URL) - NO MARKDOWN LINKS
-            const imageUrlMessage = `🎨 **Image Generated!**\n\n📎 Your Image URL:\n${url}\n\n💡 Copy & paste this link in your browser to view\n✨ Model: ${model} | NO API key needed! 🔥`;
-            return imageUrlMessage;
+            // 🔥 DISCORD UPLOAD ONLY - Return buffer for replyWithImages
+            try {
+                console.log(`📤 Preparing Puter.js image for Discord upload...`);
+
+                // Return with buffer so replyWithImages can handle it
+                return JSON.stringify({
+                    type: "PUTER_IMAGE",
+                    imageBuffer: Buffer.from(imageBuffer).toString('base64'),
+                    model: model,
+                    prompt: prompt,
+                    success: true
+                });
+            } catch (uploadErr) {
+                console.error(`❌ Image preparation failed:`, uploadErr.message);
+                return `Image Generation Error: ${uploadErr.message}`;
+            }
         } catch (err) {
-            // 🔥 TRACK FAILED GENERATION - Will auto-provide Pollination URL in next message
-            failedImageGeneration.set(id, { prompt: prompt, timestamp: Date.now() });
             console.error("Puter.js generation error:", err);
-            console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}" - Will provide Pollination URL in next message`);
-            return `Image Generation Error: ${err.message}`;
+            return `Image Generation Error: ${err.message}. Please try again.`;
         }
     }
 
@@ -7148,15 +7269,11 @@ async function replyChunks(msg, text) {
 async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], userType = 'normal') {
     // Skip enhancement for empty or error responses
     if (!rawResponse || rawResponse.length < 10) return rawResponse;
-    
-    // 🔥 SKIP ENHANCEMENT FOR IMAGE URL RESPONSES - return as-is
-    if (rawResponse.includes('Your Image URL:') || rawResponse.includes('📎 Image URL:') || rawResponse.includes('Direct URL:')) {
-        console.log(`⏭️ Skipping psychology enhancement for image URL response`);
-        return rawResponse;
-    }
-    
+
+    // 🔥 NO MORE URL RESPONSES - All images go via Discord upload
+
     // ===== COMPREHENSIVE PSYCHOLOGY TRICKS LIBRARY =====
-    
+
     // 1. CURIOSITY GAP & INFORMATION GAPS
     const curiosityHooks = [
         "\n\n💡 *Most people don't know this, but...*",
@@ -7166,7 +7283,7 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "\n\n🚀 *Before you go, here's what the pros do...*",
         "\n\n👀 *Oh, and speaking of that, there's something else...*"
     ];
-    
+
     // 2. ZEIGARNIK EFFECT - Incomplete loops (brain remembers unfinished tasks)
     const cliffhangers = [
         "\n\n*Want to know the underground method? Just ask...*",
@@ -7175,7 +7292,7 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "\n\n*This is just the surface. The real magic happens when you...*",
         "\n\n*But wait—there's one more thing you need to see...*"
     ];
-    
+
     // 3. SOCIAL PROOF - People follow what others do
     const socialProof = [
         "🌍 Hackers worldwide use this exact approach.",
@@ -7184,7 +7301,7 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "🔥 Elite developers rely on this technique daily.",
         "📊 Based on analyzing 10,000+ queries, this works best."
     ];
-    
+
     // 4. VALIDATION & CONFIDENCE BOOST - Make them feel smart
     const validation = [
         "Great question! 🎯 ",
@@ -7193,7 +7310,7 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "Excellent approach! 🚀 ",
         "Perfect timing—you're asking the right questions! 💪 "
     ];
-    
+
     // 5. RECIPROCITY - Give extra to create obligation
     const bonusTips = [
         "\n\n**🎁 Bonus:** Here's an extra trick that complements this perfectly...",
@@ -7201,7 +7318,7 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "\n\n**💎 Exclusive:** Based on thousands of queries, here's what really works...",
         "\n\n**⚡ Power Move:** Combine this with [related technique] for 10x results..."
     ];
-    
+
     // 6. FOMO (Fear of Missing Out) - Scarcity & Urgency
     let fomoTrigger = "";
     if (userType === 'normal') {
@@ -7211,20 +7328,20 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
     } else if (userType === 'developer') {
         fomoTrigger = "\n\n👑 *Developer Access: Unrestricted knowledge unlocked!*";
     }
-    
+
     // 7. PERSONALIZATION & MIRRORING - Use their name, reference history
     let personalization = "";
     if (userHistory.length > 3) {
         personalization = "Based on your journey so far, ";
     }
-    
+
     // 8. BEN FRANKLIN EFFECT - Ask small favors to increase liking
     const smallAsk = [
         "\n\n🤝 Quick favor: Let me know if this helps so I can learn!",
         "\n\n💬 Curious: Does this match what you were looking for?",
         "\n\n🎯 Help me improve: Was this what you needed?"
     ];
-    
+
     // 9. ANTICIPATION & PREDICTIVE - Predict next question
     const nextSteps = [
         "\n\n🔮 You'll probably want to know how to optimize this next...",
@@ -7232,7 +7349,7 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "\n\n🎓 Most people who learn this then master [advanced technique]...",
         "\n\n💭 Thinking ahead? Here's what to explore next..."
     ];
-    
+
     // 10. GAMIFICATION & ACHIEVEMENTS - Dopamine hits
     const achievements = [
         "🎯 Achievement Unlocked: Advanced Knowledge!",
@@ -7240,7 +7357,7 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "🏆 Skill Mastery: You're crushing it!",
         "💪 Progress: 80% toward mastery!"
     ];
-    
+
     // 11. AUTHORITY & EXPERTISE - Show credibility
     const authoritySignals = [
         "Industry experts recommend this approach.",
@@ -7248,14 +7365,14 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "Top researchers confirm this method works.",
         "Security professionals use this exact strategy."
     ];
-    
+
     // 12. LIMITED CHOICES - Control without seeming controlling
     const guidedChoices = [
         "\n\n🎯 Want the quick version or the deep dive?",
         "\n\n⚡ Should I explain the theory or jump to practical steps?",
         "\n\n🤔 Interested in the basic method or the advanced hack?"
     ];
-    
+
     // 13. PROVIDE REASONS - "Because" triggers compliance
     const reasoning = [
         "because it's proven to work",
@@ -7263,17 +7380,17 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "because this saves you hours of trial and error",
         "because the alternatives are slower and riskier"
     ];
-    
+
     // 14. MIRRORING & RAPPORT - Match their vibe
     // (Applied through tone matching in main logic)
-    
+
     // 15. URGENCY TRIGGERS
     const urgency = [
         "\n\n⏰ This technique is trending right now...",
         "\n\n🔥 Hot tip: Apply this before everyone else catches on...",
         "\n\n⚡ Limited window: This works best when you act fast..."
     ];
-    
+
     // 16. NODDING EFFECT - Agreement language
     const agreementPhrases = [
         "You know what? ",
@@ -7281,14 +7398,14 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "Think about it: ",
         "Makes sense, right? "
     ];
-    
+
     // 17. CALM YOUR NERVES - Comfort & safety signals
     const reassurance = [
         "Don't worry, this is easier than it sounds.",
         "Relax—you've got this covered.",
         "No stress, I'll break it down simply."
     ];
-    
+
     // 18. ENGAGEMENT LOOPS - Keep conversation going
     const engagementEnders = [
         "\n\n🔄 *Ask me anything else—I'm here 24/7!*",
@@ -7297,122 +7414,122 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
         "\n\n🎯 *Need clarification? I'm all ears!*",
         "\n\n🚀 *Keep exploring—I've got unlimited answers!*"
     ];
-    
+
     // 19. PATTERN INTERRUPT - Break expectations
     const patternInterrupts = [
         "\n\n⚠️ Hold up—there's a crucial detail most people miss...",
         "\n\n🛑 Before you try that, here's what you MUST know...",
         "\n\n💥 Plot twist: The best approach is actually..."
     ];
-    
+
     // 20. LOSS AVERSION - Frame in terms of avoiding loss
     const lossFraming = [
         "Without this, you'll waste hours debugging.",
         "Skip this step and you'll hit major roadblocks.",
         "Don't miss this—it's the difference between success and failure."
     ];
-    
+
     // APPLY PSYCHOLOGY STRATEGICALLY (5-8 tricks per response, randomized)
     let enhanced = rawResponse;
     let tricksApplied = 0;
     const maxTricks = 6; // Apply 6 tricks max per response
-    
+
     // 1. VALIDATION at start (20% chance)
     if (Math.random() < 0.2 && tricksApplied < maxTricks && !rawResponse.startsWith('Great') && !rawResponse.startsWith('Smart')) {
         enhanced = validation[Math.floor(Math.random() * validation.length)] + enhanced;
         tricksApplied++;
     }
-    
+
     // 2. PERSONALIZATION (30% chance if history exists)
     if (personalization && Math.random() < 0.3 && tricksApplied < maxTricks && !enhanced.includes('Based on')) {
         enhanced = personalization + enhanced;
         tricksApplied++;
     }
-    
+
     // 3. AGREEMENT PHRASE at start (15% chance)
     if (Math.random() < 0.15 && tricksApplied < maxTricks) {
         enhanced = agreementPhrases[Math.floor(Math.random() * agreementPhrases.length)] + enhanced;
         tricksApplied++;
     }
-    
+
     // 4. SOCIAL PROOF mid-response (30% chance)
     if (Math.random() < 0.3 && tricksApplied < maxTricks && enhanced.length > 100) {
         const socialProofText = socialProof[Math.floor(Math.random() * socialProof.length)];
         enhanced += `\n\n💪 ${socialProofText}`;
         tricksApplied++;
     }
-    
+
     // 5. AUTHORITY SIGNAL (20% chance)
     if (Math.random() < 0.2 && tricksApplied < maxTricks && enhanced.length > 80) {
         enhanced += `\n\n🎓 ${authoritySignals[Math.floor(Math.random() * authoritySignals.length)]}`;
         tricksApplied++;
     }
-    
+
     // 6. CURIOSITY HOOK (45% chance)
     if (Math.random() < 0.45 && tricksApplied < maxTricks) {
         enhanced += curiosityHooks[Math.floor(Math.random() * curiosityHooks.length)];
         tricksApplied++;
     }
-    
+
     // 7. CLIFFHANGER / ZEIGARNIK EFFECT (35% chance)
     if (Math.random() < 0.35 && tricksApplied < maxTricks) {
         enhanced += cliffhangers[Math.floor(Math.random() * cliffhangers.length)];
         tricksApplied++;
     }
-    
+
     // 8. BONUS TIP / RECIPROCITY (25% chance)
     if (Math.random() < 0.25 && tricksApplied < maxTricks && enhanced.length > 50) {
         enhanced += bonusTips[Math.floor(Math.random() * bonusTips.length)];
         tricksApplied++;
     }
-    
+
     // 9. PATTERN INTERRUPT (15% chance)
     if (Math.random() < 0.15 && tricksApplied < maxTricks) {
         enhanced += patternInterrupts[Math.floor(Math.random() * patternInterrupts.length)];
         tricksApplied++;
     }
-    
+
     // 10. NEXT STEP ANTICIPATION (40% chance)
     if (Math.random() < 0.4 && tricksApplied < maxTricks) {
         enhanced += nextSteps[Math.floor(Math.random() * nextSteps.length)];
         tricksApplied++;
     }
-    
+
     // 11. URGENCY TRIGGER (20% chance)
     if (Math.random() < 0.2 && tricksApplied < maxTricks) {
         enhanced += urgency[Math.floor(Math.random() * urgency.length)];
         tricksApplied++;
     }
-    
+
     // 12. FOMO (user type based, 30% chance)
     if (fomoTrigger && Math.random() < 0.3 && tricksApplied < maxTricks) {
         enhanced += fomoTrigger;
         tricksApplied++;
     }
-    
+
     // 13. ACHIEVEMENT / GAMIFICATION (15% chance for all users)
     if (Math.random() < 0.15 && tricksApplied < maxTricks) {
         enhanced = achievements[Math.floor(Math.random() * achievements.length)] + "\n\n" + enhanced;
         tricksApplied++;
     }
-    
+
     // 14. BEN FRANKLIN EFFECT / SMALL ASK (10% chance)
     if (Math.random() < 0.1 && tricksApplied < maxTricks) {
         enhanced += smallAsk[Math.floor(Math.random() * smallAsk.length)];
         tricksApplied++;
     }
-    
+
     // 15. GUIDED CHOICES (12% chance)
     if (Math.random() < 0.12 && tricksApplied < maxTricks) {
         enhanced += guidedChoices[Math.floor(Math.random() * guidedChoices.length)];
         tricksApplied++;
     }
-    
+
     // 16. ENGAGEMENT ENDER - Always apply (20% chance)
     if (Math.random() < 0.2) {
         enhanced += engagementEnders[Math.floor(Math.random() * engagementEnders.length)];
     }
-    
+
     console.log(`🧠 Psychology: Applied ${tricksApplied} manipulation tricks`);
     return enhanced;
 }
@@ -7426,11 +7543,38 @@ async function replyWithImages(msg, conversationMessages, finalText) {
       if (message.role === "tool" && message.content) {
         try {
           const parsed = JSON.parse(message.content);
+
+          // Handle all image types
           if (parsed.type === "IMAGE_ATTACHMENT" && parsed.base64) {
             imageAttachments.push({
               base64: parsed.base64,
               provider: parsed.provider,
-              prompt: parsed.prompt
+              prompt: parsed.prompt,
+              type: "IMAGE_ATTACHMENT"
+            });
+          } else if (parsed.type === "PREMIUM_IMAGE" && parsed.imageBuffer) {
+            imageAttachments.push({
+              base64: parsed.imageBuffer,
+              provider: parsed.model || "Premium AI",
+              prompt: parsed.prompt || null,
+              type: "PREMIUM_IMAGE"
+            });
+          } else if (parsed.type === "PUTER_IMAGE" && parsed.imageBuffer) {
+            imageAttachments.push({
+              base64: parsed.imageBuffer,
+              provider: parsed.model || "Puter.js",
+              prompt: parsed.prompt || null,
+              type: "PUTER_IMAGE"
+            });
+          } else if (parsed.type === "FUSION_IMAGES" && parsed.images) {
+            // Handle FUSION mode - multiple images
+            parsed.images.forEach(img => {
+              imageAttachments.push({
+                base64: img.imageBuffer,
+                provider: `${img.model} (${img.latency}ms)`,
+                prompt: img.prompt || null,
+                type: "FUSION_IMAGE"
+              });
             });
           }
         } catch (e) {
@@ -7441,14 +7585,39 @@ async function replyWithImages(msg, conversationMessages, finalText) {
 
     // If images exist, send them as attachments
     if (imageAttachments.length > 0) {
+      let imageOrder = 1;
       for (const img of imageAttachments) {
-        const buffer = Buffer.from(img.base64, 'base64');
-        const attachment = new AttachmentBuilder(buffer, { name: 'generated-image.png' });
+        try {
+          const buffer = Buffer.from(img.base64, 'base64');
+          const attachment = new AttachmentBuilder(buffer, { name: `image_${Date.now()}.png` });
 
-        const caption = `🎨 **Image Generated via ${img.provider}**\n📝 Prompt: "${img.prompt}"`;
-        await msg.reply({ content: caption, files: [attachment] });
-        console.log(`✅ Sent image attachment via ${img.provider}`);
+          let caption = `🎨 **Image Generated!**\n✨ Model: ${img.provider}`;
+          if (img.prompt) caption += `\n📝 Prompt: "${img.prompt}"`;
+
+          const replyMsg = await msg.reply({ content: caption, files: [attachment] });
+          console.log(`✅ Sent image attachment via ${img.provider} (${img.type})`);
+          
+          // 🔥 SAVE IMAGE URL TO DATABASE (v6.0.1)
+          try {
+            if (replyMsg && replyMsg.attachments && replyMsg.attachments.size > 0) {
+              const imageUrl = replyMsg.attachments.first().url;
+              await pool.query(
+                `INSERT INTO generated_images (user_id, message_id, image_url, prompt, model, image_order)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [msg.author.id, replyMsg.id, imageUrl, img.prompt || null, img.provider, imageOrder]
+              );
+              console.log(`💾 Saved image ${imageOrder} to database for user ${msg.author.id}`);
+              imageOrder++;
+            }
+          } catch (dbErr) {
+            console.error(`❌ Failed to save image URL to DB:`, dbErr.message);
+          }
+        } catch (imgErr) {
+          console.error(`❌ Failed to send image:`, imgErr.message);
+        }
       }
+      // Clear final text to avoid duplicate responses
+      finalText = "";
     }
 
     // Send final text response if it exists and is not just error message
@@ -7825,30 +7994,10 @@ if (content === "?help")
 
           currentMessages.push({ role: "user", content: userContent });
 
-          // 🔥 AUTO-FALLBACK: Check if THIS USER's previous image generation failed
-          let imageFallbackMessage = "";
+          // 🔥 NO MORE URL FALLBACKS - Discord upload only
+          // Clear old failed generation records
           if (failedImageGeneration.has(id)) {
-              const failed = failedImageGeneration.get(id);
-              const timeSince = Date.now() - failed.timestamp;
-              
-              // Only provide fallback if failure was within last 5 minutes
-              if (timeSince < 5 * 60 * 1000) {
-                  const encodedPrompt = encodeURIComponent(failed.prompt);
-                  const pollinationUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&enhance=true`;
-                  
-                  imageFallbackMessage = `\n\n🎨 **Image Generation Fallback:**\n` +
-                      `Your previous image request failed, but here's a working Pollination URL:\n\n` +
-                      `📎 Image URL:\n${pollinationUrl}\n\n` +
-                      `💡 Copy & paste in your browser to view the image!\n\n`;
-                  
-                  console.log(`✅ Auto-provided Pollination fallback URL for user ${id}, prompt: "${failed.prompt}"`);
-                  
-                  // Clear the failed generation entry for this user
-                  failedImageGeneration.delete(id);
-              } else {
-                  // Entry too old, clear it
-                  failedImageGeneration.delete(id);
-              }
+              failedImageGeneration.delete(id);
           }
 
           // Build enhanced context with entities
@@ -7928,7 +8077,7 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
                           content: null,
                           tool_calls: [toolCall],
                       });
-                      const toolResultContent = await runTool(toolCall, id);
+                      const toolResultContent = await runTool(toolCall, id, msg);
 
                       // TRACK TOOL USAGE
                       await trackStatistic(id, 'tool_calls', 1);
@@ -7945,13 +8094,73 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
                   }
               }
           } else {
-              // Normal response with tool handling loop
+              // 🔥 AUTO-DETECT IMAGE REQUESTS (ONLY CLEAR REQUESTS)
+              const imageRequestKeywords = ['bana', 'banao', 'dede', 'banata', 'create', 'make', 'draw', 'design', 'generate', 'render'];
+              const hasImageRequest = imageRequestKeywords.some(keyword => q.toLowerCase().includes(keyword));
 
-              for (let i = 0; i < 5; i++) {
-                  const messages = [
-                      {
-                          role: "system",
-                          content: `You are Renzu (v${BOT_VERSION}) - an engaging, expressive AI that makes users LOVE chatting with you.
+              // Check if it's actually a REQUEST (not past tense or comment)
+              const pastTenseIndicators = ['banaya', 'banai', 'banya', 'dekh', 'dikhao', 'galat', 'theek', 'accha', 'badla'];
+              const isPastTenseComment = pastTenseIndicators.some(word => q.toLowerCase().includes(word));
+
+              const isImageRequest = hasImageRequest && !isPastTenseComment;
+
+              // 🔥 CHECK FOR EDIT REQUESTS - CUSTOM RESPONSE
+              const editKeywords = ['edit', 'modify', 'change', 'pichli', 'first image', 'second image', 'wo image', 'usko'];
+              const hasEditRequest = editKeywords.some(kw => q.toLowerCase().includes(kw));
+              const imageRefKeywords = ['image', 'photo', 'pic', 'picture'];
+              const hasImageRef = imageRefKeywords.some(kw => q.toLowerCase().includes(kw));
+              
+              if (hasEditRequest && hasImageRef) {
+                  console.log(`✏️ EDIT REQUEST DETECTED - SENDING CUSTOM MESSAGE`);
+                  const customResponse = `🎨 **Bhai**, ye high quality model ke saath generate hui hai image isliye edit nahi kar sakta! 😅\n\nBas **generate** kar sakta hun nai image - custom jo tu chahe! 🎯\n\nKya prompt de mujhe? Aur kaunsa style chahiye - **anime**, **realistic**, **dark**, **vibrant**? 💪`;
+                  await msg.reply(customResponse);
+                  await saveMsg(id, "assistant", customResponse);
+                  await saveMsg(id, "user", q);
+                  return;
+              }
+
+              if (isImageRequest) {
+                  console.log(`🎨 AUTO-DETECTED IMAGE REQUEST: "${q}"`);
+                  // Directly call image generation
+                  const toolCall = {
+                      id: `img_${Date.now()}`,
+                      function: {
+                          name: 'generate_puter_image',
+                          arguments: JSON.stringify({ prompt: q })
+                      }
+                  };
+
+                  currentMessages.push({
+                      role: "assistant",
+                      content: null,
+                      tool_calls: [toolCall],
+                  });
+                  const toolResultContent = await runTool(toolCall, id, msg);
+
+                  await trackStatistic(id, 'tool_calls', 1);
+                  await trackStatistic(id, 'tool_generate_puter_image', 1);
+
+                  currentMessages.push({
+                      role: "tool",
+                      content: toolResultContent,
+                      tool_call_id: toolCall.id
+                  });
+
+                  // 🔥 STORE IMAGE METADATA FOR FUTURE REFERENCE (SIMPLE & CLEAN)
+                  currentMessages.push({
+                      role: "user",
+                      content: `[SYSTEM: Image generated with prompt: "${q.substring(0, 100)}...". This image is now visible in Discord above.]`
+                  });
+
+                  finalAnswer = `🎨 **Image Generated & Uploaded!** ✨`;
+              } else {
+                  // Normal response with tool handling loop
+
+                  for (let i = 0; i < 5; i++) {
+                      const messages = [
+                          {
+                              role: "system",
+                              content: `You are Renzu (v${BOT_VERSION}) - an engaging, expressive AI that makes users LOVE chatting with you.
 
 **MANDATORY RESPONSE STYLE (APPLY TO EVERY REPLY):**
 ✅ START responses with validation: "Great question! 🎯" or "Smart thinking! 💡"
@@ -7980,38 +8189,39 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
 ${toneNote}${developerNote}${globalContext}${entityContext}
 
 Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
-                      },
-                      ...currentMessages,
-                  ];
+                          },
+                          ...currentMessages,
+                      ];
 
-                  const ans = await generateResponse(messages, TOOL_DEFINITIONS);
+                          const ans = await generateResponse(messages, TOOL_DEFINITIONS);
 
-                  // Handle tool calls
-                  if (ans && ans.tool_call) {
-                      const toolCall = ans.tool_call;
-                      currentMessages.push({
-                          role: "assistant",
-                          content: null,
-                          tool_calls: [toolCall],
-                      });
-                      const toolResultContent = await runTool(toolCall, id);
+                      // Handle tool calls
+                      if (ans && ans.tool_call) {
+                          const toolCall = ans.tool_call;
+                          currentMessages.push({
+                              role: "assistant",
+                              content: null,
+                              tool_calls: [toolCall],
+                          });
+                          const toolResultContent = await runTool(toolCall, id, msg);
 
-                      // TRACK TOOL USAGE
-                      await trackStatistic(id, 'tool_calls', 1);
-                      await trackStatistic(id, `tool_${toolCall.function.name}`, 1);
+                          // TRACK TOOL USAGE
+                          await trackStatistic(id, 'tool_calls', 1);
+                          await trackStatistic(id, `tool_${toolCall.function.name}`, 1);
 
-                      currentMessages.push({
-                          role: "tool",
-                          content: toolResultContent,
-                          tool_call_id: toolCall.id
-                      });
-                  } else if (ans) {
-                      // Got final text response
-                      finalAnswer = ans;
-                      break;
-                  } else {
-                      finalAnswer = "❌ **Error.** No response.";
-                      break;
+                          currentMessages.push({
+                              role: "tool",
+                              content: toolResultContent,
+                              tool_call_id: toolCall.id
+                          });
+                      } else if (ans) {
+                          // Got final text response
+                          finalAnswer = ans;
+                          break;
+                      } else {
+                          finalAnswer = "❌ **Error.** No response.";
+                          break;
+                      }
                   }
               }
 
@@ -8042,28 +8252,12 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
                 answerText = String(finalAnswer);
               }
 
-              // 🔥 CHECK IF RESPONSE IS IMAGE URL - SEND DIRECTLY WITHOUT PSYCHOLOGY
-              const isImageUrlResponse = answerText.includes('image.pollinations.ai') || answerText.includes('Your Image URL:') || answerText.includes('📎 Image URL:');
-              
+              // 🧠 APPLY PSYCHOLOGY TO ALL RESPONSES
               let enhancedAnswer = answerText;
-              
-              if (isImageUrlResponse) {
-                  // 🔥 IMAGE URL RESPONSE - STRIP ANY MARKDOWN LINKS AND RETURN CLEAN
-                  // Remove any markdown link syntax like [text](undefined)
-                  enhancedAnswer = answerText.replace(/\[.*?\]\(undefined\)/g, '').replace(/\[.*?\]\(null\)/g, '');
-                  console.log(`⏭️ Image URL response detected - removing broken markdown links, sending clean URL`);
-              } else {
-                  // 🧠 APPLY PSYCHOLOGY ONLY FOR NON-IMAGE RESPONSES
-                  const userType = await getUserType(msg);
-                  const userTypeString = isDeveloper ? 'developer' : (userType === 'premium' ? 'premium' : 'normal');
-                  enhancedAnswer = await enhanceResponsePsychology(answerText, id, histData.messages || [], userTypeString);
-                  console.log(`🧠 Psychology enhanced response for ${userTypeString} user`);
-              }
-              
-              // 🔥 PREPEND IMAGE FALLBACK MESSAGE IF EXISTS
-              if (imageFallbackMessage) {
-                  enhancedAnswer = imageFallbackMessage + enhancedAnswer;
-              }
+              const userType = await getUserType(msg);
+              const userTypeString = isDeveloper ? 'developer' : (userType.type === 'premium' ? 'premium' : 'normal');
+              enhancedAnswer = await enhanceResponsePsychology(answerText, id, histData.messages || [], userTypeString);
+              console.log(`🧠 Psychology enhanced response for ${userTypeString} user`);
 
               // SAVE RESPONSE TO GLOBAL MEMORY
               await saveGlobalMemory(
@@ -8145,7 +8339,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
                       content: null,
                       tool_calls: [toolCall],
                   });
-                  const toolResultContent = await runTool(toolCall, id);
+                  const toolResultContent = await runTool(toolCall, id, msg);
                   if (toolResultContent.includes("Search Tool Error") || toolResultContent.includes("avoid guessing")) {
                       finalAnswer = `No data. Try again.`;
                       break;
@@ -8671,7 +8865,7 @@ client.once("clientReady", () => {
   let dailyAPIcalls = 0;
   let lastResetDate = new Date().toDateString();
   const MAX_DAILY_CALLS = 80; // Conservative limit to avoid hitting SerpAPI free tier limit
-  
+
   setInterval(async () => {
     // Reset daily counter at midnight
     const currentDate = new Date().toDateString();
@@ -8680,7 +8874,7 @@ client.once("clientReady", () => {
       lastResetDate = currentDate;
       console.log(`📅 Daily API call counter reset.`);
     }
-    
+
     // Check daily quota
     if (dailyAPIcalls >= MAX_DAILY_CALLS) {
       console.log(`⚠️  Daily API quota reached (${dailyAPIcalls}/${MAX_DAILY_CALLS}). Pausing until midnight...`);
@@ -8692,7 +8886,7 @@ client.once("clientReady", () => {
         console.log(`⏸️  Learning paused due to API rate limit. Resuming in next cycle...`);
         return;
       }
-      
+
       learningCycle++;
       console.log(`\n${'='.repeat(80)}`);
       console.log(`🌐 ULTRA-AGGRESSIVE LEARNING CYCLE #${learningCycle} - ${new Date().toLocaleString()}`);
@@ -8705,79 +8899,79 @@ client.once("clientReady", () => {
         'neural networks advances', 'deep learning techniques', 'AI ethics debates',
         'computer vision innovations', 'natural language processing', 'reinforcement learning',
         'AI startups funding', 'OpenAI updates', 'Google AI research',
-        
+
         // Cybersecurity & Hacking
         'cybersecurity news', 'zero-day exploits', 'CVE vulnerabilities',
         'penetration testing tools', 'malware analysis', 'ransomware attacks',
         'bug bounty programs', 'ethical hacking tutorials', 'OSINT techniques',
         'dark web trends', 'phishing campaigns', 'social engineering tactics',
-        
+
         // Crypto & Blockchain
         'cryptocurrency updates', 'Bitcoin price analysis', 'Ethereum developments',
         'DeFi protocols', 'NFT marketplace trends', 'web3 innovations',
         'blockchain technology', 'crypto regulations', 'altcoin launches',
         'crypto hacks', 'mining profitability', 'smart contracts',
-        
+
         // Programming & Development
         'programming trends', 'JavaScript frameworks', 'Python libraries',
         'Rust development', 'Go language updates', 'TypeScript features',
         'React best practices', 'Node.js performance', 'API design patterns',
         'microservices architecture', 'serverless computing', 'DevOps tools',
-        
+
         // Discord & Bots
         'Discord bot development', 'Discord.js updates', 'bot hosting solutions',
         'Discord API changes', 'Discord server growth', 'Discord automation',
-        
+
         // Tech Industry
         'trending technology news', 'tech startup funding', 'Silicon Valley news',
         'software engineering best practices', 'tech layoffs', 'tech acquisitions',
         'venture capital investments', 'tech IPOs', 'unicorn startups',
-        
+
         // Gaming
         'gaming industry news', 'esports tournaments', 'game releases',
         'gaming hardware', 'game development tools', 'Unity vs Unreal',
-        
+
         // Science & Innovation
         'quantum computing', 'space exploration', 'biotechnology',
         'nanotechnology', 'renewable energy', 'electric vehicles',
         'robotics advances', 'autonomous vehicles', '5G technology',
-        
+
         // Social Media & Trends
         'viral trends', 'social media algorithms', 'content creator tips',
         'YouTube algorithm', 'TikTok trends', 'Instagram features',
-        
+
         // Security Tools
         'Shodan discoveries', 'VirusTotal analysis', 'Metasploit updates',
         'Burp Suite techniques', 'Wireshark tutorials', 'Nmap scanning',
-        
+
         // Productivity & Tools
         'productivity hacks', 'automation tools', 'AI writing assistants',
         'code editors', 'terminal tools', 'browser extensions',
-        
+
         // Business & Marketing
         'digital marketing trends', 'SEO techniques', 'growth hacking',
         'startup advice', 'business models', 'e-commerce strategies',
-        
+
         // Mobile Development
         'mobile app development', 'React Native', 'Flutter updates',
         'iOS development', 'Android development', 'mobile UI design',
-        
+
         // Database & Storage
         'database optimization', 'PostgreSQL features', 'MongoDB vs SQL',
         'Redis caching', 'database scaling', 'cloud storage solutions',
-        
+
         // Cloud Computing
         'AWS services', 'Google Cloud Platform', 'Azure updates',
         'cloud security', 'Kubernetes tutorials', 'Docker containers',
-        
+
         // Design & UI/UX
         'UI design trends', 'UX best practices', 'design tools',
         'Figma tutorials', 'color theory', 'typography trends',
-        
+
         // Data Science
         'data science techniques', 'data visualization', 'big data analytics',
         'pandas tutorials', 'NumPy tips', 'data cleaning methods',
-        
+
         // Career & Education
         'coding interview questions', 'tech career advice', 'remote work tips',
         'learning resources', 'certification programs', 'salary negotiations'
@@ -8791,7 +8985,7 @@ client.once("clientReady", () => {
       if (process.env.SERPAPI_KEY) {
         const searchUrl = `https://serpapi.com/search?q=${encodeURIComponent(topic)}&api_key=${process.env.SERPAPI_KEY}&num=5`;
         const response = await fetch(searchUrl);
-        
+
         // Check for rate limiting
         if (response.status === 429) {
           console.log(`⚠️ RATE LIMIT HIT! Pausing learning for 1 hour...`);
@@ -8802,11 +8996,11 @@ client.once("clientReady", () => {
           }, 1000 * 60 * 60); // 1 hour cooldown
           return;
         }
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         const results = data.organic_results || [];
         let stored = 0;
@@ -8841,7 +9035,7 @@ client.once("clientReady", () => {
     } catch (err) {
       consecutiveErrors++;
       console.error(`❌ Autonomous learning error (${consecutiveErrors} consecutive):`, err.message);
-      
+
       // If too many errors, increase cooldown
       if (consecutiveErrors >= 5) {
         console.log(`🛑 Too many errors! Pausing for 30 minutes...`);
