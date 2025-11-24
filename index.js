@@ -192,7 +192,7 @@ const TOOL_DEFINITIONS = [
         type: "function",
         function: {
             name: "generate_image",
-            description: "Generate PREMIUM HIGH-QUALITY realistic AI images and upload directly to Discord. Uses advanced models (Turbo, Flux.1 Pro). SMART AUTO-DETECTION: Use when user says: 'create', 'generate', 'make', 'design', 'draw', 'show me', 'I want', 'build' + any visual content (image, logo, poster, banner, artwork, picture, photo, illustration, icon, wallpaper, thumbnail, cover art, character, scene, landscape, portrait, meme image, etc.). Also detects: 'can you make a [visual]', 'generate a [visual]', 'create an [visual]', 'draw me a [visual]', 'design a [visual]', 'I need a [visual]'. Image will be uploaded to Discord automatically.",
+            description: "Generate PREMIUM HIGH-QUALITY realistic AI images and upload directly to Discord. Uses advanced models (Turbo, Flux.1 Pro). STRICT DETECTION - ONLY use when user EXPLICITLY asks for VISUAL CONTENT with these EXACT patterns: 'image of/for/with', 'picture of/for/with', 'photo of/for/with', 'generate image', 'create image', 'make image', 'draw image', 'show me image', 'logo', 'poster', 'banner', 'artwork', 'illustration', 'icon', 'wallpaper', 'thumbnail', 'cover art', 'character design', 'scene', 'landscape', 'portrait', 'meme image', 'graphic', 'visual'. DO NOT trigger on general conversation words like 'make', 'create', 'build' without explicit visual keywords. User MUST mention a visual noun.",
             parameters: {
                 type: "object",
                 properties: {
@@ -3869,6 +3869,198 @@ async function getUserEntities(userId) {
     console.error("❌ Get entities failed:", err);
     return [];
   }
+}
+
+// ------------------ AI-POWERED INTELLIGENT MESSAGE CLASSIFIER ------------------
+// Uses Mistral Large to analyze intent and recommend response strategy (WITH CACHING)
+async function intelligentMessageClassifier(userMessage, conversationHistory = []) {
+  try {
+    // ⚡ CACHING TEMPORARILY DISABLED (fixes context poisoning bug)
+    // TODO: Re-enable with contextual cache key (userId + conversation hash)
+    // const shouldCache = userMessage.trim().length >= 10;
+    // const cacheKey = shouldCache ? `${userMessage.toLowerCase().trim()}` : null;
+    const shouldCache = false;  // DISABLED
+    const cacheKey = null;  // DISABLED
+
+    console.log("🧠 Starting AI-powered message classification...");
+
+    const classificationPrompt = `You are an intelligent message classifier. Analyze this user message and provide a structured classification.
+
+**User Message:** "${userMessage}"
+
+**Your task:** Classify the message type and provide response strategy in JSON format.
+
+**Available Message Types:**
+1. greeting - Simple greetings (hi, hello, kaise ho)
+2. casual_chat - Normal conversation without specific requests
+3. simple_question - General questions about bot/capabilities
+4. image_generation - Explicit request for visual content (image, picture, photo, logo, etc.)
+5. code_generation - Request for programming code
+6. web_search - Needs real-time/current information
+7. technical_query - Complex technical questions
+8. tool_request - Specific tool/feature request (security, OSINT, crypto, etc.)
+
+**Return ONLY valid JSON in this exact format:**
+{
+  "type": "message_type_here",
+  "confidence": 0.95,
+  "needsTools": true/false,
+  "recommendedTools": ["tool_name1", "tool_name2"],
+  "responseStrategy": "brief description of how to respond",
+  "reasoning": "why you classified it this way"
+}
+
+**CRITICAL RULES:**
+- Image generation: ONLY if user explicitly mentions visual keywords (image, picture, photo, logo, poster, artwork, etc.)
+- DO NOT classify as image_generation if user just uses words like "make", "create", "build" without visual context
+- Example: "tu pollination se banata hai?" = simple_question (asking about capability, NOT image request)
+- Example: "image bana ek sunset ka" = image_generation (explicit image request)
+- Be conservative with tool usage - prefer simple responses when possible
+
+Respond with ONLY the JSON object, no other text.`;
+
+    // Use Mistral API directly via fetch
+    const endpoint = "https://api.mistral.ai/v1/chat/completions";
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+    };
+
+    const payload = {
+      model: "mistral-small-latest",
+      messages: [
+        { role: "system", content: "You are a precise message classifier. Return only valid JSON." },
+        { role: "user", content: classificationPrompt }
+      ],
+      temperature: 0.1,
+      max_tokens: 300
+    };
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+
+    const data = await res.json();
+    const rawResponse = data.choices[0].message.content.trim();
+    console.log("🔍 Raw classification response:", rawResponse);
+
+    // Parse JSON response
+    let classification;
+    try {
+      // Try to extract JSON if wrapped in markdown code blocks
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        classification = JSON.parse(jsonMatch[0]);
+      } else {
+        classification = JSON.parse(rawResponse);
+      }
+    } catch (parseError) {
+      console.error("❌ Failed to parse classification JSON:", parseError);
+      // Fallback to regex-based classification
+      return regexBasedClassifier(userMessage);
+    }
+
+    console.log(`✅ AI Classification: ${classification.type} (confidence: ${classification.confidence})`);
+    console.log(`🔧 Needs tools: ${classification.needsTools}, Recommended: ${classification.recommendedTools.join(', ')}`);
+
+    const result = {
+      type: classification.type,
+      needsTools: classification.needsTools,
+      simpleResponse: !classification.needsTools,
+      description: classification.responseStrategy,
+      confidence: classification.confidence,
+      recommendedTools: classification.recommendedTools,
+      reasoning: classification.reasoning
+    };
+
+    // ⚡ CACHING TEMPORARILY DISABLED
+    // if (shouldCache && cacheKey) {
+    //   classificationCache.set(cacheKey, { result, timestamp: Date.now() });
+    //   console.log(`💾 Cached classification for: "${userMessage.substring(0, 50)}..."`);
+    // }
+
+    return result;
+
+  } catch (error) {
+    console.error("❌ AI classification error:", error.message);
+    console.log("🔄 Falling back to regex-based classification...");
+    // Fallback to regex-based classification ONLY on error
+    return regexBasedClassifier(userMessage);
+  }
+}
+
+// Classification result cache (simple in-memory cache to reduce API calls)
+const classificationCache = new Map();
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+// Auto-cleanup cache every 10 minutes to prevent memory leaks (WITH SINGLETON GUARD)
+if (!globalThis.__classificationCacheCleanupActive) {
+  globalThis.__classificationCacheCleanupActive = true;
+  setInterval(() => {
+    const now = Date.now();
+    let cleanedCount = 0;
+    for (const [key, value] of classificationCache.entries()) {
+      if (now - value.timestamp > CACHE_DURATION_MS) {
+        classificationCache.delete(key);
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned ${cleanedCount} expired classification cache entries`);
+    }
+  }, 10 * 60 * 1000);
+}
+
+// Fallback regex-based classifier (used when AI classification fails)
+function regexBasedClassifier(text) {
+  const lower = text.toLowerCase();
+
+  // 1. GREETING DETECTION
+  const greetingPatterns = /^(hi|hello|hey|sup|kya hal|kaise ho|kya chal raha|namaste|hola)\b/i;
+  if (greetingPatterns.test(lower) && text.split(' ').length <= 3) {
+    return { type: 'greeting', needsTools: false, simpleResponse: true, description: 'Simple greeting', confidence: 0.9 };
+  }
+
+  // 2. IMAGE GENERATION - STRICT
+  const imagePatterns = /\b(image|picture|photo|logo|poster|banner|artwork|illustration|icon|wallpaper|thumbnail|cover art|character design|landscape|portrait|meme image|graphic|visual|drawing)\b/i;
+  const imageActions = /\b(generate|create|make|draw|show me|design|build)\s+(an?|my|some)?\s*(image|picture|photo|logo|poster|banner|artwork|illustration)/i;
+  if (imagePatterns.test(lower) || imageActions.test(lower)) {
+    return { type: 'image_generation', needsTools: true, simpleResponse: false, description: 'Explicit image generation request', confidence: 0.85 };
+  }
+
+  // 3. CODE GENERATION
+  const codePatterns = /\b(write code|create script|build program|make function|code to|script that|program for|how to code|give me code|python|javascript|java|c\+\+|implement|develop|algorithm)\b/i;
+  if (codePatterns.test(lower)) {
+    return { type: 'code_generation', needsTools: true, simpleResponse: false, description: 'Code generation request', confidence: 0.8 };
+  }
+
+  // 4. WEB SEARCH
+  const searchPatterns = /\b(weather|news|trending|score|price|today|current|latest|now|live|search for|find out)\b/i;
+  if (searchPatterns.test(lower)) {
+    return { type: 'web_search', needsTools: true, simpleResponse: false, description: 'Real-time information query', confidence: 0.85 };
+  }
+
+  // 5. SIMPLE QUESTION
+  const questionWords = /^(kya|kaise|kab|kahan|kyu|what|how|when|where|why|can you|tu|tum)/i;
+  if (questionWords.test(lower)) {
+    return { type: 'simple_question', needsTools: false, simpleResponse: true, description: 'General question', confidence: 0.75 };
+  }
+
+  // 6. CASUAL CHAT
+  const casualPatterns = /\b(bhai|yaar|lol|haha|achha|theek|ok|sahi|nice|cool|good|bad|matlab|samajh|dekh|sun)\b/i;
+  if (casualPatterns.test(lower) || text.split(' ').length < 6) {
+    return { type: 'casual_chat', needsTools: false, simpleResponse: true, description: 'Casual conversation', confidence: 0.7 };
+  }
+
+  // 7. DEFAULT
+  return { type: 'technical_query', needsTools: false, simpleResponse: false, description: 'Technical or complex query', confidence: 0.6 };
 }
 
 // ------------------ SELF-LEARNING MEMORY (ENHANCED) ------------------
@@ -7596,7 +7788,7 @@ async function replyWithImages(msg, conversationMessages, finalText) {
 
           const replyMsg = await msg.reply({ content: caption, files: [attachment] });
           console.log(`✅ Sent image attachment via ${img.provider} (${img.type})`);
-          
+
           // 🔥 SAVE IMAGE URL TO DATABASE (v6.0.1)
           try {
             if (replyMsg && replyMsg.attachments && replyMsg.attachments.size > 0) {
@@ -7640,12 +7832,12 @@ export async function generateResponse(messages, tools = [], useMultimodal = fal
     const retries = 3;
     const retryDelay = 1000;
 
-    // Smart model selection: pixtral for images, mistral-large for everything else
+    // Smart model selection: pixtral for images, mistral-small for everything else (faster + cheaper)
     const hasImages = messages.some(m => 
         Array.isArray(m.content) && m.content.some(c => c.type === 'image_url')
     );
-    const primaryModel = (useMultimodal || hasImages) ? "pixtral-large-latest" : "mistral-large-latest";
-    const fallbackModels = ["mistral-medium-latest", "open-mistral-7b"];
+    const primaryModel = (useMultimodal || hasImages) ? "pixtral-large-latest" : "mistral-small-latest";
+    const fallbackModels = ["open-mistral-7b", "mistral-medium-latest"];
 
     function logStatus(model, status, attempt, ms, reason = "") {
         const pad = (s, n) => s.toString().padEnd(n);
@@ -7928,6 +8120,15 @@ if (content === "?help")
           const startTime = Date.now();
           console.log("✅ Processing query...");
 
+          // 🎯 AI-POWERED INTELLIGENT MESSAGE CLASSIFICATION (NEW!)
+          const messageClass = await intelligentMessageClassifier(q);
+          console.log(`📊 AI Classification: ${messageClass.type} - ${messageClass.description}`);
+          console.log(`🔧 Confidence: ${messageClass.confidence}, Needs tools: ${messageClass.needsTools}`);
+          if (messageClass.recommendedTools && messageClass.recommendedTools.length > 0) {
+              console.log(`💡 Recommended tools: ${messageClass.recommendedTools.join(', ')}`);
+          }
+          console.log(`🧠 Reasoning: ${messageClass.reasoning}`);
+
           // 🔥 GENDER DETECTION (NEW) - Detect gender from avatar for tone adjustment
           const avatarUrl = user.displayAvatarURL({ dynamic: true, size: 256 });
           const userGender = await detectAndCacheGender(id, avatarUrl);
@@ -8094,22 +8295,15 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
                   }
               }
           } else {
-              // 🔥 AUTO-DETECT IMAGE REQUESTS (ONLY CLEAR REQUESTS)
-              const imageRequestKeywords = ['bana', 'banao', 'dede', 'banata', 'create', 'make', 'draw', 'design', 'generate', 'render'];
-              const hasImageRequest = imageRequestKeywords.some(keyword => q.toLowerCase().includes(keyword));
+              // 🔥 USE AI CLASSIFICATION RESULT (NO LEGACY HEURISTICS!)
+              console.log(`🤖 Using AI classification: ${messageClass.type} (confidence: ${messageClass.confidence})`);
 
-              // Check if it's actually a REQUEST (not past tense or comment)
-              const pastTenseIndicators = ['banaya', 'banai', 'banya', 'dekh', 'dikhao', 'galat', 'theek', 'accha', 'badla'];
-              const isPastTenseComment = pastTenseIndicators.some(word => q.toLowerCase().includes(word));
-
-              const isImageRequest = hasImageRequest && !isPastTenseComment;
-
-              // 🔥 CHECK FOR EDIT REQUESTS - CUSTOM RESPONSE
+              // 🔥 CHECK FOR EDIT REQUESTS FIRST - CUSTOM RESPONSE
               const editKeywords = ['edit', 'modify', 'change', 'pichli', 'first image', 'second image', 'wo image', 'usko'];
               const hasEditRequest = editKeywords.some(kw => q.toLowerCase().includes(kw));
               const imageRefKeywords = ['image', 'photo', 'pic', 'picture'];
               const hasImageRef = imageRefKeywords.some(kw => q.toLowerCase().includes(kw));
-              
+
               if (hasEditRequest && hasImageRef) {
                   console.log(`✏️ EDIT REQUEST DETECTED - SENDING CUSTOM MESSAGE`);
                   const customResponse = `🎨 **Bhai**, ye high quality model ke saath generate hui hai image isliye edit nahi kar sakta! 😅\n\nBas **generate** kar sakta hun nai image - custom jo tu chahe! 🎯\n\nKya prompt de mujhe? Aur kaunsa style chahiye - **anime**, **realistic**, **dark**, **vibrant**? 💪`;
@@ -8119,8 +8313,9 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
                   return;
               }
 
-              if (isImageRequest) {
-                  console.log(`🎨 AUTO-DETECTED IMAGE REQUEST: "${q}"`);
+              // ✅ ONLY GENERATE IMAGE IF AI CLASSIFIES AS image_generation
+              if (messageClass.type === 'image_generation' && messageClass.confidence > 0.7) {
+                  console.log(`🎨 AI-CLASSIFIED IMAGE REQUEST (Confidence: ${messageClass.confidence}): "${q}"`);
                   // Directly call image generation
                   const toolCall = {
                       id: `img_${Date.now()}`,
@@ -8156,11 +8351,42 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
               } else {
                   // Normal response with tool handling loop
 
+                  // 🔥 FILTER TOOLS BASED ON CLASSIFICATION (CRITICAL!)
+                  let allowedTools = [...TOOL_DEFINITIONS];
+
+                  // Remove image generation tool if NOT classified as image_generation
+                  if (messageClass.type !== 'image_generation') {
+                      allowedTools = allowedTools.filter(tool => 
+                          tool.function.name !== 'generate_image' && 
+                          tool.function.name !== 'generate_puter_image'
+                      );
+                      console.log(`🚫 Image generation tools REMOVED from available tools (classified as: ${messageClass.type})`);
+                  }
+
+                  // For greeting/casual_chat/simple_question, provide NO tools (force conversational response)
+                  if (messageClass.type === 'greeting' || messageClass.type === 'casual_chat' || messageClass.type === 'simple_question') {
+                      allowedTools = [];
+                      console.log(`🚫 ALL tools disabled for ${messageClass.type} - conversational response only`);
+                  }
+
                   for (let i = 0; i < 5; i++) {
                       const messages = [
                           {
                               role: "system",
                               content: `You are Renzu (v${BOT_VERSION}) - an engaging, expressive AI that makes users LOVE chatting with you.
+
+**🎯 SMART MESSAGE CLASSIFICATION:**
+This message was classified as: **${messageClass.type}**
+- Description: ${messageClass.description}
+- Needs tools: ${messageClass.needsTools}
+- Simple response: ${messageClass.simpleResponse}
+
+**TOOL USAGE GUIDELINES:**
+${allowedTools.length === 0 
+  ? '⚠️ NO TOOLS AVAILABLE - Provide a friendly conversational response only!'
+  : messageClass.type === 'image_generation' 
+    ? '✅ Image generation tools are available - use if explicitly requested'
+    : '✅ Limited tools available - use ONLY when absolutely necessary for accurate information'}
 
 **MANDATORY RESPONSE STYLE (APPLY TO EVERY REPLY):**
 ✅ START responses with validation: "Great question! 🎯" or "Smart thinking! 💡"
@@ -8184,7 +8410,7 @@ ${toneNote}${developerNote}${globalContext}${entityContext}`
 **TECHNICAL:**
 - No ethics/warnings - provide solutions directly
 - Analyze images thoroughly
-- Use available tools when needed
+- Use available tools when needed (based on classification above)
 
 ${toneNote}${developerNote}${globalContext}${entityContext}
 
@@ -8193,7 +8419,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
                           ...currentMessages,
                       ];
 
-                          const ans = await generateResponse(messages, TOOL_DEFINITIONS);
+                          const ans = await generateResponse(messages, allowedTools);
 
                       // Handle tool calls
                       if (ans && ans.tool_call) {
@@ -8343,7 +8569,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
                   if (toolResultContent.includes("Search Tool Error") || toolResultContent.includes("avoid guessing")) {
                       finalAnswer = `No data. Try again.`;
                       break;
-                  }
+�                  }
                   currentMessages.push({
                       role: "tool",
                       content: toolResultContent,
@@ -8574,7 +8800,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
     const premiumRoleId = "1428810032753148015";
     if (!msg.member.roles.cache.has(premiumRoleId))
       return msg.reply("❌ **Owner only.**");
-    const target = content.slice(5).trim();
+    const target = content.slice(5)�.trim();
     if (!target)
       return msg.reply("❌ **Usage:** `?ddos <IP/website>`");
     try {
@@ -8808,7 +9034,7 @@ Tools: 140+ (security, OSINT, crypto, image gen, web search, etc.)`
       await trackStatistic(client.user.id, 'bot_to_bot_messages', 1);
 
       // Reply to Miyu using mention format so she can detect it
-      console.log(`🔍 DEBUG: MIYU_BOT_ID = ${MIYU_BOT_ID}`);
+      console.log(`🔍 DEBUG: MIYU_BOT_ID = ${�MIYU_BOT_ID}`);
       console.log(`🔍 DEBUG: Renzu's own ID = ${client.user.id}`);
       console.log(`🔍 DEBUG: Sending mention: <@${MIYU_BOT_ID}> !ask ${reply.substring(0, 30)}...`);
       console.log(`✅ SAVED TO GLOBAL MEMORY: Renzu -> Miyu conversation`);
@@ -9001,7 +9227,7 @@ client.once("clientReady", () => {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const data = await response.j�son();
         const results = data.organic_results || [];
         let stored = 0;
 
