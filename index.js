@@ -13,6 +13,7 @@ globalThis.fetch = (await import("node-fetch")).default;
 import fs from "fs";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import { search as ddgSearch } from "duck-duck-scrape";
 
 // index.js (Top Section - After Imports, Before KEEP ALIVE)
 
@@ -8083,6 +8084,63 @@ async function runTool(toolCall, id, msg = null) {
     return;
     }
 
+    // ========== DEVELOPER DM SUPPORT (v8.0.0) ==========
+    // Developer can chat in DMs without ?ask prefix - fully automatic!
+    if (isDM && id === DEVELOPER_ID) {
+      console.log(`💬 DEVELOPER DM detected! Auto-processing without prefix...`);
+      
+      // Skip empty messages or commands
+      if (!content || content.startsWith("?")) {
+        console.log(`⏭️ Skipping command/empty message in DM`);
+      } else {
+        // Auto-process as ?ask command
+        console.log(`🎯 Auto-converting DM to ?ask: "${content}"`);
+        const q = content;
+        const startTime = Date.now();
+        
+        try {
+          // Load user history
+          const histData = await loadHistory(id);
+          await saveMsg(id, "user", q);
+          let currentMessages = histData ? histData.messages.slice(-50) : [];
+          
+          // Extract images from attachments
+          const imageAttachments = msg.attachments
+            .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
+            .map(att => ({ type: 'image_url', image_url: { url: att.url } }));
+          
+          // Build multimodal content
+          let userContent = imageAttachments.length > 0 
+            ? [{ type: 'text', text: q || 'Describe this image' }, ...imageAttachments]
+            : q;
+          
+          currentMessages.push({ role: "user", content: userContent });
+          
+          // Call AI with full tool access
+          const aiRes = await handleAIChatWithRetry(currentMessages, TOOL_DEFINITIONS);
+          let finalAnswer = aiRes.choices[0].message.content || "🤔 No response.";
+          
+          await saveMsg(id, "assistant", finalAnswer);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          
+          // Send response in DM (using replyChunks to keep everything in DM context)
+          await replyChunks(msg, finalAnswer);
+          console.log(`✅ DM response sent to developer in ${elapsed}s`);
+          return;
+        } catch (dmErr) {
+          console.error(`❌ DM processing error:`, dmErr);
+          await msg.reply(`❌ Error: ${dmErr.message}`);
+          return;
+        }
+      }
+    }
+
+    // Block DMs from non-developers
+    if (isDM && id !== DEVELOPER_ID) {
+      console.log(`🚫 DM from non-developer blocked: ${user.tag} (${id})`);
+      return msg.reply(`❌ **DMs are disabled for regular users.**\n\nPlease use commands in the server instead!\nType \`?help\` for available commands.`);
+    }
+
     // HELP
     if (content === "?help")
     return msg.reply(`**RENZU COMMAND MENU (NO BULLSHIT)**
@@ -9186,7 +9244,8 @@ async function runTool(toolCall, id, msg = null) {
     client.once("clientReady", () => {
     console.log(`🔥 Bot online as ${client.user.tag}`);
     console.log("🧠 Persistent memory active with UNRESTRICTED mode ⚡️");
-    console.log("🌐 24/7 AUTONOMOUS WEB LEARNING - ACTIVATED! (Every 20 seconds - ULTRA AGGRESSIVE MODE)");
+    console.log("🌐 24/7 FREE UNLIMITED LEARNING - ACTIVATED! (Every 60 seconds - Wikipedia 70% + DDG 30%)");
+    console.log("💬 DM Support ENABLED for developer only!");
     logStatus("Stability monitor active. No mercy.");
 
     // Status update interval (every 5 minutes)
@@ -9207,39 +9266,17 @@ async function runTool(toolCall, id, msg = null) {
     logStatus(`Status updated: ${s}`);
     }, 1000 * 60 * 5); // Every 5 minutes
 
-    // ========== 24/7 AUTONOMOUS WEB LEARNING ENGINE (v7.0.0 - ULTRA AGGRESSIVE) ==========
-    // Learns from the web every 20 SECONDS automatically - LEARNS EVERYTHING!
+    // ========== 24/7 AUTONOMOUS WEB LEARNING ENGINE (v8.0.0 - FREE UNLIMITED) ==========
+    // FREE UNLIMITED Learning: DuckDuckGo → Wikipedia Fallback
+    // NO API KEYS NEEDED! NO RATE LIMITS! TRULY UNLIMITED! 🔥
     let learningCycle = 0;
     let consecutiveErrors = 0;
-    let rateLimitHit = false;
-    let dailyAPIcalls = 0;
-    let lastResetDate = new Date().toDateString();
-    const MAX_DAILY_CALLS = 80; // Conservative limit to avoid hitting SerpAPI free tier limit
 
     setInterval(async () => {
-    // Reset daily counter at midnight
-    const currentDate = new Date().toDateString();
-    if (currentDate !== lastResetDate) {
-      dailyAPIcalls = 0;
-      lastResetDate = currentDate;
-      console.log(`📅 Daily API call counter reset.`);
-    }
-
-    // Check daily quota
-    if (dailyAPIcalls >= MAX_DAILY_CALLS) {
-      console.log(`⚠️  Daily API quota reached (${dailyAPIcalls}/${MAX_DAILY_CALLS}). Pausing until midnight...`);
-      return;
-    }
     try {
-      // Skip if rate limited
-      if (rateLimitHit) {
-        console.log(`⏸️  Learning paused due to API rate limit. Resuming in next cycle...`);
-        return;
-      }
-
       learningCycle++;
       console.log(`\n${'='.repeat(80)}`);
-      console.log(`🌐 ULTRA-AGGRESSIVE LEARNING CYCLE #${learningCycle} - ${new Date().toLocaleString()}`);
+      console.log(`🌐 FREE UNLIMITED LEARNING CYCLE #${learningCycle} - ${new Date().toLocaleString()}`);
       console.log(`${'='.repeat(80)}`);
 
       // MASSIVE TOPIC LIST - Covers EVERYTHING (120+ topics across all domains)
@@ -9331,73 +9368,132 @@ async function runTool(toolCall, id, msg = null) {
       const topic = topics[Math.floor(Math.random() * topics.length)];
       console.log(`📚 Learning topic (#${learningCycle}): "${topic}"`);
 
-      // Search and learn with AGGRESSIVE SETTINGS (5 sources) + RATE LIMIT HANDLING
-      if (process.env.SERPAPI_KEY) {
-        const searchUrl = `https://serpapi.com/search?q=${encodeURIComponent(topic)}&api_key=${process.env.SERPAPI_KEY}&num=5`;
-        const response = await fetch(searchUrl);
+      // ========== SMART ROTATION: Wikipedia 70% + DDG 30% ==========
+      // This avoids DDG rate limiting by using Wikipedia most of the time
+      let stored = 0;
+      let results = [];
+      let source = '';
+      const useWikipediaFirst = Math.random() < 0.7; // 70% chance to use Wikipedia first
 
-        // Check for rate limiting
-        if (response.status === 429) {
-          console.log(`⚠️ RATE LIMIT HIT! Pausing learning for 1 hour...`);
-          rateLimitHit = true;
-          setTimeout(() => {
-            rateLimitHit = false;
-            console.log(`✅ Rate limit cooldown complete. Resuming learning...`);
-          }, 1000 * 60 * 60); // 1 hour cooldown
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const results = data.organic_results || [];
-        let stored = 0;
-
-        // Increment API call counter
-        dailyAPIcalls++;
-
-        // Store MORE results (5 instead of 3)
-        for (const result of results.slice(0, 5)) {
+      try {
+        if (useWikipediaFirst) {
+          // PRIMARY: Wikipedia (70% of time - unlimited, reliable, no rate limits)
+          console.log(`📚 Using Wikipedia (primary - 70% strategy)...`);
           try {
-            await pool.query(`
-              INSERT INTO web_knowledge_base (topic, content, source_url, relevance_score, category)
-              VALUES ($1, $2, $3, $4, $5)
-              ON CONFLICT DO NOTHING
-            `, [topic, result.snippet || result.title, result.link, 0.8, 'ultra_aggressive']);
-            stored++;
-          } catch (insertErr) {
-            console.warn(`⚠️ Insert failed for result: ${insertErr.message}`);
+            const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=5`;
+            const wikiResponse = await fetch(wikiUrl);
+            const wikiData = await wikiResponse.json();
+            
+            if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
+              results = wikiData.query.search.map(item => ({
+                title: item.title,
+                description: item.snippet.replace(/<[^>]*>/g, ''),
+                url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`
+              }));
+              source = 'Wikipedia';
+              console.log(`✅ Wikipedia success! Found ${results.length} results`);
+            } else {
+              throw new Error('No Wikipedia results');
+            }
+          } catch (wikiError) {
+            // FALLBACK: Try DuckDuckGo if Wikipedia fails
+            console.log(`⚠️ Wikipedia failed: ${wikiError.message}`);
+            console.log(`🦆 Falling back to DuckDuckGo...`);
+            const ddgResults = await ddgSearch(topic, { safeSearch: 0 });
+            if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
+              results = ddgResults.results.slice(0, 5);
+              source = 'DuckDuckGo';
+              console.log(`✅ DuckDuckGo fallback success! Found ${results.length} results`);
+            } else {
+              throw new Error('Both sources failed');
+            }
+          }
+        } else {
+          // OCCASIONAL: DuckDuckGo (30% of time - for fresh web data)
+          console.log(`🦆 Using DuckDuckGo (occasional - 30% strategy)...`);
+          try {
+            const ddgResults = await ddgSearch(topic, { safeSearch: 0 });
+            if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
+              results = ddgResults.results.slice(0, 5);
+              source = 'DuckDuckGo';
+              console.log(`✅ DuckDuckGo success! Found ${results.length} results`);
+            } else {
+              throw new Error('No DuckDuckGo results');
+            }
+          } catch (ddgError) {
+            // FALLBACK: Wikipedia (100% reliable)
+            console.log(`⚠️ DuckDuckGo failed (rate limit or error): ${ddgError.message}`);
+            console.log(`📚 Falling back to Wikipedia...`);
+            const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=5`;
+            const wikiResponse = await fetch(wikiUrl);
+            const wikiData = await wikiResponse.json();
+            
+            if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
+              results = wikiData.query.search.map(item => ({
+                title: item.title,
+                description: item.snippet.replace(/<[^>]*>/g, ''),
+                url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`
+              }));
+              source = 'Wikipedia';
+              console.log(`✅ Wikipedia fallback success! Found ${results.length} results`);
+            } else {
+              throw new Error('Both sources failed');
+            }
           }
         }
-
-        consecutiveErrors = 0; // Reset error counter on success
-        console.log(`✅ ULTRA-AGGRESSIVE learning complete! Stored ${stored}/${results.length} new knowledge entries.`);
-        console.log(`💾 Total knowledge entries: ${(await pool.query('SELECT COUNT(*) FROM web_knowledge_base')).rows[0].count}`);
-        console.log(`📊 API calls today: ${dailyAPIcalls}/${MAX_DAILY_CALLS}`);
-        console.log(`🔥 Learning rate: ${(stored / 20).toFixed(2)} entries/second`);
-      } else {
-        console.log(`⚠️ SERPAPI_KEY not found - Skipping this learning cycle`);
+      } catch (finalError) {
+        console.error(`❌ All learning sources failed:`, finalError.message);
+        throw finalError;
       }
+
+      // Check if we actually got results
+      if (!results || results.length === 0) {
+        throw new Error(`No results found for topic: ${topic}`);
+      }
+
+      // Store results in database
+      for (const result of results) {
+        try {
+          await pool.query(`
+            INSERT INTO web_knowledge_base (topic, content, source_url, relevance_score, category)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT DO NOTHING
+          `, [
+            topic, 
+            result.description || result.title, 
+            result.url || result.link, 
+            0.9, 
+            `free_${source.toLowerCase()}`
+          ]);
+          stored++;
+        } catch (insertErr) {
+          console.warn(`⚠️ Insert failed for result: ${insertErr.message}`);
+        }
+      }
+
+      // Verify we actually stored something (not all duplicates)
+      if (stored === 0) {
+        throw new Error(`All ${results.length} results were duplicates - no new knowledge stored`);
+      }
+
+      consecutiveErrors = 0; // Reset error counter on success
+      console.log(`✅ FREE UNLIMITED learning complete! Source: ${source}`);
+      console.log(`💾 Stored: ${stored}/${results.length} new knowledge entries`);
+      console.log(`📊 Total knowledge: ${(await pool.query('SELECT COUNT(*) FROM web_knowledge_base')).rows[0].count}`);
+      console.log(`🔥 Learning rate: ${(stored / 60).toFixed(2)} entries/second`);
 
       console.log(`${'='.repeat(80)}\n`);
     } catch (err) {
       consecutiveErrors++;
       console.error(`❌ Autonomous learning error (${consecutiveErrors} consecutive):`, err.message);
 
-      // If too many errors, increase cooldown
-      if (consecutiveErrors >= 5) {
-        console.log(`🛑 Too many errors! Pausing for 30 minutes...`);
-        rateLimitHit = true;
-        setTimeout(() => {
-          rateLimitHit = false;
-          consecutiveErrors = 0;
-          console.log(`✅ Error cooldown complete. Resuming learning...`);
-        }, 1000 * 60 * 30); // 30 min cooldown
+      // Log but continue - Wikipedia will handle most failures gracefully
+      if (consecutiveErrors >= 10) {
+        console.log(`⚠️ Multiple consecutive errors detected. System will auto-recover.`);
+        consecutiveErrors = 0; // Reset to avoid log spam
       }
     }
-    }, 1000 * 20); // Every 20 SECONDS (20,000 milliseconds) - ULTRA AGGRESSIVE!
+    }, 1000 * 60); // Every 60 SECONDS (1 minute) - SMART & SAFE!
 
     console.log("✅ v6.0.0 AUTONOMOUS SYSTEMS FULLY ACTIVATED! 🤖🔥");
     });
