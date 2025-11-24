@@ -1,8 +1,27 @@
 # Overview
 
-This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface featuring **ULTRA-AGGRESSIVE AUTONOMOUS LEARNING** (every 20 seconds), and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers natural, engaging responses to ALL users (normal/premium/developer) with expressive emojis and Hinglish support.
+This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface featuring **FREE UNLIMITED AUTONOMOUS LEARNING** (every 60 seconds), **DEVELOPER DM SUPPORT**, and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers natural, engaging responses to ALL users (normal/premium/developer) with expressive emojis and Hinglish support.
 
-## Latest Updates (v7.3.0) 🧠✨💻
+## Latest Updates (v8.0.0) 🆓🌐💬
+✨ **FREE UNLIMITED LEARNING + DEVELOPER DM SUPPORT!**
+1. **100% Free Learning** - NO API KEYS NEEDED for autonomous learning! DuckDuckGo + Wikipedia
+2. **Smart Rotation Strategy** - Wikipedia 70% (unlimited, reliable) + DuckDuckGo 30% (fresh web data)
+3. **Zero Rate Limits** - Wikipedia API is completely unlimited and free forever
+4. **DDG Rate Limit Fix** - Smart rotation avoids "requests too quickly" errors from DuckDuckGo
+5. **Optimized Interval** - 60 seconds (was 20s) for sustainable, safe operation
+6. **Developer DM Support** - Bot responds to developer's DMs automatically without ?ask prefix
+7. **Non-Developer Block** - DMs from regular users are blocked with helpful message
+8. **Removed SerpAPI Dependency** - No longer needed for autonomous learning (still available for tools)
+
+**Technical Details:**
+- **Primary Source (70%):** Wikipedia API - unlimited, reliable, no keys needed
+- **Secondary Source (30%):** DuckDuckGo - for current web data, used sparingly
+- **Automatic Fallback:** If one source fails, bot automatically uses the other
+- **Learning Cycle:** Every 60 seconds (1440 cycles/day = ~7200 knowledge entries/day)
+- **DM Processing:** Developer can chat naturally in DMs, full AI + tool access
+- **Package Added:** `duck-duck-scrape` for DuckDuckGo integration
+
+## Previous Updates (v7.3.0) 🧠✨💻
 ✨ **PSYCHOLOGY MANIPULATION DISABLED + DEVELOPER POWER TOOLS ADDED!**
 1. **Natural Responses** - All psychology manipulation tricks removed for authentic conversations
 2. **No More Fake Engagement** - Removed curiosity hooks, cliffhangers, FOMO triggers, social proof, etc.
@@ -48,11 +67,12 @@ This Discord bot integrates with Mistral AI to provide an AI-powered conversatio
 ## Features Summary:
 - **160+ Advanced Tools** - Security, OSINT, crypto, image generation, code gen, web search, **NEW: Developer tools**
 - **Developer Power Suite (v7.3.0)** - Code execution, GitHub search, API testing, npm packages, stack trace analysis, documentation generation, SQL formatting, cURL conversion
+- **Developer DM Support (v8.0.0)** - Automatic AI responses in DMs for developer only, no ?ask prefix needed
 - **Image Generation Only** - Pollinations API (Flux Pro/Flux Realism) for unlimited free image creation, custom edit rejection
 - **Natural Conversations** - Authentic responses without manipulation or fake engagement tactics
-- **Ultra-Aggressive Learning** - Learns everything every 20 seconds (120+ topic categories)
+- **FREE Unlimited Learning (v8.0.0)** - Wikipedia 70% + DuckDuckGo 30%, NO API keys needed, every 60 seconds (120+ topic categories)
 - **Universal Quality** - Same expressive, emoji-rich responses for all user tiers
-- **Smart Rate Limiting** - Automatic cooldowns and error handling for sustainable operation
+- **Zero Rate Limits** - Smart rotation strategy avoids all API limits on autonomous learning
 - **Hinglish Conversations** - Natural Hindi/English mix in all bot responses
 
 # User Preferences
