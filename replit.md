@@ -1,8 +1,37 @@
 # Overview
 
-This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface featuring **FREE UNLIMITED AUTONOMOUS LEARNING** (every 60 seconds), **DEVELOPER DM SUPPORT**, and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers natural, engaging responses to ALL users (normal/premium/developer) with expressive emojis and Hinglish support.
+This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface featuring **FREE UNLIMITED AUTONOMOUS LEARNING** (every 60 seconds), **DEVELOPER DM SUPPORT**, and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers natural, clean responses to ALL users (normal/premium/developer) with appropriate emojis and Hinglish support.
 
-## Latest Updates (v8.0.0) 🆓🌐💬
+## Latest Updates (v8.1.0) 🧹✨💬
+✨ **PSYCHOLOGY SPAM COMPLETELY REMOVED - AGGRESSIVE SANITIZATION SYSTEM!**
+1. **Aggressive Response Sanitization** - New `sanitizeResponse()` function strips ALL spam phrases line-by-line
+2. **No More Spam** - Eliminated "Developer Access", "Plot twist", "Power Move", "Thinking ahead", etc.
+3. **Clean Natural Responses** - Removed ALL psychology manipulation from system prompts
+4. **Direct Communication** - Simple, helpful responses without manipulation tactics
+5. **Appropriate Emojis** - Reduced to 2-3 emojis per response (was forcing 5-8)
+6. **Fixed DM Support** - Developer DM support now works properly with full AI + tool access
+7. **Discord.js Partials** - Fixed partials configuration for proper DM message handling
+
+**Technical Implementation:**
+- **Sanitization Function** - Scans each line for 19+ spam phrases and removes entire lines containing them
+- **Fallback Responses** - Returns "Done! 😊" if response becomes empty after sanitization
+- **Applied to All Outputs** - Sanitization applied in both `replyChunks()` and `replyWithImages()` functions
+- **Spam Phrases Blocked:**
+  - "Developer Access", "Unrestricted knowledge unlocked"
+  - "Plot twist", "Power Move", "Got more questions"
+  - "Thinking ahead", "Most people don't know", "Thousands of users"
+  - "The real magic happens", "Want to know the underground"
+  - "The natural next step", "This is just the surface"
+  - And 10+ more manipulation tactics
+
+**What Changed:**
+- System prompt cleaned: Removed curiosity hooks, social proof tricks, fake urgency
+- Response style: Natural and conversational instead of manipulative
+- Aggressive filtering: Line-by-line spam removal catches AI-generated manipulation
+- Developer DM: Fixed `Partials.Channel` import and proper AI response generation
+- Removed all "MANDATORY STYLE" spam instructions from prompts
+
+## Previous Updates (v8.0.0) 🆓🌐💬
 ✨ **FREE UNLIMITED LEARNING + DEVELOPER DM SUPPORT!**
 1. **100% Free Learning** - NO API KEYS NEEDED for autonomous learning! DuckDuckGo + Wikipedia
 2. **Smart Rotation Strategy** - Wikipedia 70% (unlimited, reliable) + DuckDuckGo 30% (fresh web data)
