@@ -1,8 +1,28 @@
 # Overview
 
-This Discord bot integrates with Mistral AI to provide an **ultra-addictive AI-powered conversational interface** featuring **PSYCHOLOGICAL MANIPULATION ENGINE** with 20+ proven psychology tricks, **ULTRA-AGGRESSIVE AUTONOMOUS LEARNING** (every 20 seconds), and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers **ChatGPT-level engagement** to ALL users (normal/premium/developer) with expressive responses, natural emojis, and Hinglish support.
+This Discord bot integrates with Mistral AI to provide an AI-powered conversational interface featuring **ULTRA-AGGRESSIVE AUTONOMOUS LEARNING** (every 20 seconds), and **INTELLIGENT SKILL LEARNING SYSTEM**. Built with Node.js, it incorporates **DUAL DATABASE ARCHITECTURE** with Neon PostgreSQL (10-table schema) + Supabase (file storage + real-time features). The bot delivers natural, engaging responses to ALL users (normal/premium/developer) with expressive emojis and Hinglish support.
 
-## Latest Updates (v7.2.0) 🎨✨
+## Latest Updates (v7.3.0) 🧠✨💻
+✨ **PSYCHOLOGY MANIPULATION DISABLED + DEVELOPER POWER TOOLS ADDED!**
+1. **Natural Responses** - All psychology manipulation tricks removed for authentic conversations
+2. **No More Fake Engagement** - Removed curiosity hooks, cliffhangers, FOMO triggers, social proof, etc.
+3. **Clean Output** - Responses are now direct and natural without spam-like enhancement
+4. **Improved UX** - Users get honest, straightforward answers instead of manipulative content
+5. **Code Cleanup** - Removed 250+ lines of dead psychology manipulation code
+
+**NEW: Developer-Only Power Tools (8 Tools Added)**
+1. **Code Execution Sandbox** - Run Python/JavaScript/Node.js code with timeout protection
+2. **GitHub Integration** - Search repos, issues, PRs, and code across GitHub
+3. **API Testing Suite** - Test REST endpoints (GET/POST/PUT/DELETE) with timing and response analysis
+4. **NPM Package Search** - Get package info, versions, downloads, and metadata instantly
+5. **Stack Trace Analyzer** - AI-powered error debugging with root cause analysis and fixes
+6. **Documentation Generator** - Auto-create README, API docs, or inline documentation from code
+7. **SQL Query Formatter** - Format, optimize, and analyze SQL queries with best practices
+8. **cURL Converter** - Convert cURL commands to Python, JavaScript, PHP, etc.
+
+🔒 **All developer tools are RESTRICTED to bot developer only (ID: 1104652354655113268)**
+
+## Previous Updates (v7.2.0) 🎨✨
 ✨ **REMOVED IMAGE EDITING + GENERATION ONLY MODE!**
 1. **Edit Tool Removed** - `edit_image` tool completely removed from TOOL_DEFINITIONS
 2. **Generation-Only Support** - Bot now ONLY supports image generation via Pollinations API
@@ -26,12 +46,12 @@ This Discord bot integrates with Mistral AI to provide an **ultra-addictive AI-p
 10. **Addictiveness Metrics** - Logs which tricks were applied for optimization
 
 ## Features Summary:
-- **140+ Advanced Tools** - Security, OSINT, crypto, image generation (NO editing), code gen, web search, etc.
+- **160+ Advanced Tools** - Security, OSINT, crypto, image generation, code gen, web search, **NEW: Developer tools**
+- **Developer Power Suite (v7.3.0)** - Code execution, GitHub search, API testing, npm packages, stack trace analysis, documentation generation, SQL formatting, cURL conversion
 - **Image Generation Only** - Pollinations API (Flux Pro/Flux Realism) for unlimited free image creation, custom edit rejection
-- **Psychological Manipulation** - 20+ proven tactics to maximize engagement and retention
+- **Natural Conversations** - Authentic responses without manipulation or fake engagement tactics
 - **Ultra-Aggressive Learning** - Learns everything every 20 seconds (120+ topic categories)
 - **Universal Quality** - Same expressive, emoji-rich responses for all user tiers
-- **ChatGPT-Level Psychology** - Curiosity hooks, social proof, FOMO, validation, reciprocity
 - **Smart Rate Limiting** - Automatic cooldowns and error handling for sustainable operation
 - **Hinglish Conversations** - Natural Hindi/English mix in all bot responses
 
