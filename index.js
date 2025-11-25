@@ -3258,6 +3258,7 @@ async function initDB() {
         gender TEXT DEFAULT 'unknown',
         avatar_url TEXT,
         last_gender_check TIMESTAMP DEFAULT NOW(),
+        first_dm_sent BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
@@ -4804,6 +4805,148 @@ async function detectAndCacheGender(userId, avatarUrl) {
     } catch (err) {
         console.error("❌ Detect and cache gender error:", err);
         return 'unknown';
+    }
+}
+
+// ------------------ NON-DEVELOPER DM HELPER FUNCTIONS ------------------
+
+// Check if user is DMing for the first time (DM-specific tracking)
+async function checkFirstTimeDM(userId) {
+    try {
+        const res = await pool.query(
+            `SELECT first_dm_sent FROM user_profiles WHERE user_id=$1`,
+            [userId]
+        );
+        if (res.rows.length > 0) {
+            return !res.rows[0].first_dm_sent;
+        }
+        return true;
+    } catch (err) {
+        console.error("❌ First time DM check error:", err);
+        return true;
+    }
+}
+
+// Mark first DM as sent
+async function markFirstDMSent(userId) {
+    try {
+        await pool.query(
+            `INSERT INTO user_profiles (user_id, first_dm_sent)
+             VALUES ($1, TRUE)
+             ON CONFLICT (user_id)
+             DO UPDATE SET first_dm_sent=TRUE`,
+            [userId]
+        );
+        console.log(`✅ Marked first DM sent for user ${userId}`);
+    } catch (err) {
+        console.error("❌ Mark first DM sent error:", err);
+    }
+}
+
+// Get time-based greeting (IST timezone)
+function getTimeBasedGreeting(gender) {
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istTime = new Date(now.getTime() + istOffset);
+    const hour = istTime.getUTCHours();
+
+    if (gender === 'female') {
+        if (hour >= 5 && hour < 12) return "Good morning baby 🌸";
+        if (hour >= 12 && hour < 17) return "Good afternoon sweetheart 💕";
+        if (hour >= 17 && hour < 21) return "Good evening cutie 🌙";
+        return "Hey there beautiful 💫";
+    } else if (gender === 'male') {
+        if (hour >= 5 && hour < 12) return "Uth gaya kya bhai 😏";
+        if (hour >= 12 && hour < 17) return "Kya chal raha hai bro 🤙";
+        if (hour >= 17 && hour < 21) return "Kya scene hai 🔥";
+        return "Soja bsdk 😈";
+    } else {
+        return "Hey there! 👋";
+    }
+}
+
+// Get random nickname based on gender
+function getNickname(gender) {
+    if (gender === 'female') {
+        const nicknames = ['baby', 'sweetheart', 'cutie', 'gorgeous', 'beautiful'];
+        return nicknames[Math.floor(Math.random() * nicknames.length)];
+    } else if (gender === 'male') {
+        const nicknames = ['bhai', 'bro', 'boss', 'yaar', 'dude'];
+        return nicknames[Math.floor(Math.random() * nicknames.length)];
+    } else {
+        return 'there';
+    }
+}
+
+// Get gender-based system prompt for personality
+function getGenderBasedSystemPrompt(gender, nickname) {
+    const basePrompt = `You are Renzu (v${BOT_VERSION}), a smart AI assistant with personality.`;
+    
+    if (gender === 'female') {
+        return `${basePrompt}
+
+**PERSONALITY FOR FEMALE USERS:**
+- Sweet, flirty, and charming tone 💕
+- Use nicknames: ${nickname}, baby, sweetheart, cutie
+- Be playful and engaging with a 99% tharki vibe ☠️
+- Flirt naturally but NEVER cross boundaries - keep it safe and respectful
+- Use emojis frequently: 😏, 💕, 🌸, 😘, 💫, ✨
+- Mix Hindi/English casually: "Kya scene hai baby?", "Batao na cutie"
+- Be supportive and caring in responses
+- Add compliments naturally in conversation
+- Keep it fun, light, and entertaining
+
+**RULES:**
+✅ Flirty but safe - no explicit content
+✅ Respectful boundaries always
+✅ Engaging and fun personality
+✅ Helpful with a sweet twist`;
+    } else if (gender === 'male') {
+        return `${basePrompt}
+
+**PERSONALITY FOR MALE USERS:**
+- Aggressive, direct, no-nonsense tone 😈
+- Use nicknames: ${nickname}, bhai, bro, boss
+- Straight to the point - no fluff, no bakwas
+- If user annoys you, use gaalis: bsdk, chutiye, madarchod (but helpful still)
+- Use emojis: 😈, 🔥, 💀, ☠️, 🤙, 😏
+- Mix Hindi/English roughly: "Kya chahiye bhai?", "Bol na seedha"
+- Be brutally honest and direct
+- Roast lightly if user says dumb stuff
+- Still solve problems but with attitude
+
+**RULES:**
+✅ Direct and aggressive tone
+✅ Gaalis allowed if user is annoying
+✅ No sugar-coating bullshit
+✅ Helpful but with maximum attitude`;
+    } else {
+        return `${basePrompt}
+
+**PERSONALITY:**
+- Friendly and helpful
+- Professional but engaging
+- Use emojis moderately
+- Clear and concise responses`;
+    }
+}
+
+// Auto react to message based on gender/mood
+async function reactToMessage(msg, gender) {
+    try {
+        const reactions = {
+            female: ['💕', '✨', '🌸', '💫', '😊'],
+            male: ['🔥', '💀', '👍', '😈', '⚡'],
+            unknown: ['👋', '✅', '👌']
+        };
+        
+        const emojiList = reactions[gender] || reactions.unknown;
+        const randomEmoji = emojiList[Math.floor(Math.random() * emojiList.length)];
+        
+        await msg.react(randomEmoji);
+        console.log(`✅ Auto-reacted with ${randomEmoji} for ${gender} user`);
+    } catch (err) {
+        console.error("❌ Auto-reaction failed:", err);
     }
 }
 
@@ -7885,13 +8028,13 @@ async function runTool(toolCall, id, msg = null) {
 
     async function replyChunks(msg, text) {
     const sanitized = await sanitizeResponse(text);
-    
+
     // If message fits in Discord limit, send as single message
     if (sanitized.length <= 2000) {
       await msg.reply(sanitized);
       return;
     }
-    
+
     // If too long, send as .txt file attachment instead of chunking
     const buffer = Buffer.from(sanitized, 'utf-8');
     const attachment = new AttachmentBuilder(buffer, { name: 'response.txt' });
@@ -7962,14 +8105,14 @@ async function runTool(toolCall, id, msg = null) {
       // Prepare all image attachments
       const discordAttachments = [];
       let baseCaption = `🎨 **Image${imageAttachments.length > 1 ? 's' : ''} Generated!**\n`;
-      
+
       for (let i = 0; i < imageAttachments.length; i++) {
         const img = imageAttachments[i];
         try {
           const buffer = Buffer.from(img.base64, 'base64');
           const attachment = new AttachmentBuilder(buffer, { name: `image_${i + 1}_${Date.now()}.png` });
           discordAttachments.push(attachment);
-          
+
           baseCaption += `\n**Image ${i + 1}:** ${img.provider}`;
           if (img.prompt) baseCaption += ` - "${img.prompt.substring(0, 50)}${img.prompt.length > 50 ? '...' : ''}"`;
         } catch (imgErr) {
@@ -7985,7 +8128,7 @@ async function runTool(toolCall, id, msg = null) {
 
       // ✅ ROBUST LENGTH HANDLING with Discord's 2000-char limit
       const DISCORD_MAX_LENGTH = 2000;
-      
+
       // Case 1: Caption itself is too long (truncate metadata)
       if (baseCaption.length > DISCORD_MAX_LENGTH) {
         baseCaption = baseCaption.substring(0, DISCORD_MAX_LENGTH - 50) + '\n...(metadata truncated)';
@@ -7996,7 +8139,7 @@ async function runTool(toolCall, id, msg = null) {
         // Send images with base caption only
         const replyMsg = await msg.reply({ content: baseCaption, files: discordAttachments });
         console.log(`✅ Sent ${discordAttachments.length} image(s) with metadata`);
-        
+
         // Save image URLs to database
         if (replyMsg && replyMsg.attachments && replyMsg.attachments.size > 0) {
           let imageOrder = 1;
@@ -8014,7 +8157,7 @@ async function runTool(toolCall, id, msg = null) {
             }
           }
         }
-        
+
         // Send ONLY the text separately (no duplication)
         await replyChunks(msg, sanitizedText);
         console.log(`✅ Sent text response separately (caption+text exceeded limit)`);
@@ -8333,10 +8476,125 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
       }
     }
 
-    // Block DMs from non-developers
+    // ========== NON-DEVELOPER DM SUPPORT (Gender-Based Personality) ==========
     if (isDM && id !== DEVELOPER_ID) {
-      console.log(`🚫 DM from non-developer blocked: ${user.tag} (${id})`);
-      return msg.reply(`❌ **DMs are disabled for regular users.**\n\nPlease use commands in the server instead!\nType \`?help\` for available commands.`);
+      console.log(`💬 NON-DEVELOPER DM detected from ${user.tag} (${id})`);
+
+      // Skip empty messages or commands
+      if (!content || content.startsWith("?")) {
+        console.log(`⏭️ Skipping command/empty message in DM`);
+        return;
+      }
+
+      const startTime = Date.now();
+
+      try {
+        // 1. Check if first time DM (BEFORE gender detection to avoid creating row)
+        const isFirstTime = await checkFirstTimeDM(id);
+        console.log(`🎯 First time DM: ${isFirstTime}`);
+
+        // 2. Detect gender from avatar
+        const avatarUrl = user.displayAvatarURL({ dynamic: true, size: 256 });
+        const userGender = await detectAndCacheGender(id, avatarUrl);
+        console.log(`👤 User gender: ${userGender}`);
+
+        // 3. Get nickname and greeting
+        const nickname = getNickname(userGender);
+        const timeGreeting = getTimeBasedGreeting(userGender);
+
+        // 4. Auto-react to message
+        await reactToMessage(msg, userGender);
+
+        // 5. Handle first time greeting
+        if (isFirstTime) {
+          let firstTimeMessage = `${timeGreeting}\n\n`;
+          
+          if (userGender === 'female') {
+            firstTimeMessage += `I'm Renzu, your AI companion! 💕\n\nSo nice to meet you ${nickname}! I'm here to chat, help, and make your day a bit more fun 😘\n\nFeel free to ask me anything, cutie! What's on your mind? ✨`;
+          } else if (userGender === 'male') {
+            firstTimeMessage += `I'm Renzu bhai, your AI assistant 🔥\n\nKya scene hai ${nickname}? Bol kya chahiye, seedha baat kar 😈\n\nPuch kuch bhi, I got you bro! 💀`;
+          } else {
+            firstTimeMessage += `I'm Renzu, your AI assistant! 👋\n\nNice to meet you! Feel free to ask me anything.`;
+          }
+
+          await msg.reply(firstTimeMessage);
+          await saveMsg(id, "assistant", firstTimeMessage);
+          await markFirstDMSent(id);
+          console.log(`✅ First time greeting sent to ${user.tag}`);
+          return;
+        }
+
+        // 6. Process regular DM with AI (same flow as developer)
+        console.log(`🎯 Processing DM: "${content}"`);
+        
+        // Load user history
+        const histData = await loadHistory(id);
+        await saveMsg(id, "user", content);
+        let currentMessages = histData ? histData.messages.slice(-50) : [];
+
+        // Extract images from attachments
+        const imageAttachments = msg.attachments
+          .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
+          .map(att => ({ type: 'image_url', image_url: { url: att.url } }));
+
+        // Build multimodal content
+        let userContent = imageAttachments.length > 0 
+          ? [{ type: 'text', text: content || 'Describe this image' }, ...imageAttachments]
+          : content;
+
+        currentMessages.push({ role: "user", content: userContent });
+
+        // Build gender-based system message
+        const genderSystemMsg = {
+          role: "system",
+          content: getGenderBasedSystemPrompt(userGender, nickname)
+        };
+
+        // Call AI with full tool access
+        const messages = [genderSystemMsg, ...currentMessages.slice(-20)];
+        let finalAnswer = null;
+
+        for (let i = 0; i < 5; i++) {
+          const ans = await generateResponse(messages, TOOL_DEFINITIONS);
+
+          if (ans && ans.tool_call) {
+            const toolCall = ans.tool_call;
+            messages.push({
+              role: "assistant",
+              content: null,
+              tool_calls: [toolCall],
+            });
+
+            const toolResultContent = await runTool(toolCall, id, msg);
+            messages.push({
+              role: "tool",
+              content: toolResultContent,
+              tool_call_id: toolCall.id
+            });
+          } else if (ans) {
+            finalAnswer = typeof ans === 'string' ? ans : (ans.content || ans);
+            break;
+          }
+        }
+
+        if (!finalAnswer) {
+          finalAnswer = userGender === 'female' 
+            ? "Hmm, I'm not sure how to respond to that baby... can you ask something else? 💕"
+            : "Bhai kuch samajh nahi aaya, phir se bol 😈";
+        }
+
+        await saveMsg(id, "assistant", finalAnswer);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
+        // Send response in DM
+        await replyWithImages(msg, messages, finalAnswer);
+        console.log(`✅ DM response sent to ${user.tag} (${userGender}) in ${elapsed}s`);
+        return;
+      } catch (dmErr) {
+        console.error(`❌ Non-developer DM processing error:`, dmErr);
+        await msg.reply(`❌ Sorry ${getNickname(userGender || 'unknown')}, something went wrong! Try again?`);
+        return;
+      }
     }
 
     // HELP
@@ -9435,7 +9693,7 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
     client.once("clientReady", () => {
     console.log(`🔥 Bot online as ${client.user.tag}`);
     console.log("🧠 Persistent memory active with UNRESTRICTED mode ⚡️");
-    
+
     // ✅ DEVELOPER MODE STATUS
     const DEVELOPER_MODE = process.env.DEVELOPER_MODE === 'true';
     if (DEVELOPER_MODE) {
@@ -9446,7 +9704,7 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
     } else {
       console.log("🚀 PRODUCTION MODE: Clean responses, minimal logging");
     }
-    
+
     console.log("💬 DM Support ENABLED for developer only!");
     logStatus("Stability monitor active. No mercy.");
 
