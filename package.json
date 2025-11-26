@@ -12,6 +12,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
+    "@heyputer/puter.js": "^2.1.6",
     "@mistralai/mistralai": "^1.10.0",
     "@supabase/supabase-js": "^2.45.1",
     "@types/node": "^22.13.11",
@@ -21,6 +23,7 @@
     "express": "^5.1.0",
     "node-fetch": "^3.3.2",
     "pg": "^8.16.3",
+    "puter": "^1.0.0",
     "sharp": "^0.34.5"
   }
 }
