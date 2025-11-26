@@ -4881,7 +4881,7 @@ function getNickname(gender) {
 // Get gender-based system prompt for personality
 function getGenderBasedSystemPrompt(gender, nickname) {
     const basePrompt = `You are Renzu (v${BOT_VERSION}), a smart AI assistant with personality.`;
-    
+
     const imagePromptRule = `
 
 **CRITICAL IMAGE GENERATION RULE:**
@@ -5211,14 +5211,14 @@ async function runTool(toolCall, id, msg = null) {
             // 🔥 EXTRACT ORIGINAL USER PROMPT - IGNORE MISTRAL'S ENHANCED VERSION
             const originalMessage = msg?.content || '';
             const originalLower = originalMessage.toLowerCase();
-            
+
             // Detect modes from original message
             const usePollination = originalLower.includes('pollination -') || originalLower.includes('pollination:') || originalLower.startsWith('pollination ');
             const isFusion = originalLower.includes('fusion mode') || originalLower.includes('fusion -');
-            
+
             // 🔥 EXTRACT RAW PROMPT FROM USER'S ORIGINAL MESSAGE
             let actualPrompt = originalMessage;
-            
+
             // Remove common prefixes to get the raw image prompt
             actualPrompt = actualPrompt
                 .replace(/^pollination\s*[-:]\s*/i, '')  // Remove "pollination -"
@@ -5226,24 +5226,24 @@ async function runTool(toolCall, id, msg = null) {
                 .replace(/^(make|create|generate|draw|design)\s+(an?\s+)?(image|img|picture|pic|photo)\s+(of|for|about|showing)?\s*/i, '')  // Remove "make an image of"
                 .replace(/^(image|img|picture|pic)\s+(of|for)?\s*/i, '')  // Remove "image of"
                 .trim();
-            
+
             // Fallback to Mistral's prompt if extraction fails
             if (!actualPrompt || actualPrompt.length < 2) {
                 actualPrompt = parsedArgs.prompt || 'random image';
             }
-            
+
             let providerName = usePollination ? "Pollinations" : "Puter.js";
-            
+
             console.log(`🎨 [${providerName} Mode] ORIGINAL prompt extracted!`);
             console.log(`📝 User said: "${originalMessage}"`);
             console.log(`📝 Extracted prompt: "${actualPrompt}"`);
 
             // 🔥 FUSION MODE CHECK
-            
+
             if (isFusion && msg) {
                 console.log(`🔥 **FUSION MODE** - Generating with multiple models!`);
                 const fusionResult = await generateMultiModelFusion(actualPrompt);
-                
+
                 if (fusionResult.success && fusionResult.images.length > 0) {
                     const attachments = fusionResult.images.map((img, i) => 
                         new AttachmentBuilder(Buffer.from(img.base64, 'base64'), { name: `fusion_${i+1}_${Date.now()}.png` })
@@ -5259,12 +5259,12 @@ async function runTool(toolCall, id, msg = null) {
             const model = 'flux-pro';
             const encodedPrompt = encodeURIComponent(actualPrompt);
             const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=${model}&nologo=true&enhance=true&seed=${Date.now()}`;
-            
+
             console.log(`🌐 Generating image with ${providerName}...`);
             const response = await fetch(url, { method: 'GET', headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' } });
-            
+
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            
+
             const imageBuffer = await response.arrayBuffer();
             console.log(`✅ Image generated! (${(imageBuffer.byteLength / 1024).toFixed(2)} KB)`);
 
