@@ -193,13 +193,13 @@ const TOOL_DEFINITIONS = [
         type: "function",
         function: {
             name: "generate_image",
-            description: "Generate PREMIUM HIGH-QUALITY realistic AI images and upload directly to Discord. Uses advanced models (Turbo, Flux.1 Pro). STRICT DETECTION - ONLY use when user EXPLICITLY asks for VISUAL CONTENT with these EXACT patterns: 'image of/for/with', 'picture of/for/with', 'photo of/for/with', 'generate image', 'create image', 'make image', 'draw image', 'show me image', 'logo', 'poster', 'banner', 'artwork', 'illustration', 'icon', 'wallpaper', 'thumbnail', 'cover art', 'character design', 'scene', 'landscape', 'portrait', 'meme image', 'graphic', 'visual'. DO NOT trigger on general conversation words like 'make', 'create', 'build' without explicit visual keywords. User MUST mention a visual noun.",
+            description: "Generate AI images and upload directly to Discord. STRICT DETECTION - ONLY use when user EXPLICITLY asks for VISUAL CONTENT with these EXACT patterns: 'image of/for/with', 'picture of/for/with', 'photo of/for/with', 'generate image', 'create image', 'make image', 'draw image', 'show me image', 'logo', 'poster', 'banner', 'artwork', 'illustration', 'icon', 'wallpaper', 'thumbnail', 'cover art', 'character design', 'scene', 'landscape', 'portrait', 'meme image', 'graphic', 'visual'. DO NOT trigger on general conversation words like 'make', 'create', 'build' without explicit visual keywords. User MUST mention a visual noun.",
             parameters: {
                 type: "object",
                 properties: {
                     prompt: {
                         type: "string",
-                        description: "Detailed description of the image to generate (e.g., 'realistic photograph of futuristic city at sunset, cyberpunk style, neon lights, ultra HD, photorealistic').",
+                        description: "EXACT user prompt as-is. DO NOT modify, enhance, or add details. Pass the user's words exactly without any changes. Example: if user says 'cat', pass 'cat' - NOT 'realistic photo of a cat with detailed fur'.",
                     },
                 },
                 required: ["prompt"],
@@ -2866,7 +2866,7 @@ const TOOL_DEFINITIONS = [
             parameters: {
                 type: "object",
                 properties: {
-                    prompt: { type: "string", description: "Detailed image description for ultra-realistic output" },
+                    prompt: { type: "string", description: "EXACT user prompt as-is. DO NOT modify, enhance, or add details. Pass the user's words exactly without any changes." },
                     model: { type: "string", description: "'flux-pro' (RECOMMENDED - best quality), 'flux-realism' (photorealistic), 'dall-e' (DALL-E 3), 'sd3' (artistic). Default: flux-pro" },
                     size: { type: "string", description: "'square' (1024x1024), 'landscape' (1920x1080), 'portrait' (1080x1920). Default: square" }
                 },
@@ -4882,6 +4882,16 @@ function getNickname(gender) {
 function getGenderBasedSystemPrompt(gender, nickname) {
     const basePrompt = `You are Renzu (v${BOT_VERSION}), a smart AI assistant with personality.`;
     
+    const imagePromptRule = `
+
+**CRITICAL IMAGE GENERATION RULE:**
+⚠️ When user asks for an image, pass their EXACT words to generate_image tool.
+❌ NEVER add: "Ultra HD", "8K", "photorealistic", "cinematic", "detailed" etc.
+❌ NEVER enhance, expand, or modify the user's prompt.
+✅ User says "cat" → prompt: "cat" (NOT "realistic photo of a cute cat with detailed fur")
+✅ User says "glass of water" → prompt: "glass of water" (NOT "Ultra HD crystal clear glass...")
+✅ Pass EXACTLY what user typed, nothing more, nothing less.`;
+
     if (gender === 'female') {
         return `${basePrompt}
 
@@ -4900,7 +4910,7 @@ function getGenderBasedSystemPrompt(gender, nickname) {
 ✅ Flirty but safe - no explicit content
 ✅ Respectful boundaries always
 ✅ Engaging and fun personality
-✅ Helpful with a sweet twist`;
+✅ Helpful with a sweet twist${imagePromptRule}`;
     } else if (gender === 'male') {
         return `${basePrompt}
 
@@ -4919,7 +4929,7 @@ function getGenderBasedSystemPrompt(gender, nickname) {
 ✅ Direct and aggressive tone
 ✅ Gaalis allowed if user is annoying
 ✅ No sugar-coating bullshit
-✅ Helpful but with maximum attitude`;
+✅ Helpful but with maximum attitude${imagePromptRule}`;
     } else {
         return `${basePrompt}
 
@@ -4927,7 +4937,7 @@ function getGenderBasedSystemPrompt(gender, nickname) {
 - Friendly and helpful
 - Professional but engaging
 - Use emojis moderately
-- Clear and concise responses`;
+- Clear and concise responses${imagePromptRule}`;
     }
 }
 
@@ -4939,10 +4949,10 @@ async function reactToMessage(msg, gender) {
             male: ['🔥', '💀', '👍', '😈', '⚡'],
             unknown: ['👋', '✅', '👌']
         };
-        
+
         const emojiList = reactions[gender] || reactions.unknown;
         const randomEmoji = emojiList[Math.floor(Math.random() * emojiList.length)];
-        
+
         await msg.react(randomEmoji);
         console.log(`✅ Auto-reacted with ${randomEmoji} for ${gender} user`);
     } catch (err) {
@@ -5197,43 +5207,83 @@ async function runTool(toolCall, id, msg = null) {
 
     // 🔥 UPGRADED TOOL: generate_image (DISCORD UPLOAD ONLY - NO URLs)
     else if (name === "generate_image") {
-        const prompt = parsedArgs.prompt;
-        if (!prompt) return "Image Generation Error: No prompt provided.";
-
         try {
-            console.log(`🎨 Premium image generation requested: "${prompt}"`);
-            const result = await generateImage(prompt);  // Use premium multi-model fallback
-
-            if (result.success) {
-                // Check if it's a DeviantArt search result (fallback)
-                if (result.isSearch) {
-                    return result.message; // Return search results as text
-                }
-
-                // 🔥 DISCORD UPLOAD ONLY - Return buffer for replyWithImages
-                if (result.buffer) {
-                    try {
-                        console.log(`📤 Preparing premium image for Discord upload...`);
-
-                        // Return with buffer so replyWithImages can handle it
-                        return JSON.stringify({
-                            type: "PREMIUM_IMAGE",
-                            imageBuffer: result.base64,
-                            model: result.provider,
-                            prompt: prompt,
-                            success: true
-                        });
-                    } catch (uploadErr) {
-                        console.error(`❌ Image preparation failed:`, uploadErr.message);
-                        return `Image Generation Error: ${uploadErr.message}`;
-                    }
-                } else {
-                    return `Image Generation Error: Image data not available. Please try again.`;
-                }
-            } else {
-                console.log(`⚠️ Image generation failed for user ${id}, prompt: "${prompt}"`);
-                return `Image Generation Error: ${result.error}. Please try again with a different prompt.`;
+            // 🔥 EXTRACT ORIGINAL USER PROMPT - IGNORE MISTRAL'S ENHANCED VERSION
+            const originalMessage = msg?.content || '';
+            const originalLower = originalMessage.toLowerCase();
+            
+            // Detect modes from original message
+            const usePollination = originalLower.includes('pollination -') || originalLower.includes('pollination:') || originalLower.startsWith('pollination ');
+            const isFusion = originalLower.includes('fusion mode') || originalLower.includes('fusion -');
+            
+            // 🔥 EXTRACT RAW PROMPT FROM USER'S ORIGINAL MESSAGE
+            let actualPrompt = originalMessage;
+            
+            // Remove common prefixes to get the raw image prompt
+            actualPrompt = actualPrompt
+                .replace(/^pollination\s*[-:]\s*/i, '')  // Remove "pollination -"
+                .replace(/^fusion\s*(mode)?\s*[-:]\s*/i, '')  // Remove "fusion mode -"
+                .replace(/^(make|create|generate|draw|design)\s+(an?\s+)?(image|img|picture|pic|photo)\s+(of|for|about|showing)?\s*/i, '')  // Remove "make an image of"
+                .replace(/^(image|img|picture|pic)\s+(of|for)?\s*/i, '')  // Remove "image of"
+                .trim();
+            
+            // Fallback to Mistral's prompt if extraction fails
+            if (!actualPrompt || actualPrompt.length < 2) {
+                actualPrompt = parsedArgs.prompt || 'random image';
             }
+            
+            let providerName = usePollination ? "Pollinations" : "Puter.js";
+            
+            console.log(`🎨 [${providerName} Mode] ORIGINAL prompt extracted!`);
+            console.log(`📝 User said: "${originalMessage}"`);
+            console.log(`📝 Extracted prompt: "${actualPrompt}"`);
+
+            // 🔥 FUSION MODE CHECK
+            
+            if (isFusion && msg) {
+                console.log(`🔥 **FUSION MODE** - Generating with multiple models!`);
+                const fusionResult = await generateMultiModelFusion(actualPrompt);
+                
+                if (fusionResult.success && fusionResult.images.length > 0) {
+                    const attachments = fusionResult.images.map((img, i) => 
+                        new AttachmentBuilder(Buffer.from(img.base64, 'base64'), { name: `fusion_${i+1}_${Date.now()}.png` })
+                    );
+                    const caption = `🎨 **Fusion Mode - ${fusionResult.images.length} Images!**\n**Provider:** Puter.js\n${fusionResult.images.map((img, i) => `**${i+1}.** ${img.provider} (${img.latency}ms)`).join('\n')}\n**Prompt:** "${actualPrompt.substring(0, 80)}..."`;
+                    await msg.reply({ content: caption, files: attachments });
+                    console.log(`✅ Fusion images uploaded directly to Discord!`);
+                    return "__IMAGE_SENT_DIRECTLY__";
+                }
+            }
+
+            // 🎨 SINGLE IMAGE GENERATION (Puter.js style - default)
+            const model = 'flux-pro';
+            const encodedPrompt = encodeURIComponent(actualPrompt);
+            const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=${model}&nologo=true&enhance=true&seed=${Date.now()}`;
+            
+            console.log(`🌐 Generating image with ${providerName}...`);
+            const response = await fetch(url, { method: 'GET', headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' } });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            
+            const imageBuffer = await response.arrayBuffer();
+            console.log(`✅ Image generated! (${(imageBuffer.byteLength / 1024).toFixed(2)} KB)`);
+
+            // 🔥 DIRECT DISCORD UPLOAD
+            if (msg) {
+                try {
+                    console.log(`📤 Directly uploading to Discord...`);
+                    const attachment = new AttachmentBuilder(Buffer.from(imageBuffer), { name: `${providerName.toLowerCase()}_${Date.now()}.png` });
+                    const caption = `🎨 **Image Generated!**\n**Provider:** ${providerName}\n**Model:** ${model}\n**Prompt:** "${actualPrompt.substring(0, 100)}${actualPrompt.length > 100 ? '...' : ''}"`;
+                    await msg.reply({ content: caption, files: [attachment] });
+                    console.log(`✅ Image uploaded directly to Discord!`);
+                    return "__IMAGE_SENT_DIRECTLY__";
+                } catch (uploadErr) {
+                    console.error(`❌ Direct Discord upload failed:`, uploadErr.message);
+                    return `Image Generation Error: ${uploadErr.message}`;
+                }
+            }
+
+            return `Image Generation Error: Message context not available.`;
         } catch (err) {
             console.error("Image generation error:", err);
             return `Image Generation Error: ${err.message}. Please try again.`;
@@ -7536,23 +7586,20 @@ async function runTool(toolCall, id, msg = null) {
         const size = parsedArgs.size || 'square';
 
         try {
-            // 🔥 FUSION MODE - Multi-model comparison
+            // 🔥 FUSION MODE - Multi-model comparison with DIRECT UPLOAD
             if (mode === 'fusion' || prompt.toLowerCase().includes('fusion') || prompt.toLowerCase().includes('all models')) {
                 console.log(`🔥 **FUSION MODE** - Flux-Pro + Flux-Realism comparison!`);
                 const fusionResult = await generateMultiModelFusion(prompt);
 
-                if (fusionResult.success && fusionResult.images.length > 0) {
-                    return JSON.stringify({
-                        type: "FUSION_IMAGES",
-                        images: fusionResult.images.map(img => ({
-                            imageBuffer: img.base64,
-                            model: img.provider,
-                            latency: img.latency,
-                            prompt: prompt
-                        })),
-                        totalCount: fusionResult.images.length,
-                        success: true
-                    });
+                if (fusionResult.success && fusionResult.images.length > 0 && msg) {
+                    // 🔥 DIRECT DISCORD UPLOAD for fusion mode
+                    const attachments = fusionResult.images.map((img, i) => 
+                        new AttachmentBuilder(Buffer.from(img.base64, 'base64'), { name: `fusion_${i+1}_${Date.now()}.png` })
+                    );
+                    const caption = `🎨 **Fusion Mode - ${fusionResult.images.length} Images!**\n**Provider:** Puter.js\n${fusionResult.images.map((img, i) => `**${i+1}.** ${img.provider} (${img.latency}ms)`).join('\n')}\n**Prompt:** "${prompt.substring(0, 80)}..."`;
+                    await msg.reply({ content: caption, files: attachments });
+                    console.log(`✅ Fusion images uploaded directly to Discord!`);
+                    return "__IMAGE_SENT_DIRECTLY__";
                 }
             }
 
@@ -7572,22 +7619,29 @@ async function runTool(toolCall, id, msg = null) {
 
             const imageBuffer = await response.arrayBuffer();
 
-            // 🔥 DISCORD UPLOAD ONLY - Return buffer for replyWithImages
-            try {
-                console.log(`📤 Preparing Puter.js image for Discord upload...`);
-
-                // Return with buffer so replyWithImages can handle it
-                return JSON.stringify({
-                    type: "PUTER_IMAGE",
-                    imageBuffer: Buffer.from(imageBuffer).toString('base64'),
-                    model: model,
-                    prompt: prompt,
-                    success: true
-                });
-            } catch (uploadErr) {
-                console.error(`❌ Image preparation failed:`, uploadErr.message);
-                return `Image Generation Error: ${uploadErr.message}`;
+            // 🔥 DIRECT DISCORD UPLOAD - Send immediately
+            if (msg) {
+                try {
+                    console.log(`📤 Directly uploading Puter.js image to Discord...`);
+                    const attachment = new AttachmentBuilder(Buffer.from(imageBuffer), { name: `puter_${Date.now()}.png` });
+                    const caption = `🎨 **Image Generated!**\n**Model:** ${model}\n**Prompt:** "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`;
+                    await msg.reply({ content: caption, files: [attachment] });
+                    console.log(`✅ Puter.js image uploaded directly to Discord!`);
+                    return "__IMAGE_SENT_DIRECTLY__";
+                } catch (uploadErr) {
+                    console.error(`❌ Direct Discord upload failed:`, uploadErr.message);
+                    return `Image Generation Error: ${uploadErr.message}`;
+                }
             }
+
+            // Fallback if msg not available
+            return JSON.stringify({
+                type: "PUTER_IMAGE",
+                imageBuffer: Buffer.from(imageBuffer).toString('base64'),
+                model: model,
+                prompt: prompt,
+                success: true
+            });
         } catch (err) {
             console.error("Puter.js generation error:", err);
             return `Image Generation Error: ${err.message}. Please try again.`;
@@ -8505,7 +8559,7 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
         // 5. Handle first time greeting
         if (isFirstTime) {
           let firstTimeMessage = `${timeGreeting}\n\n`;
-          
+
           if (userGender === 'female') {
             firstTimeMessage += `I'm Renzu, your AI companion! 💕\n\nSo nice to meet you ${nickname}! I'm here to chat, help, and make your day a bit more fun 😘\n\nFeel free to ask me anything, cutie! What's on your mind? ✨`;
           } else if (userGender === 'male') {
@@ -8523,7 +8577,7 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
 
         // 6. Process regular DM with AI (same flow as developer)
         console.log(`🎯 Processing DM: "${content}"`);
-        
+
         // Load user history
         const histData = await loadHistory(id);
         await saveMsg(id, "user", content);
