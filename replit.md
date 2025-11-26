@@ -4,9 +4,18 @@ This Discord bot integrates with Mistral AI to provide an AI-powered conversatio
 
 **Production Mode**: By default, the bot runs in production mode with clean responses and minimal logging. Autonomous learning is DISABLED by default (enable via `ENABLE_AUTO_LEARNING=true`).
 
-# Recent Changes (November 25, 2025)
+# Recent Changes (November 26, 2025 - FINAL UPDATE)
 
-## Duplicate Reply Fix & Production Hardening
+## Puter.js Free Gemini Integration (NO API KEYS NEEDED!)
+- **Image Generation Replaced** - `generate_puter_image` now uses UNLIMITED FREE Puter.js Gemini (no API key required)
+- **Multi-Fallback Architecture** - Added fallback chain: Prodia → Pollinations → Replicate for high reliability
+- **Image Analysis Replaced** - `analyze_image_gemini` now uses free Puter.js Gemini vision (with Pixtral fallback)
+- **Image Editing Replaced** - `edit_image_gemini` now uses free Puter.js with Prodia/Pollinations fallbacks
+- **Automatic Retry Logic** - All three tools automatically try next service if one fails (no more 502 errors!)
+- **Removed Gemini API Dependency** - Stripped out all direct Google Gemini API calls that required keys
+- **User Sees Free Status** - All responses indicate "(Free, No API Key)" to show cost savings
+
+## Previous Changes (November 25, 2025)
 - **Fixed duplicate message replies** - Implemented message processing lock (debounce) to prevent concurrent handlers
 - **Single-message responses** - Converted `replyChunks` to send ONE message or .txt file (no more streaming chunks)
 - **Optimized image replies** - `replyWithImages` batches all images + text into ONE message with robust 2000-char limit handling
@@ -38,7 +47,12 @@ Preferred communication style: Simple, everyday language.
 ## Bot Architecture
 **Gateway Intents**: Utilizes Discord gateway intents for message and guild events.
 **AI Function Calling**: Implements an advanced tool/function calling pattern with Mistral AI, enabling the bot to automatically select and execute appropriate tools based on natural language queries via the `?ask` command.
-- **Tools**: Includes 160+ advanced tools covering security, OSINT, crypto, image generation (generation only, no editing), code generation, web search, and developer-specific tools (e.g., code execution sandbox, GitHub integration, API testing).
+- **Tools**: Includes 160+ advanced tools covering security, OSINT, crypto, image generation/analysis/editing (Gemini-powered), code generation, web search, and developer-specific tools (e.g., code execution sandbox, GitHub integration, API testing).
+- **Image Tools (Gemini Trio)**:
+  - `generate_puter_image` - Gemini 2.0 Flash (default) with Pollinations fallback
+  - `analyze_image_gemini` - Gemini 2.0 Flash vision with Pixtral fallback
+  - `edit_image_gemini` - AI-powered img2img editing via Gemini
+- **Time Tool**: `get_india_time` - Real-time IST clock with Hindi/Hinglish support
 - **Self-Awareness System**: Tracks bot version and maintains an update history.
 - **Developer Recognition System**: Identifies the developer by Discord user ID for unrestricted access.
 
@@ -62,8 +76,9 @@ Preferred communication style: Simple, everyday language.
 
 # External Dependencies
 
-## AI Service
+## AI Services
 - **Mistral AI**: Primary LLM provider for conversational responses and function calling.
+- **Google Gemini**: Image generation (2.0 Flash), image analysis, and image editing (img2img).
 
 ## Communication Platform
 - **Discord API**: Handles message delivery and bot presence.
@@ -72,10 +87,11 @@ Preferred communication style: Simple, everyday language.
 - **PostgreSQL**: Relational database for persistent storage.
 
 ## API Keys / Services (Conditional)
+- **Google Gemini API**: For image generation, analysis, and editing (primary).
+- **Pollinations API (Flux Pro/Flux Realism)**: Fallback for image generation.
 - **SerpAPI**: For web search and CVE lookup.
 - **Shodan**: For internet-wide scanning.
 - **VirusTotal**: For file hash checking.
-- **Pollinations API (Flux Pro/Flux Realism)**: For image generation.
 - **HaveIBeenPwned**: For email breach checking.
 
 ## Environment Variables
