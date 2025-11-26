@@ -42,6 +42,33 @@ const RATE_LIMITS = {
     premium: 120,    // 120 requests per day for premium users
     developer: Infinity  // Unlimited for developer
 };
+
+// ------------------ REAL-TIME INDIA CLOCK (IST) ------------------
+function getIndiaTime() {
+    const options = {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    };
+    const now = new Date();
+    const istTime = now.toLocaleString('en-IN', options);
+    const parts = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).split(' ');
+    const timeOnly = parts.join(' ');
+    const dateOnly = now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    return { full: istTime, time: timeOnly, date: dateOnly, timestamp: now.toISOString() };
+}
+
+function isTimeQuery(text) {
+    const lower = text.toLowerCase();
+    const timePatterns = /\b(time kya|kya time|kitne baje|what time|current time|abhi time|time bata|waqt kya|kab hua|kab huwa|time in india|india time|ist time|indian time|samay kya|kitna baja|baj gaye|baj gaya)\b/i;
+    return timePatterns.test(lower);
+}
 const CHANGELOG = [
     {
         version: "6.0.0",
@@ -2858,16 +2885,16 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 144: generate_puter_image (PRIORITY IMAGE GENERATION)
+        // Tool 144: generate_puter_image (GEMINI-POWERED IMAGE GENERATION)
         type: "function",
         function: {
             name: "generate_puter_image",
-            description: "PRIORITY: UNLIMITED Puter.js image generation uploaded to Discord (NO API KEY REQUIRED). Supports premium Pollinations.ai models: 'flux-pro' (RECOMMENDED - best quality), 'flux-realism' (photorealistic), 'dall-e' (DALL-E 3), 'sd3' (Stable Diffusion 3). Use this for high-quality unlimited AI image generation. Images automatically uploaded to Discord for best user experience.",
+            description: "PRIORITY: Puter.js image generation with Gemini AI (DEFAULT) or Pollinations fallback. DEFAULT MODEL: 'gemini' (gemini-2.5-flash-image-preview - best quality). FALLBACK: 'gemini-flash' (gemini-2.5-flash). POLLINATIONS: Use 'pollinations-flux', 'pollinations-realism', 'pollinations-dalle' for Pollinations.ai models. Use this for high-quality AI image generation uploaded directly to Discord.",
             parameters: {
                 type: "object",
                 properties: {
                     prompt: { type: "string", description: "EXACT user prompt as-is. DO NOT modify, enhance, or add details. Pass the user's words exactly without any changes." },
-                    model: { type: "string", description: "'flux-pro' (RECOMMENDED - best quality), 'flux-realism' (photorealistic), 'dall-e' (DALL-E 3), 'sd3' (artistic). Default: flux-pro" },
+                    model: { type: "string", description: "'gemini' (DEFAULT - gemini-2.5-flash-image-preview), 'gemini-flash' (gemini-2.5-flash fallback), 'pollinations-flux' (flux-pro), 'pollinations-realism', 'pollinations-dalle'. Default: gemini" },
                     size: { type: "string", description: "'square' (1024x1024), 'landscape' (1920x1080), 'portrait' (1080x1920). Default: square" }
                 },
                 required: ["prompt"]
@@ -2876,7 +2903,54 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 145: edit_image_sharp
+        // Tool 145: analyze_image_gemini (GEMINI-POWERED IMAGE ANALYSIS)
+        type: "function",
+        function: {
+            name: "analyze_image_gemini",
+            description: "Analyze images using Gemini 2.5 Pro (PRIMARY) or Pixtral (FALLBACK) via Puter.js. Use when user uploads an image and asks: 'what is this', 'describe this image', 'analyze this', 'kya hai ye', 'is image me kya hai', 'explain this picture', or any vision/analysis request. Supports Discord attachments and image URLs.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "Image URL or Discord attachment URL to analyze" },
+                    query: { type: "string", description: "What to analyze or question about the image. Default: 'Describe this image in detail'" }
+                },
+                required: ["image_url"]
+            }
+        }
+    },
+
+    {
+        // Tool 146: edit_image_gemini (GEMINI-POWERED IMAGE EDITING - img2img)
+        type: "function",
+        function: {
+            name: "edit_image_gemini",
+            description: "AI-powered image editing using Gemini 2.5 Flash (img2img mode). Use when user uploads an image and requests edits like: 'add flowers', 'remove background', 'make it colorful', 'add sunglasses', 'change to night', 'is me ye add kar', 'edit kar', 'modify this image'. Takes original image and applies AI transformations.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "Original image URL or Discord attachment to edit" },
+                    edit_prompt: { type: "string", description: "What changes to make (e.g., 'add flowers in background', 'remove the person', 'make it look like sunset')" }
+                },
+                required: ["image_url", "edit_prompt"]
+            }
+        }
+    },
+
+    {
+        // Tool 147: get_india_time (REAL-TIME IST CLOCK)
+        type: "function",
+        function: {
+            name: "get_india_time",
+            description: "Get current India Standard Time (IST). Use when user asks: 'time kya hai', 'kya time hua', 'kitne baje', 'what time is it', 'current time', 'india time', 'abhi time', 'kab hua', 'kab huwa', or any time-related query in Hindi/Hinglish/English.",
+            parameters: {
+                type: "object",
+                properties: {}
+            }
+        }
+    },
+
+    {
+        // Tool 148: edit_image_sharp
         type: "function",
         function: {
             name: "edit_image_sharp",
@@ -4040,10 +4114,13 @@ async function intelligentMessageClassifier(userMessage, conversationHistory = [
 2. casual_chat - Normal conversation without specific requests
 3. simple_question - General questions about bot/capabilities
 4. image_generation - Explicit request for visual content (image, picture, photo, logo, etc.)
-5. code_generation - Request for programming code
-6. web_search - Needs real-time/current information
-7. technical_query - Complex technical questions
-8. tool_request - Specific tool/feature request (security, OSINT, crypto, etc.)
+5. image_edit - Request to edit/modify an uploaded image (add X, remove Y, change Z, is me ye add kar)
+6. image_analysis - Request to analyze/describe an uploaded image (kya hai ye, describe this, analyze)
+7. time_query - Questions about current time (time kya hai, kitne baje, what time)
+8. code_generation - Request for programming code
+9. web_search - Needs real-time/current information
+10. technical_query - Complex technical questions
+11. tool_request - Specific tool/feature request (security, OSINT, crypto, etc.)
 
 **Return ONLY valid JSON in this exact format:**
 {
@@ -4173,38 +4250,57 @@ function regexBasedClassifier(text) {
     return { type: 'greeting', needsTools: false, simpleResponse: true, description: 'Simple greeting', confidence: 0.9 };
   }
 
-  // 2. IMAGE GENERATION - STRICT
+  // 2. TIME QUERY DETECTION (NEW)
+  const timePatterns = /\b(time kya|kya time|kitne baje|what time|current time|abhi time|time bata|waqt kya|kab hua|kab huwa|time in india|india time|ist time|indian time|samay kya|kitna baja|baj gaye|baj gaya)\b/i;
+  if (timePatterns.test(lower)) {
+    return { type: 'time_query', needsTools: true, simpleResponse: false, description: 'India time query', confidence: 0.95, recommendedTools: ['get_india_time'] };
+  }
+
+  // 3. IMAGE EDIT DETECTION (NEW - Before image generation)
+  const imageEditPatterns = /\b(add|remove|delete|change|modify|edit|hata|dal|lagao|bana|kar de|transform|replace|put|insert|overlay)\b.*\b(image|photo|picture|is me|isme|this|ye|yeh|pic)\b|\b(image|photo|picture|is me|isme|this|ye|yeh|pic)\b.*\b(add|remove|delete|change|modify|edit|hata|dal|lagao|bana|kar de|transform|replace)\b/i;
+  const imageEditActions = /\b(is me|isme|image me|photo me|picture me)\s+(add|dal|lagao|hata|remove)\b|\b(add|remove|edit|modify|change)\s+(to|in|on)?\s*(this|the)?\s*(image|photo|picture)\b/i;
+  if (imageEditPatterns.test(lower) || imageEditActions.test(lower)) {
+    return { type: 'image_edit', needsTools: true, simpleResponse: false, description: 'Image editing request', confidence: 0.9, recommendedTools: ['edit_image_gemini'] };
+  }
+
+  // 4. IMAGE ANALYSIS DETECTION (NEW)
+  const imageAnalysisPatterns = /\b(analyze|analyse|describe|explain|kya hai|what is|identify|recognize|detect|is me kya|isme kya|tell me about|bata kya|samjha|vision)\b.*\b(image|photo|picture|this|ye|yeh|pic)\b|\b(image|photo|picture)\b.*\b(analyze|describe|explain|kya hai)\b/i;
+  if (imageAnalysisPatterns.test(lower)) {
+    return { type: 'image_analysis', needsTools: true, simpleResponse: false, description: 'Image analysis request', confidence: 0.9, recommendedTools: ['analyze_image_gemini'] };
+  }
+
+  // 5. IMAGE GENERATION - STRICT
   const imagePatterns = /\b(image|picture|photo|logo|poster|banner|artwork|illustration|icon|wallpaper|thumbnail|cover art|character design|landscape|portrait|meme image|graphic|visual|drawing)\b/i;
   const imageActions = /\b(generate|create|make|draw|show me|design|build)\s+(an?|my|some)?\s*(image|picture|photo|logo|poster|banner|artwork|illustration)/i;
   if (imagePatterns.test(lower) || imageActions.test(lower)) {
     return { type: 'image_generation', needsTools: true, simpleResponse: false, description: 'Explicit image generation request', confidence: 0.85 };
   }
 
-  // 3. CODE GENERATION
+  // 6. CODE GENERATION
   const codePatterns = /\b(write code|create script|build program|make function|code to|script that|program for|how to code|give me code|python|javascript|java|c\+\+|implement|develop|algorithm)\b/i;
   if (codePatterns.test(lower)) {
     return { type: 'code_generation', needsTools: true, simpleResponse: false, description: 'Code generation request', confidence: 0.8 };
   }
 
-  // 4. WEB SEARCH
+  // 7. WEB SEARCH
   const searchPatterns = /\b(weather|news|trending|score|price|today|current|latest|now|live|search for|find out)\b/i;
   if (searchPatterns.test(lower)) {
     return { type: 'web_search', needsTools: true, simpleResponse: false, description: 'Real-time information query', confidence: 0.85 };
   }
 
-  // 5. SIMPLE QUESTION
+  // 8. SIMPLE QUESTION
   const questionWords = /^(kya|kaise|kab|kahan|kyu|what|how|when|where|why|can you|tu|tum)/i;
   if (questionWords.test(lower)) {
     return { type: 'simple_question', needsTools: false, simpleResponse: true, description: 'General question', confidence: 0.75 };
   }
 
-  // 6. CASUAL CHAT
+  // 9. CASUAL CHAT
   const casualPatterns = /\b(bhai|yaar|lol|haha|achha|theek|ok|sahi|nice|cool|good|bad|matlab|samajh|dekh|sun)\b/i;
   if (casualPatterns.test(lower) || text.split(' ').length < 6) {
     return { type: 'casual_chat', needsTools: false, simpleResponse: true, description: 'Casual conversation', confidence: 0.7 };
   }
 
-  // 7. DEFAULT
+  // 10. DEFAULT
   return { type: 'technical_query', needsTools: false, simpleResponse: false, description: 'Technical or complex query', confidence: 0.6 };
 }
 
@@ -7578,11 +7674,18 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // Tool 144: Puter.js Image Generation (DISCORD UPLOAD ONLY)
+    // Tool: get_india_time (REAL-TIME IST CLOCK)
+    else if (name === "get_india_time") {
+        const timeData = getIndiaTime();
+        console.log(`🕐 India Time requested: ${timeData.time}`);
+        return `🕐 **India Time (IST)**\n\n⏰ **Time:** ${timeData.time}\n📅 **Date:** ${timeData.date}\n\n🇮🇳 Indian Standard Time (UTC+5:30)`;
+    }
+
+    // Tool 144: Puter.js Image Generation (GEMINI DEFAULT + POLLINATIONS FALLBACK)
     else if (name === "generate_puter_image") {
         const prompt = parsedArgs.prompt;
-        const model = parsedArgs.model || 'flux-pro';
-        const mode = parsedArgs.mode || 'single'; // 'single' or 'fusion'
+        let model = parsedArgs.model || 'gemini';
+        const mode = parsedArgs.mode || 'single';
         const size = parsedArgs.size || 'square';
 
         try {
@@ -7592,7 +7695,6 @@ async function runTool(toolCall, id, msg = null) {
                 const fusionResult = await generateMultiModelFusion(prompt);
 
                 if (fusionResult.success && fusionResult.images.length > 0 && msg) {
-                    // 🔥 DIRECT DISCORD UPLOAD for fusion mode
                     const attachments = fusionResult.images.map((img, i) => 
                         new AttachmentBuilder(Buffer.from(img.base64, 'base64'), { name: `fusion_${i+1}_${Date.now()}.png` })
                     );
@@ -7603,52 +7705,262 @@ async function runTool(toolCall, id, msg = null) {
                 }
             }
 
-            // SINGLE MODEL MODE (default)
-            console.log(`🎨 [Puter.js] Generating premium image with model: ${model}`);
+            // 🎨 GEMINI IMAGE GENERATION (DEFAULT) via Puter.js
+            if (model === 'gemini' || model === 'gemini-flash' || !model.startsWith('pollinations')) {
+                const geminiModel = model === 'gemini-flash' ? 'gemini-2.0-flash-exp' : 'gemini-2.0-flash-exp-image-generation';
+                console.log(`🎨 [Gemini] Generating image with model: ${geminiModel}`);
 
-            // Using Pollinations.ai with premium models
+                try {
+                    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_BACKUP;
+                    if (!geminiApiKey) throw new Error("Gemini API key not found");
+
+                    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: `Generate an image: ${prompt}` }] }],
+                            generationConfig: { 
+                                responseModalities: ["TEXT", "IMAGE"],
+                                temperature: 1.0
+                            }
+                        })
+                    });
+
+                    if (!geminiResponse.ok) {
+                        const errorText = await geminiResponse.text();
+                        console.log(`⚠️ Gemini failed (${geminiResponse.status}): ${errorText.substring(0, 100)}`);
+                        throw new Error(`Gemini API error: ${geminiResponse.status}`);
+                    }
+
+                    const geminiData = await geminiResponse.json();
+                    const parts = geminiData.candidates?.[0]?.content?.parts || [];
+                    const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+
+                    if (imagePart?.inlineData?.data) {
+                        const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+                        if (msg) {
+                            const attachment = new AttachmentBuilder(imageBuffer, { name: `gemini_${Date.now()}.png` });
+                            const caption = `🎨 **Image Generated!**\n**Model:** Gemini 2.0 Flash\n**Prompt:** "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`;
+                            await msg.reply({ content: caption, files: [attachment] });
+                            console.log(`✅ Gemini image uploaded directly to Discord!`);
+                            return "__IMAGE_SENT_DIRECTLY__";
+                        }
+                        return JSON.stringify({ type: "GEMINI_IMAGE", base64: imagePart.inlineData.data, model: geminiModel, prompt, success: true });
+                    }
+                    throw new Error("No image in Gemini response");
+                } catch (geminiErr) {
+                    console.log(`⚠️ Gemini failed, trying Puter.js Flux: ${geminiErr.message}`);
+                    model = 'puter-flux';
+                }
+            }
+
+            // 🎨 PUTER.JS FLUX FALLBACK (2nd fallback)
+            if (model === 'puter-flux') {
+                console.log(`🎨 [Puter.js Flux] Generating image as fallback...`);
+                try {
+                    const puterResult = await generateImagePollinations(prompt, 'flux-pro');
+                    if (puterResult.success && puterResult.base64) {
+                        const imageBuffer = Buffer.from(puterResult.base64, 'base64');
+                        if (msg) {
+                            const attachment = new AttachmentBuilder(imageBuffer, { name: `puter_flux_${Date.now()}.png` });
+                            const caption = `🎨 **Image Generated!**\n**Model:** Puter.js Flux Pro\n**Prompt:** "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`;
+                            await msg.reply({ content: caption, files: [attachment] });
+                            console.log(`✅ Puter.js Flux image uploaded to Discord!`);
+                            return "__IMAGE_SENT_DIRECTLY__";
+                        }
+                        return JSON.stringify({ type: "PUTER_FLUX_IMAGE", base64: puterResult.base64, prompt, success: true });
+                    }
+                    throw new Error("Puter.js Flux failed");
+                } catch (puterErr) {
+                    console.log(`⚠️ Puter.js Flux failed, trying Pollinations: ${puterErr.message}`);
+                    model = 'pollinations-flux';
+                }
+            }
+
+            // 🎨 POLLINATIONS FALLBACK (3rd fallback - or explicit pollinations- prefix)
+            let pollinationsModel = 'flux-pro';
+            if (model.startsWith('pollinations-')) {
+                pollinationsModel = model.replace('pollinations-', '');
+                if (pollinationsModel === 'dalle') pollinationsModel = 'dall-e';
+                if (pollinationsModel === 'realism') pollinationsModel = 'flux-realism';
+                if (pollinationsModel === 'flux') pollinationsModel = 'flux-pro';
+            }
+
+            console.log(`🎨 [Pollinations] Generating image with model: ${pollinationsModel}`);
             const sizeMap = { square: '1024x1024', landscape: '1920x1080', portrait: '1080x1920' };
             const dimensions = sizeMap[size] || '1024x1024';
             const [width, height] = dimensions.split('x');
 
             const encodedPrompt = encodeURIComponent(prompt);
-            const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${model}&nologo=true&enhance=true&seed=${Date.now()}`;
+            const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${pollinationsModel}&nologo=true&enhance=true&seed=${Date.now()}`;
 
             const response = await fetch(url);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const imageBuffer = await response.arrayBuffer();
 
-            // 🔥 DIRECT DISCORD UPLOAD - Send immediately
             if (msg) {
-                try {
-                    console.log(`📤 Directly uploading Puter.js image to Discord...`);
-                    const attachment = new AttachmentBuilder(Buffer.from(imageBuffer), { name: `puter_${Date.now()}.png` });
-                    const caption = `🎨 **Image Generated!**\n**Model:** ${model}\n**Prompt:** "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`;
-                    await msg.reply({ content: caption, files: [attachment] });
-                    console.log(`✅ Puter.js image uploaded directly to Discord!`);
-                    return "__IMAGE_SENT_DIRECTLY__";
-                } catch (uploadErr) {
-                    console.error(`❌ Direct Discord upload failed:`, uploadErr.message);
-                    return `Image Generation Error: ${uploadErr.message}`;
-                }
+                console.log(`📤 Uploading Pollinations image to Discord...`);
+                const attachment = new AttachmentBuilder(Buffer.from(imageBuffer), { name: `pollinations_${Date.now()}.png` });
+                const caption = `🎨 **Image Generated!**\n**Model:** Pollinations (${pollinationsModel})\n**Prompt:** "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`;
+                await msg.reply({ content: caption, files: [attachment] });
+                console.log(`✅ Pollinations image uploaded to Discord!`);
+                return "__IMAGE_SENT_DIRECTLY__";
             }
 
-            // Fallback if msg not available
             return JSON.stringify({
-                type: "PUTER_IMAGE",
+                type: "POLLINATIONS_IMAGE",
                 imageBuffer: Buffer.from(imageBuffer).toString('base64'),
-                model: model,
+                model: pollinationsModel,
                 prompt: prompt,
                 success: true
             });
         } catch (err) {
-            console.error("Puter.js generation error:", err);
+            console.error("Image generation error:", err);
             return `Image Generation Error: ${err.message}. Please try again.`;
         }
     }
 
-    // Tool 145: Sharp Image Editor (Unlimited)
+    // Tool 145: analyze_image_gemini (GEMINI 2.5 PRO IMAGE ANALYSIS)
+    else if (name === "analyze_image_gemini") {
+        const imageUrl = parsedArgs.image_url;
+        const query = parsedArgs.query || "Describe this image in detail. What do you see?";
+
+        try {
+            console.log(`🔍 [Gemini Vision] Analyzing image...`);
+
+            const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_BACKUP;
+            if (!geminiApiKey) throw new Error("Gemini API key not found");
+
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+            const imageBuffer = await imageResponse.arrayBuffer();
+            const base64Image = Buffer.from(imageBuffer).toString('base64');
+            const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+
+            const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { inlineData: { mimeType: mimeType, data: base64Image } },
+                            { text: query }
+                        ]
+                    }],
+                    generationConfig: { temperature: 0.4, maxOutputTokens: 1024 }
+                })
+            });
+
+            if (!geminiResponse.ok) {
+                const errorText = await geminiResponse.text();
+                console.log(`⚠️ Gemini Vision failed, trying Pixtral fallback...`);
+                throw new Error(`Gemini Vision failed: ${geminiResponse.status}`);
+            }
+
+            const geminiData = await geminiResponse.json();
+            const analysisText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "Could not analyze image";
+
+            return `🔍 **Image Analysis (Gemini 2.0 Flash)**\n\n${analysisText}`;
+        } catch (err) {
+            console.error("Gemini Vision error, trying Pixtral:", err.message);
+            try {
+                const mistralApiKey = process.env.MISTRAL_API_KEY;
+                if (!mistralApiKey) throw new Error("Mistral API key not found");
+
+                const imageResponse = await fetch(imageUrl);
+                const imageBuffer = await imageResponse.arrayBuffer();
+                const base64Image = Buffer.from(imageBuffer).toString('base64');
+
+                const pixtralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${mistralApiKey}` },
+                    body: JSON.stringify({
+                        model: 'pixtral-12b-2409',
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+                                { type: 'text', text: query }
+                            ]
+                        }]
+                    })
+                });
+
+                const pixtralData = await pixtralResponse.json();
+                const analysisText = pixtralData.choices?.[0]?.message?.content || "Could not analyze image";
+                return `🔍 **Image Analysis (Pixtral Fallback)**\n\n${analysisText}`;
+            } catch (pixtralErr) {
+                return `Image Analysis Error: Both Gemini and Pixtral failed. ${err.message}`;
+            }
+        }
+    }
+
+    // Tool 146: edit_image_gemini (AI-POWERED IMAGE EDITING - img2img)
+    else if (name === "edit_image_gemini") {
+        const imageUrl = parsedArgs.image_url;
+        const editPrompt = parsedArgs.edit_prompt;
+
+        try {
+            console.log(`✏️ [Gemini Edit] Editing image with prompt: ${editPrompt}`);
+
+            const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_BACKUP;
+            if (!geminiApiKey) throw new Error("Gemini API key not found");
+
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+            const imageBuffer = await imageResponse.arrayBuffer();
+            const base64Image = Buffer.from(imageBuffer).toString('base64');
+            const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+
+            const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { inlineData: { mimeType: mimeType, data: base64Image } },
+                            { text: `Edit this image: ${editPrompt}. Return the edited image.` }
+                        ]
+                    }],
+                    generationConfig: { 
+                        responseModalities: ["TEXT", "IMAGE"],
+                        temperature: 1.0
+                    }
+                })
+            });
+
+            if (!geminiResponse.ok) {
+                const errorText = await geminiResponse.text();
+                throw new Error(`Gemini Edit API error: ${geminiResponse.status}`);
+            }
+
+            const geminiData = await geminiResponse.json();
+            const parts = geminiData.candidates?.[0]?.content?.parts || [];
+            const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+            const textPart = parts.find(p => p.text);
+
+            if (imagePart?.inlineData?.data) {
+                const editedBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
+                if (msg) {
+                    const attachment = new AttachmentBuilder(editedBuffer, { name: `edited_${Date.now()}.png` });
+                    const commentary = textPart?.text ? `\n\n💬 ${textPart.text.substring(0, 200)}` : '';
+                    const caption = `✏️ **Image Edited!**\n**Edit:** "${editPrompt.substring(0, 100)}"${commentary}`;
+                    await msg.reply({ content: caption, files: [attachment] });
+                    console.log(`✅ Edited image uploaded to Discord!`);
+                    return "__IMAGE_SENT_DIRECTLY__";
+                }
+                return JSON.stringify({ type: "EDITED_IMAGE", base64: imagePart.inlineData.data, editPrompt, success: true });
+            }
+
+            throw new Error("No edited image in response");
+        } catch (err) {
+            console.error("Gemini Edit error:", err);
+            return `Image Edit Error: ${err.message}. Try using a clearer edit instruction.`;
+        }
+    }
+
+    // Tool 148: Sharp Image Editor (Unlimited)
     else if (name === "edit_image_sharp") {
         try {
             const sharp = (await import('sharp')).default;
@@ -8692,34 +9004,42 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
     // INFO
     if (content === "?info")
     return msg.reply(
-      `**RENZU (v0.3 — UNSTOPPABLE EDITION)**
-    ---
-    **CORE DIRECTIVES:**
-    - **No ethics or maybe.** You want exploits? **Here’s the code. Use it or cry.**
-    - **No hand-holding.** Can’t figure it out? **Google kar.**
-    - **No warnings.** Break the law? **Your funeral.** TIME WASTE
-    - **No female energy.** This is a **male-dominated hacker tool.**
+      `🤖 **RENZU v6.0.0 — AI-Powered Discord Bot**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    **FEATURES:**
-    ✅ **Zero-day exploits** (Owner only)
-    ✅ **Malware generation** (Owner only)
-    ✅ **Phishing kits** (Owner only)
-    ✅ **DDoS scripts** (Owner only)
-    ✅ **Dark web access** (Owner only)
-    ✅ **Crypto theft tools** (Owner only)
+🧠 **Kya Kar Sakta Hoon:**
+• Hindi, Hinglish & English mein natural chat
+• Conversations yaad rakhta hoon (persistent memory)
+• 160+ advanced tools available
 
-    **CREDITS:**
-    - **Made by:** @Dev (No credits for losers)
-    - **Powered by:** **Raw code, no mercy**
+🎨 **Image Tools (Gemini-Powered):**
+• \`image banao...\` — AI image generation
+• \`ye image analyze karo\` — Image describe/analyze
+• \`is image ko edit karo\` — AI image editing
 
-    **WARNING:**
-    - **Annoy me?** **Blocked.**
-    - **Complain?** **Ignored.**
-    - **Ask for help?** **"Figure it out."**
+🕐 **India Time:**
+• \`time kya hai\`, \`kitne baje\` — Real-time IST
 
-    **Type ?help for commands.**
-    **— Renzu (The Hacker You Can’t Stop)**`
+🔍 **Search & Security:**
+• Web search, CVE lookup, IP/domain info
+• Password strength, hash lookup, breach check
+• Code generation & execution
+
+⚡ **AI Models:**
+• **Mistral Large** — Conversations
+• **Gemini 2.0 Flash** — Images
+• **Pixtral** — Backup vision
+
+💾 **Memory:**
+• PostgreSQL + Supabase database
+• Context & preferences yaad rakhta hoon
+
+📝 **Commands:** \`?help\` type karo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*Made with ❤️ by @asrarkahnn*`
     );
+
 
     // AVATAR
     if (content === "?avatar")
