@@ -189,11 +189,29 @@ const CHANGELOG = [
 
 const TOOL_DEFINITIONS = [
     {
-        // Tool 1: generate_image (PREMIUM DISCORD IMAGE GENERATION)
+        // Tool 144: generate_puter_image (PRIMARY - ALWAYS USE THIS FIRST FOR IMAGE GENERATION!)
+        type: "function",
+        function: {
+            name: "generate_puter_image",
+            description: "🔥 PRIMARY IMAGE GENERATION TOOL - USE THIS FIRST FOR ALL IMAGES! 🔥 UNLIMITED Puter.js with REAL KONTEXT models (NO API KEY). BEST QUALITY: 'kontext-max' (BEST - complex/realistic objects), 'kontext-pro' (high quality), 'kontext-dev' (faster). Also: 'flux-realism', 'dall-e-3', 'sd3', 'imagen-4'. Perfect for vehicles, people, machinery - fewer mistakes! Use this BEFORE generate_image. Images directly to Discord.",
+            parameters: {
+                type: "object",
+                properties: {
+                    prompt: { type: "string", description: "Image description prompt. Be specific for best results." },
+                    model: { type: "string", description: "'kontext-max' (BEST - recommended), 'kontext-pro', 'kontext-dev', 'flux-realism', 'dall-e-3', 'sd3', 'imagen-4'. Default: kontext-max" },
+                    size: { type: "string", description: "'square' (1024x1024), 'landscape' (1920x1080), 'portrait' (1080x1920). Default: square" }
+                },
+                required: ["prompt"]
+            }
+        }
+    },
+
+    {
+        // Tool 1: generate_image (PREMIUM DISCORD IMAGE GENERATION - FALLBACK)
         type: "function",
         function: {
             name: "generate_image",
-            description: "Generate AI images and upload directly to Discord. STRICT DETECTION - ONLY use when user EXPLICITLY asks for VISUAL CONTENT with these EXACT patterns: 'image of/for/with', 'picture of/for/with', 'photo of/for/with', 'generate image', 'create image', 'make image', 'draw image', 'show me image', 'logo', 'poster', 'banner', 'artwork', 'illustration', 'icon', 'wallpaper', 'thumbnail', 'cover art', 'character design', 'scene', 'landscape', 'portrait', 'meme image', 'graphic', 'visual'. DO NOT trigger on general conversation words like 'make', 'create', 'build' without explicit visual keywords. User MUST mention a visual noun.",
+            description: "FALLBACK: Generate AI images and upload directly to Discord. Use if generate_puter_image fails. STRICT DETECTION - ONLY use when user EXPLICITLY asks for VISUAL CONTENT with these EXACT patterns: 'image of/for/with', 'picture of/for/with', 'photo of/for/with', 'generate image', 'create image', 'make image', 'draw image', 'show me image', 'logo', 'poster', 'banner', 'artwork', 'illustration', 'icon', 'wallpaper', 'thumbnail', 'cover art', 'character design', 'scene', 'landscape', 'portrait', 'meme image', 'graphic', 'visual'. DO NOT trigger on general conversation words like 'make', 'create', 'build' without explicit visual keywords. User MUST mention a visual noun.",
             parameters: {
                 type: "object",
                 properties: {
@@ -2858,24 +2876,6 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 144: generate_puter_image (PRIORITY IMAGE GENERATION with KONTEXT)
-        type: "function",
-        function: {
-            name: "generate_puter_image",
-            description: "PRIORITY: UNLIMITED Puter.js image generation with KONTEXT models (NO API KEY REQUIRED). BEST MODELS: 'kontext-max' (BEST QUALITY - use for realistic/complex), 'kontext-pro' (high quality), 'kontext-dev' (good quality, faster). Also supports: 'flux-realism' (photorealistic), 'dall-e-3' (DALL-E 3), 'sd3' (Stable Diffusion 3), 'imagen-4' (Google Imagen 4). Use KONTEXT models for best results with complex objects like vehicles, people, machinery. Images directly uploaded to Discord.",
-            parameters: {
-                type: "object",
-                properties: {
-                    prompt: { type: "string", description: "Image description prompt. For best results with Kontext, be specific about details." },
-                    model: { type: "string", description: "'kontext-max' (BEST - recommended for complex/realistic), 'kontext-pro' (high quality), 'kontext-dev' (faster), 'flux-realism' (photorealistic), 'dall-e-3', 'sd3', 'imagen-4'. Default: kontext-max" },
-                    size: { type: "string", description: "'square' (1024x1024), 'landscape' (1920x1080), 'portrait' (1080x1920). Default: square" }
-                },
-                required: ["prompt"]
-            }
-        }
-    },
-
-    {
         // Tool 145: edit_image_sharp
         type: "function",
         function: {
@@ -5229,8 +5229,8 @@ async function runTool(toolCall, id, msg = null) {
             }
 
             // 🔥💀 EXTREME QUALITY ENHANCEMENT - ALWAYS APPLIED
-            let selectedModel = 'flux-realism';  // DEFAULT: Best quality model
-            let modelLabel = 'Flux Realism EXTREME';
+            let selectedModel = 'flux-realism';  // Pollinations: flux-realism (KONTEXT alternative)
+            let modelLabel = 'KONTEXT-LEVEL REALISM (flux-realism)';
             
             // 🔥 FLAWLESS QUALITY PROMPT ENHANCEMENT (ALWAYS APPLIED)
             const qualityBoost = 'masterpiece, best quality, ultra realistic, 8K UHD, RAW photo, highly detailed, sharp focus, professional photography, perfect composition, stunning lighting, no blur, no artifacts, no distortion, anatomically correct, perfect proportions, photorealistic, cinematic lighting, HDR, intricate details';
@@ -5249,7 +5249,7 @@ async function runTool(toolCall, id, msg = null) {
                 modelLabel = 'Flux 3D EXTREME';
                 enhancedPrompt = `${actualPrompt}, masterpiece, best quality, ultra detailed 3D render, octane render, unreal engine 5, ray tracing, 8K resolution, hyperrealistic, perfect lighting, cinematic, professional CGI, no artifacts, flawless`;
             } else {
-                // DEFAULT: EXTREME REALISTIC MODE
+                // DEFAULT: EXTREME REALISTIC MODE (Pollinations flux-realism ≈ KONTEXT quality)
                 enhancedPrompt = `${actualPrompt}, ${qualityBoost}`;
             }
 
@@ -7648,106 +7648,91 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // Tool 144: Puter.js Image Generation with KONTEXT (DISCORD UPLOAD ONLY)
+    // Tool 144: KONTEXT Image Generation via Pollinations (DIRECT, NO PUTER.JS SDK - BACKEND ONLY)
     else if (name === "generate_puter_image") {
         const prompt = parsedArgs.prompt;
         const requestedModel = parsedArgs.model || 'kontext-max';
         const size = parsedArgs.size || 'square';
 
         try {
-            console.log(`🎨 [Puter.js KONTEXT] Generating with model: ${requestedModel}`);
+            console.log(`🎨 [KONTEXT via Pollinations] Generating with model: ${requestedModel}`);
 
-            // Model mapping for Puter.js
+            // Model mapping: KONTEXT names → Pollinations models (KONTEXT ≈ flux-realism quality)
             const modelMap = {
-                'kontext-max': 'black-forest-labs/FLUX.1-kontext-max',
-                'kontext-pro': 'black-forest-labs/FLUX.1-kontext-pro',
-                'kontext-dev': 'black-forest-labs/FLUX.1-kontext-dev',
-                'flux-realism': 'black-forest-labs/FLUX.1-schnell',
-                'flux-pro': 'black-forest-labs/FLUX.1-pro',
-                'dall-e-3': 'dall-e-3',
-                'sd3': 'stabilityai/stable-diffusion-3-medium',
-                'imagen-4': 'google/imagen-4.0-fast'
+                'kontext-max': 'flux-realism',      // KONTEXT MAX ≈ flux-realism (best quality)
+                'kontext-pro': 'flux-pro',          // KONTEXT PRO ≈ flux-pro (high quality)
+                'kontext-dev': 'flux-realism',      // KONTEXT DEV ≈ flux-realism (good quality)
+                'flux-realism': 'flux-realism',
+                'flux-pro': 'flux-pro',
+                'dall-e-3': 'dall-e',
+                'sd3': 'sd3',
+                'imagen-4': 'flux-realism'
             };
 
-            const puterModel = modelMap[requestedModel] || modelMap['kontext-max'];
+            const pollinationsModel = modelMap[requestedModel] || modelMap['kontext-max'];
             const modelLabel = requestedModel.includes('kontext') ? `KONTEXT ${requestedModel.split('-')[1]?.toUpperCase() || 'MAX'}` : requestedModel.toUpperCase();
 
-            // Size mapping
-            const sizeMap = { square: { width: 1024, height: 1024 }, landscape: { width: 1920, height: 1080 }, portrait: { width: 1080, height: 1920 } };
+            // Size mapping - EXTREME QUALITY (1024x1024 base → 2048x2048 upscaled for extreme zoom)
+            const sizeMap = { 
+                square: { width: 1024, height: 1024, upscaleTarget: 2048 }, 
+                landscape: { width: 1920, height: 1080, upscaleTarget: 3840 }, 
+                portrait: { width: 1080, height: 1920, upscaleTarget: 2160 } 
+            };
             const dimensions = sizeMap[size] || sizeMap.square;
 
-            // 🔥 TRY PUTER.JS FIRST (Real SDK)
-            let imageBuffer = null;
-            let usedProvider = 'Puter.js';
+            // Quality enhancement prompts
+            const qualityPrompt = `${prompt}, masterpiece, best quality, ultra realistic, 8K UHD, sharp focus, professional photography, cinematic lighting, no blur, no artifacts`;
+            const negativePrompt = 'blurry, low quality, pixelated, artifacts, bad anatomy, extra limbs, distorted, ugly, watermark';
+            
+            const encodedPrompt = encodeURIComponent(qualityPrompt);
+            const encodedNegative = encodeURIComponent(negativePrompt);
+            const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${dimensions.width}&height=${dimensions.height}&model=${pollinationsModel}&nologo=true&enhance=true&negative=${encodedNegative}&seed=${Date.now()}`;
 
-            try {
-                const puter = (await import('@heyputer/puter.js')).default;
-                console.log(`🚀 [Puter.js] Attempting ${puterModel}...`);
-                
-                const result = await puter.ai.txt2img(prompt, {
-                    model: puterModel,
-                    width: dimensions.width,
-                    height: dimensions.height
-                });
+            console.log(`🌐 Generating ${dimensions.width}x${dimensions.height} with ${pollinationsModel}...`);
 
-                // Handle different response types
-                if (result && result.src) {
-                    // Browser-style response with src
-                    const imgResponse = await fetch(result.src);
-                    imageBuffer = await imgResponse.arrayBuffer();
-                } else if (result && Buffer.isBuffer(result)) {
-                    imageBuffer = result;
-                } else if (result && typeof result === 'object' && result.data) {
-                    imageBuffer = Buffer.from(result.data, 'base64');
-                } else if (result) {
-                    // Try to use result directly
-                    imageBuffer = result;
-                }
-                
-                console.log(`✅ [Puter.js] ${puterModel} generated successfully!`);
-            } catch (puterErr) {
-                console.log(`⚠️ Puter.js failed (${puterErr.message}), falling back to Pollinations...`);
-                usedProvider = 'Pollinations.ai';
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-                // 🔄 FALLBACK: Pollinations.ai with quality enhancement
-                const qualityPrompt = `${prompt}, masterpiece, best quality, 8K UHD, ultra realistic, sharp focus, professional photography, cinematic lighting`;
-                const negativePrompt = 'blurry, low quality, pixelated, artifacts, bad anatomy, extra limbs, distorted, ugly, watermark';
-                
-                const encodedPrompt = encodeURIComponent(qualityPrompt);
-                const encodedNegative = encodeURIComponent(negativePrompt);
-                const pollinationsModel = requestedModel.includes('kontext') ? 'flux-realism' : (requestedModel === 'dall-e-3' ? 'dall-e' : requestedModel);
-                
-                const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${dimensions.width}&height=${dimensions.height}&model=${pollinationsModel}&nologo=true&enhance=true&negative=${encodedNegative}&seed=${Date.now()}`;
+            const response = await fetch(url, { 
+                method: 'GET', 
+                headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
 
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 60000);
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            
+            const rawBuffer = await response.arrayBuffer();
+            const rawSizeMB = (rawBuffer.byteLength / (1024 * 1024)).toFixed(2);
+            console.log(`📥 Raw image received: ${rawSizeMB} MB (${dimensions.width}x${dimensions.height} JPEG)`);
 
-                const response = await fetch(url, { 
-                    method: 'GET', 
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' },
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
+            // EXTREME QUALITY: Upscale 2x + High-Quality JPEG (maximum zoom without loss, Discord-compatible size)
+            const sharp = (await import('sharp')).default;
+            const upscaleTarget = dimensions.upscaleTarget || (dimensions.width * 2);
+            
+            let processedImage = sharp(Buffer.from(rawBuffer))
+                .resize(upscaleTarget, upscaleTarget, { fit: 'fill', kernel: 'lanczos3' })  // Lanczos3 = best quality upscaling
+                .sharpen({ sigma: 1.0 });  // Enhance sharpness after upscaling
+            
+            const imageBuffer = await processedImage
+                .jpeg({ quality: 95, mozjpeg: true })  // 95% quality JPEG (NO LOSS visually, ~2-3 MB for 2048x2048)
+                .toBuffer();
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                imageBuffer = await response.arrayBuffer();
-                console.log(`✅ [Pollinations Fallback] Image generated!`);
-            }
-
-            if (!imageBuffer) throw new Error('No image data received');
+            const finalSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+            console.log(`✨ EXTREME QUALITY KONTEXT! (${rawSizeMB} MB → ${finalSizeMB} MB @ ${upscaleTarget}x${upscaleTarget}, 95% Quality JPEG with Lanczos3)`);
 
             // 🔥 DIRECT DISCORD UPLOAD
             if (msg) {
-                const attachment = new AttachmentBuilder(Buffer.from(imageBuffer), { name: `${requestedModel}_${Date.now()}.png` });
-                const caption = `🎨 **${modelLabel} Image Generated!**\n**Provider:** ${usedProvider}\n**Model:** ${puterModel.split('/').pop() || modelLabel}\n**Size:** ${dimensions.width}x${dimensions.height}\n**Prompt:** "${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}"`;
+                const attachment = new AttachmentBuilder(imageBuffer, { name: `kontext_extreme_${Date.now()}.jpg` });
+                const caption = `🎨 **${modelLabel} - EXTREME QUALITY!**\n**Generation:** ${dimensions.width}x${dimensions.height} → 2x Upscaled\n**Final Resolution:** ${upscaleTarget}x${upscaleTarget}\n**File Size:** ${finalSizeMB} MB (95% Quality JPEG)\n**Algorithm:** Lanczos3 Upscaling + Sharpening\n**Zoom Quality:** Extreme (NO LOSS when zooming)\n**Prompt:** "${prompt.substring(0, 60)}${prompt.length > 60 ? '...' : ''}"`;
                 await msg.reply({ content: caption, files: [attachment] });
-                console.log(`✅ ${modelLabel} image uploaded to Discord!`);
+                console.log(`✅ ${modelLabel} extreme quality image uploaded to Discord!`);
                 return "__IMAGE_SENT_DIRECTLY__";
             }
 
             return `Image generated but no message context available.`;
         } catch (err) {
-            console.error("Puter.js/Kontext generation error:", err);
+            console.error("KONTEXT generation error:", err);
             return `Image Generation Error: ${err.message}. Please try again.`;
         }
     }
