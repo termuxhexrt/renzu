@@ -3178,13 +3178,11 @@ const TOOL_DEFINITIONS = [
 // ... (Rest of your original code follows) ...
 // ------------------ KEEP ALIVE ------------------
 const app = express();
-// 👇 PORT ko dynamically assign karne ka logic (agar 3000 busy hai, toh next free port le lega)
-let PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.get("/", (req, res) => res.send("✅ Keep-alive server running (Renzu Mode)"));
 
-const server = app.listen(0, () => {  // 0 = OS assigns a free port
-  PORT = server.address().port;  // Dynamically assigned port
-  console.log(`✅ Keep-alive server running on port ${PORT} (No Conflict)`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Keep-alive server running on port ${PORT}`);
 });
 
 // ------------------ DISCORD CLIENT ------------------
@@ -5205,26 +5203,24 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // 🔥 UPGRADED TOOL: generate_image (DISCORD UPLOAD ONLY - NO URLs)
+    // 🔥💀 EXTREME ULTRA HD IMAGE GENERATION (MAX QUALITY + FLAWLESS OUTPUT)
     else if (name === "generate_image") {
         try {
-            // 🔥 EXTRACT ORIGINAL USER PROMPT - IGNORE MISTRAL'S ENHANCED VERSION
             const originalMessage = msg?.content || '';
             const originalLower = originalMessage.toLowerCase();
 
-            // Detect modes from original message
-            const usePollination = originalLower.includes('pollination -') || originalLower.includes('pollination:') || originalLower.startsWith('pollination ');
+            // Fusion mode check (generates with multiple models in parallel)
             const isFusion = originalLower.includes('fusion mode') || originalLower.includes('fusion -');
 
-            // 🔥 EXTRACT RAW PROMPT FROM USER'S ORIGINAL MESSAGE
-            let actualPrompt = originalMessage;
+            // 🎨 SMART STYLE DETECTION
+            const isAnime = /\b(anime|manga|cartoon|animated|waifu|chibi|kawaii|otaku|2d)\b/i.test(originalLower);
+            const is3D = /\b(3d|render|blender|cgi|modeling|sculpt)\b/i.test(originalLower);
 
-            // Remove common prefixes to get the raw image prompt
-            actualPrompt = actualPrompt
-                .replace(/^pollination\s*[-:]\s*/i, '')  // Remove "pollination -"
-                .replace(/^fusion\s*(mode)?\s*[-:]\s*/i, '')  // Remove "fusion mode -"
-                .replace(/^(make|create|generate|draw|design)\s+(an?\s+)?(image|img|picture|pic|photo)\s+(of|for|about|showing)?\s*/i, '')  // Remove "make an image of"
-                .replace(/^(image|img|picture|pic)\s+(of|for)?\s*/i, '')  // Remove "image of"
+            // 🔥 EXTRACT RAW PROMPT FROM USER'S ORIGINAL MESSAGE
+            let actualPrompt = originalMessage
+                .replace(/^fusion\s*(mode)?\s*[-:]\s*/i, '')
+                .replace(/^(make|create|generate|draw|design)\s+(an?\s+)?(image|img|picture|pic|photo)\s+(of|for|about|showing)?\s*/i, '')
+                .replace(/^(image|img|picture|pic)\s+(of|for)?\s*/i, '')
                 .trim();
 
             // Fallback to Mistral's prompt if extraction fails
@@ -5232,53 +5228,114 @@ async function runTool(toolCall, id, msg = null) {
                 actualPrompt = parsedArgs.prompt || 'random image';
             }
 
-            let providerName = usePollination ? "Pollinations" : "Puter.js";
+            // 🔥💀 EXTREME QUALITY ENHANCEMENT - ALWAYS APPLIED
+            let selectedModel = 'flux-realism';  // DEFAULT: Best quality model
+            let modelLabel = 'Flux Realism EXTREME';
+            
+            // 🔥 FLAWLESS QUALITY PROMPT ENHANCEMENT (ALWAYS APPLIED)
+            const qualityBoost = 'masterpiece, best quality, ultra realistic, 8K UHD, RAW photo, highly detailed, sharp focus, professional photography, perfect composition, stunning lighting, no blur, no artifacts, no distortion, anatomically correct, perfect proportions, photorealistic, cinematic lighting, HDR, intricate details';
+            
+            // 💀 NEGATIVE PROMPT - REMOVES ALL DEFECTS & MISTAKES
+            const negativePrompt = 'blurry, blur, low quality, low resolution, pixelated, jpeg artifacts, compression artifacts, watermark, signature, text, logo, banner, extra limbs, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, ugly, disfigured, bad anatomy, bad proportions, extra limbs, cloned face, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, username, error, cropped, worst quality, normal quality, out of frame, duplicate, morbid, mutilated, grainy, distorted, amateur, oversaturated, underexposed, overexposed, bad lighting, unnatural colors';
+            
+            let enhancedPrompt = actualPrompt;
 
-            console.log(`🎨 [${providerName} Mode] ORIGINAL prompt extracted!`);
-            console.log(`📝 User said: "${originalMessage}"`);
-            console.log(`📝 Extracted prompt: "${actualPrompt}"`);
+            if (isAnime) {
+                selectedModel = 'flux-anime';
+                modelLabel = 'Flux Anime EXTREME';
+                enhancedPrompt = `${actualPrompt}, masterpiece, best quality, highly detailed anime art, vibrant colors, perfect anatomy, beautiful lighting, sharp lines, professional illustration, 8K resolution, stunning details, perfect hands, perfect fingers`;
+            } else if (is3D) {
+                selectedModel = 'flux-3d';
+                modelLabel = 'Flux 3D EXTREME';
+                enhancedPrompt = `${actualPrompt}, masterpiece, best quality, ultra detailed 3D render, octane render, unreal engine 5, ray tracing, 8K resolution, hyperrealistic, perfect lighting, cinematic, professional CGI, no artifacts, flawless`;
+            } else {
+                // DEFAULT: EXTREME REALISTIC MODE
+                enhancedPrompt = `${actualPrompt}, ${qualityBoost}`;
+            }
 
-            // 🔥 FUSION MODE CHECK
+            console.log(`🎨 [EXTREME HD] Model: ${modelLabel} | Prompt: "${enhancedPrompt.substring(0, 80)}..."`);
 
+            // 🔥 FUSION MODE - Multiple models in parallel
             if (isFusion && msg) {
                 console.log(`🔥 **FUSION MODE** - Generating with multiple models!`);
-                const fusionResult = await generateMultiModelFusion(actualPrompt);
+                const fusionResult = await generateMultiModelFusion(enhancedPrompt);
 
                 if (fusionResult.success && fusionResult.images.length > 0) {
                     const attachments = fusionResult.images.map((img, i) => 
                         new AttachmentBuilder(Buffer.from(img.base64, 'base64'), { name: `fusion_${i+1}_${Date.now()}.png` })
                     );
-                    const caption = `🎨 **Fusion Mode - ${fusionResult.images.length} Images!**\n**Provider:** Puter.js\n${fusionResult.images.map((img, i) => `**${i+1}.** ${img.provider} (${img.latency}ms)`).join('\n')}\n**Prompt:** "${actualPrompt.substring(0, 80)}..."`;
+                    const caption = `🎨 **Fusion Mode EXTREME - ${fusionResult.images.length} Images!**\n${fusionResult.images.map((img, i) => `**${i+1}.** ${img.provider} (${img.latency}ms)`).join('\n')}\n**Prompt:** "${actualPrompt.substring(0, 80)}..."`;
                     await msg.reply({ content: caption, files: attachments });
-                    console.log(`✅ Fusion images uploaded directly to Discord!`);
+                    console.log(`✅ Fusion EXTREME images uploaded to Discord!`);
                     return "__IMAGE_SENT_DIRECTLY__";
                 }
             }
 
-            // 🎨 SINGLE IMAGE GENERATION (Puter.js style - default)
-            const model = 'flux-pro';
-            const encodedPrompt = encodeURIComponent(actualPrompt);
-            const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=${model}&nologo=true&enhance=true&seed=${Date.now()}`;
+            // 🎨💀 MAXIMUM RESOLUTION IMAGE GENERATION (2048x2048 - EXTREME)
+            const resolution = 2048;  // MAX RESOLUTION ALWAYS
+            const encodedNegative = encodeURIComponent(negativePrompt);
+            
+            // 🔒 URL LENGTH SAFETY CHECK (max ~2000 chars to be safe)
+            const baseUrl = `https://image.pollinations.ai/prompt/`;
+            const params = `?width=${resolution}&height=${resolution}&model=${selectedModel}&nologo=true&enhance=true&negative=${encodedNegative}&seed=${Date.now()}`;
+            const maxPromptLength = 1800 - baseUrl.length - params.length;
+            
+            // Truncate prompt if too long (keep quality keywords, they're at the end)
+            let safePrompt = enhancedPrompt;
+            if (encodeURIComponent(enhancedPrompt).length > maxPromptLength) {
+                // Keep original user prompt + truncate quality boost if needed
+                const userPromptEncoded = encodeURIComponent(actualPrompt);
+                if (userPromptEncoded.length < maxPromptLength - 200) {
+                    // User prompt fits, add shortened quality boost
+                    safePrompt = `${actualPrompt}, masterpiece, best quality, 8K UHD, ultra realistic, sharp focus, professional`;
+                } else {
+                    // Even user prompt is too long, truncate it
+                    safePrompt = actualPrompt.substring(0, 300) + ', masterpiece, 8K UHD';
+                }
+                console.log(`⚠️ Prompt truncated for URL safety (was ${enhancedPrompt.length} chars)`);
+            }
+            
+            const encodedPrompt = encodeURIComponent(safePrompt);
+            const url = `${baseUrl}${encodedPrompt}${params}`;
 
-            console.log(`🌐 Generating image with ${providerName}...`);
-            const response = await fetch(url, { method: 'GET', headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' } });
+            console.log(`🌐 [EXTREME] Generating ${resolution}x${resolution} with ${selectedModel}...`);
+            
+            // 🔒 TIMEOUT HANDLING (60 seconds for large 2048x2048 images)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            
+            let response;
+            try {
+                response = await fetch(url, { 
+                    method: 'GET', 
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' },
+                    signal: controller.signal
+                });
+            } catch (fetchErr) {
+                clearTimeout(timeoutId);
+                if (fetchErr.name === 'AbortError') {
+                    throw new Error('Image generation timed out (60s). Try a shorter prompt.');
+                }
+                throw fetchErr;
+            }
+            clearTimeout(timeoutId);
 
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
             const imageBuffer = await response.arrayBuffer();
-            console.log(`✅ Image generated! (${(imageBuffer.byteLength / 1024).toFixed(2)} KB)`);
+            const sizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+            console.log(`✅ EXTREME Image generated! (${sizeMB} MB, ${resolution}x${resolution})`);
 
             // 🔥 DIRECT DISCORD UPLOAD
             if (msg) {
                 try {
-                    console.log(`📤 Directly uploading to Discord...`);
-                    const attachment = new AttachmentBuilder(Buffer.from(imageBuffer), { name: `${providerName.toLowerCase()}_${Date.now()}.png` });
-                    const caption = `🎨 **Image Generated!**\n**Provider:** ${providerName}\n**Model:** ${model}\n**Prompt:** "${actualPrompt.substring(0, 100)}${actualPrompt.length > 100 ? '...' : ''}"`;
+                    const attachment = new AttachmentBuilder(Buffer.from(imageBuffer), { name: `extreme_hd_${Date.now()}.png` });
+                    const caption = `🎨 **EXTREME HD Image Generated!**\n**Model:** ${modelLabel}\n**Resolution:** ${resolution}x${resolution} (MAX)\n**Quality:** 8K Ultra HD\n**Prompt:** "${actualPrompt.substring(0, 70)}${actualPrompt.length > 70 ? '...' : ''}"`;
                     await msg.reply({ content: caption, files: [attachment] });
-                    console.log(`✅ Image uploaded directly to Discord!`);
+                    console.log(`✅ EXTREME HD Image uploaded to Discord!`);
                     return "__IMAGE_SENT_DIRECTLY__";
                 } catch (uploadErr) {
-                    console.error(`❌ Direct Discord upload failed:`, uploadErr.message);
+                    console.error(`❌ Discord upload failed:`, uploadErr.message);
                     return `Image Generation Error: ${uploadErr.message}`;
                 }
             }
