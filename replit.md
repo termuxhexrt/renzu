@@ -74,8 +74,23 @@ Preferred communication style: Simple, everyday language (Hinglish supported).
 - **Self-Awareness System**: Tracks bot version and maintains an update history.
 - **Developer Recognition System**: Identifies the developer by Discord user ID for unrestricted access.
 
-## Image Generation System (EXTREME Mode)
-**Provider**: Pollinations.ai (FREE - No API Key Required)
+## Image Generation System (EXTREME Mode + KONTEXT)
+
+### Primary: Puter.js with KONTEXT Models (FREE - No API Key)
+**Provider**: Puter.js SDK (black-forest-labs/FLUX.1-kontext)
+**Resolution**: Up to 1920x1080
+**Why KONTEXT?**: Better for complex objects (vehicles, machinery, people) - fewer distortions
+
+| Model | ID | Best For |
+|-------|-----|----------|
+| `kontext-max` | FLUX.1-kontext-max | BEST quality, complex realistic |
+| `kontext-pro` | FLUX.1-kontext-pro | High quality |
+| `kontext-dev` | FLUX.1-kontext-dev | Faster, good quality |
+| `imagen-4` | google/imagen-4.0-fast | Google Imagen 4 |
+| `dall-e-3` | dall-e-3 | OpenAI DALL-E 3 |
+| `sd3` | stable-diffusion-3-medium | Stable Diffusion 3 |
+
+### Fallback: Pollinations.ai (If Puter.js fails)
 **Resolution**: 2048x2048 (Maximum)
 **Features**:
 - Smart style detection (realistic/anime/3D)
@@ -85,10 +100,11 @@ Preferred communication style: Simple, everyday language (Hinglish supported).
 - Direct Discord upload (no URL links)
 
 **Safety Features**:
-- **Timeout Handling**: 60 second timeout for large 2048x2048 images (prevents hanging)
+- **Timeout Handling**: 60 second timeout for large images (prevents hanging)
 - **URL Length Safety**: Auto-truncates prompts if URL exceeds safe length (~1800 chars)
 - **Graceful Degradation**: If prompt too long, keeps essential quality keywords
 - **AbortController**: Clean cancellation of stuck requests
+- **Dual Provider**: Puter.js primary, Pollinations fallback
 
 ## Data Persistence (DUAL DATABASE ARCHITECTURE + SKILL LEARNING)
 **Neon PostgreSQL (Primary)**: A 10-table schema for comprehensive memory and skill management, including `conversations`, `global_memory`, `entities`, `summaries`, `topics`, `statistics`, `quality_scores`, `user_skills`, `skill_events`, and `skill_limits`.
