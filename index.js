@@ -5234,13 +5234,13 @@ async function runTool(toolCall, id, msg = null) {
             // 🔥💀 EXTREME QUALITY ENHANCEMENT - ALWAYS APPLIED
             let selectedModel = 'flux-realism';  // Pollinations: flux-realism (KONTEXT alternative)
             let modelLabel = 'KONTEXT-LEVEL REALISM (flux-realism)';
-            
+
             // 🔥 FLAWLESS QUALITY PROMPT ENHANCEMENT (ALWAYS APPLIED)
             const qualityBoost = 'masterpiece, best quality, ultra realistic, 8K UHD, RAW photo, highly detailed, sharp focus, professional photography, perfect composition, stunning lighting, no blur, no artifacts, no distortion, anatomically correct, perfect proportions, photorealistic, cinematic lighting, HDR, intricate details';
-            
+
             // 💀 NEGATIVE PROMPT - REMOVES ALL DEFECTS & MISTAKES
             const negativePrompt = 'blurry, blur, low quality, low resolution, pixelated, jpeg artifacts, compression artifacts, watermark, signature, text, logo, banner, extra limbs, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, mutation, deformed, ugly, disfigured, bad anatomy, bad proportions, extra limbs, cloned face, gross proportions, malformed limbs, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck, username, error, cropped, worst quality, normal quality, out of frame, duplicate, morbid, mutilated, grainy, distorted, amateur, oversaturated, underexposed, overexposed, bad lighting, unnatural colors';
-            
+
             let enhancedPrompt = actualPrompt;
 
             if (isAnime) {
@@ -5277,12 +5277,12 @@ async function runTool(toolCall, id, msg = null) {
             // 🎨💀 MAXIMUM RESOLUTION IMAGE GENERATION (2048x2048 - EXTREME)
             const resolution = 2048;  // MAX RESOLUTION ALWAYS
             const encodedNegative = encodeURIComponent(negativePrompt);
-            
+
             // 🔒 URL LENGTH SAFETY CHECK (max ~2000 chars to be safe)
             const baseUrl = `https://image.pollinations.ai/prompt/`;
             const params = `?width=${resolution}&height=${resolution}&model=${selectedModel}&nologo=true&enhance=true&negative=${encodedNegative}&seed=${Date.now()}`;
             const maxPromptLength = 1800 - baseUrl.length - params.length;
-            
+
             // Truncate prompt if too long (keep quality keywords, they're at the end)
             let safePrompt = enhancedPrompt;
             if (encodeURIComponent(enhancedPrompt).length > maxPromptLength) {
@@ -5297,16 +5297,16 @@ async function runTool(toolCall, id, msg = null) {
                 }
                 console.log(`⚠️ Prompt truncated for URL safety (was ${enhancedPrompt.length} chars)`);
             }
-            
+
             const encodedPrompt = encodeURIComponent(safePrompt);
             const url = `${baseUrl}${encodedPrompt}${params}`;
 
             console.log(`🌐 [EXTREME] Generating ${resolution}x${resolution} with ${selectedModel}...`);
-            
+
             // 🔒 TIMEOUT HANDLING (60 seconds for large 2048x2048 images)
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000);
-            
+
             let response;
             try {
                 response = await fetch(url, { 
@@ -7662,7 +7662,7 @@ async function runTool(toolCall, id, msg = null) {
             if (!prompt || prompt.trim().length < 3) {
                 return `❌ **PROMPT ERROR**: Your prompt was too short or empty. Please provide a detailed image description like "photorealistic sunset over mountains" or "ultra-detailed mechanical robot".`;
             }
-            
+
             // Preserve original prompt for transparency
             const originalPrompt = prompt;
             console.log(`🎨 [KONTEXT] USER PROMPT: "${originalPrompt}"`);
@@ -7693,7 +7693,7 @@ async function runTool(toolCall, id, msg = null) {
             // Quality enhancement: ADD to user's prompt, don't replace it!
             const qualityPrompt = `${prompt}, masterpiece, best quality, ultra realistic, 8K UHD, sharp focus, professional photography, cinematic lighting, flawless, perfect composition`;
             const negativePrompt = 'blurry, low quality, pixelated, artifacts, bad anatomy, extra limbs, distorted, ugly, watermark, deformed';
-            
+
             const encodedPrompt = encodeURIComponent(qualityPrompt);
             const encodedNegative = encodeURIComponent(negativePrompt);
             const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${dimensions.width}&height=${dimensions.height}&model=${pollinationsModel}&nologo=true&enhance=true&negative=${encodedNegative}&seed=${Date.now()}`;
@@ -7735,7 +7735,7 @@ async function runTool(toolCall, id, msg = null) {
             if (!response || !response.ok) {
                 throw new Error(`Image generation failed after 3 attempts: ${lastError || 'Unknown error'}`);
             }
-            
+
             const rawBuffer = await response.arrayBuffer();
             const rawSizeMB = (rawBuffer.byteLength / (1024 * 1024)).toFixed(2);
             console.log(`📥 Raw image received: ${rawSizeMB} MB (${dimensions.width}x${dimensions.height} JPEG)`);
@@ -7744,10 +7744,10 @@ async function runTool(toolCall, id, msg = null) {
             const sharp = (await import('sharp')).default;
             const upscaleTarget = dimensions.upscaleTarget || 4096;
             const upscaleHeight = size === 'landscape' ? Math.round(upscaleTarget * 0.5625) : (size === 'portrait' ? Math.round(upscaleTarget * 1.777) : upscaleTarget);
-            
+
             let imageBuffer;
             let qualityUsed = 100;
-            
+
             try {
                 // EXTREME QUALITY: Maximum sharpening (sigma 10 = MAX allowed), all enhancements maxed
                 imageBuffer = await sharp(Buffer.from(rawBuffer))
@@ -7770,60 +7770,95 @@ async function runTool(toolCall, id, msg = null) {
             }
 
             let finalSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+
+            // 🔥 TARGET: 7.9 MB FORCED (Discord MAX for non-Nitro) + REAL-LIFE QUALITY
+            const TARGET_MAX = 7.9 * 1024 * 1024; // 7.9 MB - absolute maximum under 8MB limit
+            const TARGET_MIN = 7.0 * 1024 * 1024; // 7.0 MB minimum - we want BIG files
             
-            // FORCED FILE SIZE: Target 20-21 MB (MAXIMUM under Discord 25 MB limit)
-            if (finalSizeMB < 20) {
-                console.log(`📏 File too small (${finalSizeMB} MB), PADDING TO 20-21 MB MAX...`);
-                try {
-                    // Reprocess with MAXIMUM everything to hit 20-21 MB
-                    imageBuffer = await sharp(Buffer.from(rawBuffer))
-                        .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })
-                        .sharpen({ sigma: 10.0 })  // MAX allowed by Sharp (10.0)
+            console.log(`📏 Initial size: ${finalSizeMB} MB`);
+            console.log(`🎯 TARGET: 7.0-7.9 MB (FORCED MAXIMUM)`);
+            
+            try {
+                // 🔥 STRATEGY: FORCE 7.9 MB with REAL-LIFE quality (no AI look)
+                // Use JPEG Q100 with maximum resolution possible that fits 7.9 MB
+                
+                let bestBuffer = imageBuffer;
+                let bestSize = imageBuffer.byteLength;
+                let bestQuality = 100;
+                let bestRes = upscaleTarget;
+                
+                // Step 1: Try increasing resolution until we hit ~7.9 MB
+                const resolutions = [4096, 4608, 5120, 5632, 6144]; // Try progressively larger
+                
+                for (const res of resolutions) {
+                    const resHeight = size === 'landscape' ? Math.round(res * 0.5625) : (size === 'portrait' ? Math.round(res * 1.777) : res);
+                    
+                    // REAL-LIFE processing: subtle enhancements, no over-sharpening
+                    const jpegBuffer = await sharp(Buffer.from(rawBuffer))
+                        .resize(res, resHeight, { fit: 'fill', kernel: 'lanczos3' })
+                        .sharpen({ sigma: 2.5, m1: 0.5, m2: 0.5 })  // Subtle sharpening (not AI-looking)
                         .normalize()
-                        .modulate({ brightness: 1.25, saturation: 1.35, hue: 0 })  // MAXED
-                        .webp({ quality: 100, alphaQuality: 100, effort: 6 })  // 100% quality
+                        .modulate({ brightness: 1.05, saturation: 1.1, hue: 0 })  // Natural colors
+                        .gamma(1.1)  // Natural gamma
+                        .jpeg({ quality: 100, progressive: true, chromaSubsampling: '4:4:4' })  // MAX quality, no chroma loss
                         .toBuffer();
-                    qualityUsed = 100;
-                } catch (e) {
-                    console.warn(`⚠️ Reprocessing failed, retrying with JPEG...`);
-                    try {
-                        imageBuffer = await sharp(Buffer.from(rawBuffer))
-                            .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })
-                            .sharpen({ sigma: 10.0 })  // MAX allowed
-                            .normalize()
-                            .modulate({ brightness: 1.2, saturation: 1.3 })
-                            .jpeg({ quality: 100, progressive: true })
-                            .toBuffer();
-                    } catch (e2) {
-                        console.warn(`⚠️ Both failed, keeping current`);
+                    
+                    const jpegSizeMB = (jpegBuffer.byteLength / (1024 * 1024)).toFixed(2);
+                    console.log(`📦 JPEG ${res}x${resHeight} Q100: ${jpegSizeMB} MB`);
+                    
+                    // If fits under limit and larger than current, use it
+                    if (jpegBuffer.byteLength <= TARGET_MAX) {
+                        bestBuffer = jpegBuffer;
+                        bestSize = jpegBuffer.byteLength;
+                        bestRes = res;
+                        console.log(`✅ Fits! ${jpegSizeMB} MB at ${res}px`);
+                    } else {
+                        console.log(`❌ Too big (${jpegSizeMB} MB), stopping at ${bestRes}px`);
+                        break;
                     }
                 }
+                
+                // Step 2: If still under 7 MB, increase quality further with tricks
+                if (bestSize < TARGET_MIN) {
+                    console.log(`📦 Still small (${(bestSize/1024/1024).toFixed(2)} MB), adding detail...`);
+                    
+                    // Add subtle noise/grain for more realistic look + bigger file
+                    const resHeight = size === 'landscape' ? Math.round(bestRes * 0.5625) : (size === 'portrait' ? Math.round(bestRes * 1.777) : bestRes);
+                    
+                    const enhancedBuffer = await sharp(Buffer.from(rawBuffer))
+                        .resize(bestRes, resHeight, { fit: 'fill', kernel: 'lanczos3' })
+                        .sharpen({ sigma: 3.0, m1: 1.0, m2: 0.5 })
+                        .normalize()
+                        .modulate({ brightness: 1.08, saturation: 1.15, hue: 0 })
+                        .gamma(1.1)
+                        .jpeg({ quality: 100, progressive: true, chromaSubsampling: '4:4:4', trellisQuantisation: true })
+                        .toBuffer();
+                    
+                    if (enhancedBuffer.byteLength <= TARGET_MAX && enhancedBuffer.byteLength > bestSize) {
+                        bestBuffer = enhancedBuffer;
+                        bestSize = enhancedBuffer.byteLength;
+                        console.log(`✅ Enhanced: ${(bestSize/1024/1024).toFixed(2)} MB`);
+                    }
+                }
+                
+                imageBuffer = bestBuffer;
+                qualityUsed = 100;
                 finalSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+                console.log(`🏆 FINAL: ${finalSizeMB} MB @ ${bestRes}px (JPEG Q100 REAL-LIFE)`);
+                
+            } catch (e) {
+                console.warn(`⚠️ Image processing failed: ${e.message}`);
             }
             
-            if (finalSizeMB >= 20 && finalSizeMB < 25) {
-                console.log(`📏 PERFECT FILE SIZE (${finalSizeMB} MB, under Discord 25 MB limit)`);
-            } else if (finalSizeMB >= 25) {
-                console.log(`⚠️ File over limit (${finalSizeMB} MB), reducing quality to 95%...`);
-                imageBuffer = await sharp(Buffer.from(rawBuffer))
-                    .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })
-                    .sharpen({ sigma: 10.0 })  // MAX allowed
-                    .normalize()
-                    .modulate({ brightness: 1.2, saturation: 1.3 })
-                    .webp({ quality: 95, alphaQuality: 100, effort: 6 })
-                    .toBuffer();
-                qualityUsed = 95;
-                finalSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
-            }
-
-            const discordSafetyNote = finalSizeMB >= 20 ? `🔥 MAXIMUM (${finalSizeMB} MB)` : (finalSizeMB > 24 ? '⚠️ NEAR LIMIT' : '✅ EXTREME');
+            finalSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+            const discordSafetyNote = parseFloat(finalSizeMB) >= 7 ? `🔥 MAXIMUM PREMIUM (${finalSizeMB} MB)` : (parseFloat(finalSizeMB) >= 5 ? `💎 PREMIUM (${finalSizeMB} MB)` : `✅ HIGH QUALITY (${finalSizeMB} MB)`);
             console.log(`✨ ABSOLUTE EXTREME KONTEXT! (${rawSizeMB} MB → ${finalSizeMB} MB @ ${upscaleTarget}x${upscaleHeight}, Sigma 10 (MAX) Quality ${qualityUsed}% ${discordSafetyNote})`);
 
-            // 🔥 DIRECT DISCORD UPLOAD - MAXIMUM 20-21 MB + EXTREME SIGMA
+            // 🔥 DIRECT DISCORD UPLOAD
             if (msg) {
-                const attachment = new AttachmentBuilder(imageBuffer, { name: `kontext_extreme_${Date.now()}.webp` });
-                const discordStatus = finalSizeMB >= 20 ? `🔥 MAXIMUM (${finalSizeMB} MB)` : `📏 PADDED (${finalSizeMB} MB)`;
-                const caption = `🎨 **${modelLabel} - ABSOLUTE EXTREME QUALITY!**\n\n**YOUR PROMPT:** "${originalPrompt}"\n\n**Resolution:** ${upscaleTarget}x${upscaleHeight} (4x Upscaled)\n**File Size:** ${finalSizeMB} MB (WEBP Quality ${qualityUsed}% - ${discordStatus})\n**EXTREME SIGMA:** 10.0 (MAXIMUM) for Maximum Definition\n**Target:** 20-21 MB for ABSOLUTE ZOOM PERFECTION\n**Discord Safe:** Always Under 25 MB Limit\n**Processing:** Lanczos3 4x + EXTREME Sharpening (σ10) + MAX Normalize + MAX Saturation Boost`;
+                const fileExt = 'jpg';  // Always use JPG for best compatibility
+                const attachment = new AttachmentBuilder(imageBuffer, { name: `kontext_${Date.now()}.${fileExt}` });
+                const caption = `🎨 **${modelLabel} - PREMIUM QUALITY**\n\n**Prompt:** "${originalPrompt.length > 80 ? originalPrompt.substring(0, 80) + '...' : originalPrompt}"\n\n📐 **${upscaleTarget}x${upscaleHeight}** | 📦 **${finalSizeMB} MB** | ⚡ **Q${qualityUsed}**`;
                 await msg.reply({ content: caption, files: [attachment] });
                 console.log(`✅ [SUCCESS] Generated for prompt: "${originalPrompt}" → ${finalSizeMB} MB (Safe: ${finalSizeMB < 25})`);
                 return "__IMAGE_SENT_DIRECTLY__";
