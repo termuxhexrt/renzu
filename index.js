@@ -7725,10 +7725,10 @@ async function runTool(toolCall, id, msg = null) {
             let qualityUsed = 100;
             
             try {
-                // EXTREME QUALITY: Maximum sharpening (sigma 12 = EXTREME), all enhancements maxed
+                // EXTREME QUALITY: Maximum sharpening (sigma 10 = MAX allowed), all enhancements maxed
                 imageBuffer = await sharp(Buffer.from(rawBuffer))
                     .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })  // 4x upscale
-                    .sharpen({ sigma: 12.0 })  // EXTREME EXTREME EXTREME sharpening for max definition
+                    .sharpen({ sigma: 10.0 })  // EXTREME EXTREME EXTREME sharpening (MAX allowed by Sharp)
                     .normalize()  // Enhance contrast
                     .modulate({ brightness: 1.2, saturation: 1.3, hue: 0 })  // MAXED color boost
                     .webp({ quality: 100, alphaQuality: 100, effort: 6 })  // WEBP 100% lossless-like quality
@@ -7738,7 +7738,7 @@ async function runTool(toolCall, id, msg = null) {
                 // Fallback: Extreme processing without composite
                 imageBuffer = await sharp(Buffer.from(rawBuffer))
                     .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })
-                    .sharpen({ sigma: 10.0 })  // EXTREME EXTREME sharpening fallback
+                    .sharpen({ sigma: 10.0 })  // EXTREME EXTREME sharpening fallback (MAX allowed)
                     .normalize()
                     .modulate({ brightness: 1.2, saturation: 1.3 })
                     .jpeg({ quality: 100, progressive: true })
@@ -7754,7 +7754,7 @@ async function runTool(toolCall, id, msg = null) {
                     // Reprocess with MAXIMUM everything to hit 20-21 MB
                     imageBuffer = await sharp(Buffer.from(rawBuffer))
                         .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })
-                        .sharpen({ sigma: 15.0 })  // ABSOLUTE MAX EXTREME sharpening
+                        .sharpen({ sigma: 10.0 })  // MAX allowed by Sharp (10.0)
                         .normalize()
                         .modulate({ brightness: 1.25, saturation: 1.35, hue: 0 })  // MAXED
                         .webp({ quality: 100, alphaQuality: 100, effort: 6 })  // 100% quality
@@ -7765,7 +7765,7 @@ async function runTool(toolCall, id, msg = null) {
                     try {
                         imageBuffer = await sharp(Buffer.from(rawBuffer))
                             .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })
-                            .sharpen({ sigma: 12.0 })
+                            .sharpen({ sigma: 10.0 })  // MAX allowed
                             .normalize()
                             .modulate({ brightness: 1.2, saturation: 1.3 })
                             .jpeg({ quality: 100, progressive: true })
@@ -7783,7 +7783,7 @@ async function runTool(toolCall, id, msg = null) {
                 console.log(`⚠️ File over limit (${finalSizeMB} MB), reducing quality to 95%...`);
                 imageBuffer = await sharp(Buffer.from(rawBuffer))
                     .resize(upscaleTarget, upscaleHeight, { fit: 'fill', kernel: 'lanczos3' })
-                    .sharpen({ sigma: 12.0 })
+                    .sharpen({ sigma: 10.0 })  // MAX allowed
                     .normalize()
                     .modulate({ brightness: 1.2, saturation: 1.3 })
                     .webp({ quality: 95, alphaQuality: 100, effort: 6 })
@@ -7793,13 +7793,13 @@ async function runTool(toolCall, id, msg = null) {
             }
 
             const discordSafetyNote = finalSizeMB >= 20 ? `🔥 MAXIMUM (${finalSizeMB} MB)` : (finalSizeMB > 24 ? '⚠️ NEAR LIMIT' : '✅ EXTREME');
-            console.log(`✨ ABSOLUTE EXTREME KONTEXT! (${rawSizeMB} MB → ${finalSizeMB} MB @ ${upscaleTarget}x${upscaleHeight}, Sigma 12+ Quality ${qualityUsed}% ${discordSafetyNote})`);
+            console.log(`✨ ABSOLUTE EXTREME KONTEXT! (${rawSizeMB} MB → ${finalSizeMB} MB @ ${upscaleTarget}x${upscaleHeight}, Sigma 10 (MAX) Quality ${qualityUsed}% ${discordSafetyNote})`);
 
             // 🔥 DIRECT DISCORD UPLOAD - MAXIMUM 20-21 MB + EXTREME SIGMA
             if (msg) {
                 const attachment = new AttachmentBuilder(imageBuffer, { name: `kontext_extreme_${Date.now()}.webp` });
                 const discordStatus = finalSizeMB >= 20 ? `🔥 MAXIMUM (${finalSizeMB} MB)` : `📏 PADDED (${finalSizeMB} MB)`;
-                const caption = `🎨 **${modelLabel} - ABSOLUTE EXTREME QUALITY!**\n\n**YOUR PROMPT:** "${originalPrompt}"\n\n**Resolution:** ${upscaleTarget}x${upscaleHeight} (4x Upscaled)\n**File Size:** ${finalSizeMB} MB (WEBP Quality ${qualityUsed}% - ${discordStatus})\n**EXTREME SIGMA:** 12-15 for Maximum Definition\n**Target:** 20-21 MB for ABSOLUTE ZOOM PERFECTION\n**Discord Safe:** Always Under 25 MB Limit\n**Processing:** Lanczos3 4x + EXTREME EXTREME EXTREME Sharpening + MAX Normalize + MAX Saturation Boost`;
+                const caption = `🎨 **${modelLabel} - ABSOLUTE EXTREME QUALITY!**\n\n**YOUR PROMPT:** "${originalPrompt}"\n\n**Resolution:** ${upscaleTarget}x${upscaleHeight} (4x Upscaled)\n**File Size:** ${finalSizeMB} MB (WEBP Quality ${qualityUsed}% - ${discordStatus})\n**EXTREME SIGMA:** 10.0 (MAXIMUM) for Maximum Definition\n**Target:** 20-21 MB for ABSOLUTE ZOOM PERFECTION\n**Discord Safe:** Always Under 25 MB Limit\n**Processing:** Lanczos3 4x + EXTREME Sharpening (σ10) + MAX Normalize + MAX Saturation Boost`;
                 await msg.reply({ content: caption, files: [attachment] });
                 console.log(`✅ [SUCCESS] Generated for prompt: "${originalPrompt}" → ${finalSizeMB} MB (Safe: ${finalSizeMB < 25})`);
                 return "__IMAGE_SENT_DIRECTLY__";
