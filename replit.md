@@ -4,26 +4,57 @@ This Discord bot integrates with Mistral AI to provide an AI-powered conversatio
 
 **Production Mode**: By default, the bot runs in production mode with clean responses and minimal logging. Autonomous learning is DISABLED by default (enable via `ENABLE_AUTO_LEARNING=true`).
 
-# Recent Changes (November 25, 2025)
+# Recent Changes (November 27, 2025)
 
-## Duplicate Reply Fix & Production Hardening
-- **Fixed duplicate message replies** - Implemented message processing lock (debounce) to prevent concurrent handlers
-- **Single-message responses** - Converted `replyChunks` to send ONE message or .txt file (no more streaming chunks)
-- **Optimized image replies** - `replyWithImages` batches all images + text into ONE message with robust 2000-char limit handling
-- **Autonomous learning control** - Disabled by default, requires `ENABLE_AUTO_LEARNING=true` env variable to enable
-- **Developer mode toggle** - Added `DEVELOPER_MODE` env variable for easy feature management
-- **DM handler fix** - Fixed bug causing "🤔 No response." instead of actual AI-generated content
-- **Model upgrade** - All instances changed from `mistral-small-latest` to `mistral-large-latest`
+## EXTREME Image Generation Upgrade
+- **Maximum Resolution**: 2048x2048 pixels (MAX quality always)
+- **Default Model**: `flux-realism` for photorealistic output
+- **Smart Style Detection**: Auto-detects anime/3D/realistic from keywords
+- **Quality Boost Prompts**: Auto-enhances every prompt with professional quality keywords
+- **Negative Prompts**: Removes all defects (blur, artifacts, bad anatomy, etc.)
+- **Fusion Mode**: Generate with multiple models in parallel
+
+### Image Generation Quality Keywords (Auto-Applied)
+**Positive Prompt Enhancement:**
+```
+masterpiece, best quality, ultra realistic, 8K UHD, RAW photo, highly detailed, 
+sharp focus, professional photography, perfect composition, stunning lighting, 
+no blur, no artifacts, anatomically correct, perfect proportions, photorealistic, 
+cinematic lighting, HDR, intricate details
+```
+
+**Negative Prompt (Defect Removal):**
+```
+blurry, low quality, pixelated, jpeg artifacts, watermark, signature, text, logo, 
+extra limbs, extra fingers, mutated hands, poorly drawn hands, poorly drawn face, 
+mutation, deformed, ugly, bad anatomy, bad proportions, cloned face, malformed limbs, 
+missing arms, missing legs, fused fingers, too many fingers, long neck, error, 
+cropped, worst quality, grainy, distorted, amateur, bad lighting
+```
+
+### Available Models
+| Model | Trigger Keywords | Best For |
+|-------|------------------|----------|
+| `flux-realism` | (default), realistic, photo, person, portrait | Photorealistic images |
+| `flux-anime` | anime, manga, cartoon, waifu, kawaii | Anime/illustration |
+| `flux-3d` | 3d, render, blender, cgi | 3D rendered images |
+
+## Previous Changes (November 25, 2025)
+- **Fixed duplicate message replies** - Implemented message processing lock (debounce)
+- **Single-message responses** - ONE message or .txt file (no streaming chunks)
+- **Optimized image replies** - Batches all images + text into ONE message
+- **Autonomous learning control** - Disabled by default
+- **Model upgrade** - Changed to `mistral-large-latest`
 
 # User Preferences
 
-Preferred communication style: Simple, everyday language.
+Preferred communication style: Simple, everyday language (Hinglish supported).
 
 # System Architecture
 
 ## Application Type
 **Discord Bot with AI Integration**
-- Runs as a persistent Node.js service using Express.js for health checks.
+- Runs as a persistent Node.js service using Express.js for health checks (port 5000).
 - Employs an event-driven architecture, responding to Discord messages.
 
 ## Core Technologies
@@ -32,15 +63,32 @@ Preferred communication style: Simple, everyday language.
 - **AI Provider**: Mistral AI SDK v1.10.0
 - **Primary Database**: Neon PostgreSQL with `pg` driver
 - **Cloud Database**: Supabase (file storage, real-time features, backup)
+- **Image Generation**: Pollinations.ai API (FREE, no API key required)
 - **HTTP Client**: node-fetch
 - **Environment Management**: dotenv
 
 ## Bot Architecture
 **Gateway Intents**: Utilizes Discord gateway intents for message and guild events.
-**AI Function Calling**: Implements an advanced tool/function calling pattern with Mistral AI, enabling the bot to automatically select and execute appropriate tools based on natural language queries via the `?ask` command.
-- **Tools**: Includes 160+ advanced tools covering security, OSINT, crypto, image generation (generation only, no editing), code generation, web search, and developer-specific tools (e.g., code execution sandbox, GitHub integration, API testing).
+**AI Function Calling**: Implements an advanced tool/function calling pattern with Mistral AI, enabling the bot to automatically select and execute appropriate tools based on natural language queries.
+- **Tools**: Includes 160+ advanced tools covering security, OSINT, crypto, image generation, code generation, web search, and developer-specific tools.
 - **Self-Awareness System**: Tracks bot version and maintains an update history.
 - **Developer Recognition System**: Identifies the developer by Discord user ID for unrestricted access.
+
+## Image Generation System (EXTREME Mode)
+**Provider**: Pollinations.ai (FREE - No API Key Required)
+**Resolution**: 2048x2048 (Maximum)
+**Features**:
+- Smart style detection (realistic/anime/3D)
+- Auto quality enhancement prompts
+- Negative prompts for defect removal
+- Fusion mode (parallel model generation)
+- Direct Discord upload (no URL links)
+
+**Safety Features**:
+- **Timeout Handling**: 60 second timeout for large 2048x2048 images (prevents hanging)
+- **URL Length Safety**: Auto-truncates prompts if URL exceeds safe length (~1800 chars)
+- **Graceful Degradation**: If prompt too long, keeps essential quality keywords
+- **AbortController**: Clean cancellation of stuck requests
 
 ## Data Persistence (DUAL DATABASE ARCHITECTURE + SKILL LEARNING)
 **Neon PostgreSQL (Primary)**: A 10-table schema for comprehensive memory and skill management, including `conversations`, `global_memory`, `entities`, `summaries`, `topics`, `statistics`, `quality_scores`, `user_skills`, `skill_events`, and `skill_limits`.
@@ -58,7 +106,7 @@ Preferred communication style: Simple, everyday language.
 9. Autonomous learning (DISABLED by default, enable with `ENABLE_AUTO_LEARNING=true`).
 
 ## Uptime Monitoring
-**Express Server**: A minimal HTTP server is included for health checks.
+**Express Server**: A minimal HTTP server on port 5000 for health checks.
 
 # External Dependencies
 
@@ -71,11 +119,13 @@ Preferred communication style: Simple, everyday language.
 ## Database
 - **PostgreSQL**: Relational database for persistent storage.
 
+## Image Generation
+- **Pollinations.ai**: FREE image generation API with multiple models (flux-realism, flux-anime, flux-3d).
+
 ## API Keys / Services (Conditional)
 - **SerpAPI**: For web search and CVE lookup.
 - **Shodan**: For internet-wide scanning.
 - **VirusTotal**: For file hash checking.
-- **Pollinations API (Flux Pro/Flux Realism)**: For image generation.
 - **HaveIBeenPwned**: For email breach checking.
 
 ## Environment Variables
