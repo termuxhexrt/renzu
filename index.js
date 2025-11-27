@@ -7688,10 +7688,10 @@ async function runTool(toolCall, id, msg = null) {
             const encodedNegative = encodeURIComponent(negativePrompt);
             const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${dimensions.width}&height=${dimensions.height}&model=${pollinationsModel}&nologo=true&enhance=true&negative=${encodedNegative}&seed=${Date.now()}`;
 
-            console.log(`🌐 Generating ${dimensions.width}x${dimensions.height} with ${pollinationsModel}...`);
+            console.log(`🌐 Generating ${dimensions.width}x${dimensions.height} with ${pollinationsModel}... (180s timeout)`);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            const timeoutId = setTimeout(() => controller.abort(), 180000);  // 180s timeout for extreme quality generation
 
             const response = await fetch(url, { 
                 method: 'GET', 
