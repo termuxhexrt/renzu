@@ -7700,17 +7700,41 @@ async function runTool(toolCall, id, msg = null) {
 
             console.log(`🌐 Generating ${dimensions.width}x${dimensions.height} with ${pollinationsModel}... (600s max timeout)`);
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 600000);  // 600s (10 min) max timeout for extreme quality generation
+            // RETRY LOGIC: Retry on 5xx errors (server issues)
+            let response;
+            let lastError;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 600000);
 
-            const response = await fetch(url, { 
-                method: 'GET', 
-                headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' },
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
+                    response = await fetch(url, { 
+                        method: 'GET', 
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Discord Bot)' },
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
 
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    if (response.ok) {
+                        console.log(`✅ Image API responded (attempt ${attempt}/3)`);
+                        break;
+                    } else if (response.status >= 500) {
+                        lastError = `Server Error ${response.status}`;
+                        console.warn(`⚠️ Attempt ${attempt}/3: HTTP ${response.status}, retrying in 3 seconds...`);
+                        if (attempt < 3) await new Promise(r => setTimeout(r, 3000));
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                } catch (fetchErr) {
+                    lastError = fetchErr.message;
+                    console.warn(`⚠️ Attempt ${attempt}/3 failed: ${fetchErr.message}`);
+                    if (attempt < 3) await new Promise(r => setTimeout(r, 3000));
+                }
+            }
+
+            if (!response || !response.ok) {
+                throw new Error(`Image generation failed after 3 attempts: ${lastError || 'Unknown error'}`);
+            }
             
             const rawBuffer = await response.arrayBuffer();
             const rawSizeMB = (rawBuffer.byteLength / (1024 * 1024)).toFixed(2);
