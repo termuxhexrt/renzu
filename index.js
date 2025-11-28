@@ -4153,12 +4153,12 @@ Return ONLY valid JSON.`
 
     // ========== LAYER 3: CONFIDENCE VALIDATION ==========
     let finalConfidence = classification.confidence || 0.8;
-    
+
     // Boost confidence for clear patterns
     if (classification.type === 'greeting' && /^(hi|hello|hey|namaste)\b/i.test(userMessage)) {
       finalConfidence = Math.min(finalConfidence + 0.1, 1.0);
     }
-    
+
     // Reduce confidence for ambiguous cases
     if (userMessage.split(' ').length <= 2 && classification.needsTools) {
       finalConfidence = Math.max(finalConfidence - 0.1, 0.5);
@@ -4201,17 +4201,17 @@ function instantPatternMatch(text) {
   const lower = text.toLowerCase().trim();
   const words = lower.split(/\s+/);
   const wordCount = words.length;
-  
+
   // 1. GREETING (short messages only)
   if (wordCount <= 3 && /^(hi|hello|hey|yo|sup|namaste|kaise ho|kya hal|good morning|good evening|gm|ge)\b/i.test(lower)) {
     return { type: 'greeting', confidence: 0.98, needsTools: false, simpleResponse: true, description: 'Instant greeting', recommendedTools: [] };
   }
-  
+
   // 2. FAREWELL
   if (wordCount <= 4 && /^(bye|goodbye|chal|alvida|ttyl|see ya|good night|gn|tata|later)\b/i.test(lower)) {
     return { type: 'farewell', confidence: 0.98, needsTools: false, simpleResponse: true, description: 'Instant farewell', recommendedTools: [] };
   }
-  
+
   // 3. GRATITUDE
   if (/^(thanks|thank you|shukriya|dhanyawad|thx|ty)\b/i.test(lower) && wordCount <= 5) {
     return { type: 'gratitude', confidence: 0.98, needsTools: false, simpleResponse: true, description: 'Instant gratitude', recommendedTools: [] };
@@ -4231,7 +4231,7 @@ function instantPatternMatch(text) {
   if (/\b(who are you|kaun ho|your name|tera naam|about you|version|changelog|kon hai tu)\b/i.test(lower)) {
     return { type: 'meta_conversation', confidence: 0.95, needsTools: false, simpleResponse: true, description: 'About bot', recommendedTools: [] };
   }
-  
+
   // 7. IMAGE GENERATION (explicit keywords with action)
   if (/\b(image|picture|photo|logo|poster|banner|wallpaper|artwork|illustration)\s*(bana|generate|create|draw|design|make)/i.test(lower) ||
       /\b(bana|generate|create|draw|design|make)\s*(ek|one|a|an|mera|mere|meri)?\s*(image|picture|photo|logo|poster|banner)/i.test(lower)) {
@@ -4258,7 +4258,7 @@ function instantPatternMatch(text) {
   if (/\b(hash|md5|sha256|sha1|base64|encrypt|decrypt)\s/i.test(lower)) {
     return { type: 'crypto_tool', confidence: 0.95, needsTools: true, simpleResponse: false, description: 'Crypto operation', recommendedTools: ['hash_operations', 'base64_operations'] };
   }
-  
+
   return null; // No instant match, proceed to AI for complex analysis
 }
 
@@ -4805,6 +4805,94 @@ async function generateImage(prompt) {
     return { success: false, error: `All premium models and DeviantArt search failed. Please try a different prompt.` };
 }
 
+// 🧠 SMART PROMPT ENHANCER - Understands user intent and expands vague prompts
+// Applies to: Non-developers everywhere + Developer in server (NOT developer in DM)
+async function enhanceImagePrompt(userPrompt, userId, isDM = false) {
+    try {
+        // Skip enhancement for developer in DM only - their DM prompts go as-is
+        // Developer in SERVER gets enhancement like everyone else
+        if (userId === DEVELOPER_ID && isDM) {
+            console.log(`🎯 [PROMPT] Developer in DM - using original prompt as-is`);
+            return { enhanced: false, prompt: userPrompt, original: userPrompt };
+        }
+
+        console.log(`🧠 [PROMPT ENHANCER] Analyzing: "${userPrompt}"`);
+
+        // Use Mistral to understand and enhance the prompt
+        const enhanceSystemPrompt = `You are an expert image prompt enhancer. Your job is to understand what the user REALLY wants and create a detailed, descriptive prompt for AI image generation.
+
+RULES:
+1. UNDERSTAND the user's intent - even if they use broken English/Hinglish
+2. EXPAND vague prompts into detailed descriptions
+3. ADD visual details: lighting, style, mood, colors, composition
+4. FIX common misunderstandings:
+   - "space view" / "space veiw" = outer space, galaxies, stars, nebulae (NOT a room)
+   - "clean space" + "view" = outer space scene (NOT office/room)
+   - "nature" = forests, mountains, rivers (NOT abstract)
+   - "city" = urban skyline, buildings, streets
+5. Keep the enhanced prompt under 150 words
+6. Output ONLY the enhanced prompt, nothing else
+
+EXAMPLES:
+User: "ek clean space veiw image bana"
+Enhanced: "breathtaking view of outer space, deep cosmic void filled with millions of stars, colorful nebulae in purple and blue hues, distant galaxies spiral arms visible, Milky Way galaxy core glowing, crystal clear night sky, ultra high definition, cinematic lighting, 8K quality, NASA-style astrophotography"
+
+User: "sunset banana"
+Enhanced: "stunning tropical sunset scene with banana palm trees silhouetted against vibrant orange and pink sky, golden hour lighting, warm colors reflecting on calm ocean water, paradise island vibes, professional photography, beautiful composition"
+
+User: "cool car"
+Enhanced: "sleek modern sports car with aggressive design, metallic finish gleaming under studio lighting, low angle shot, dramatic shadows, luxury automotive photography, showroom quality, high detail, sharp focus"`;
+
+        const enhanceResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "mistral-small-latest",  // Fast model for quick enhancement
+                messages: [
+                    { role: "system", content: enhanceSystemPrompt },
+                    { role: "user", content: `Enhance this image prompt: "${userPrompt}"` }
+                ],
+                max_tokens: 300,
+                temperature: 0.7
+            })
+        });
+
+        if (!enhanceResponse.ok) {
+            console.warn(`⚠️ Prompt enhancement API failed, using original`);
+            return { enhanced: false, prompt: userPrompt, original: userPrompt };
+        }
+
+        const enhanceData = await enhanceResponse.json();
+        let enhancedPrompt = enhanceData.choices?.[0]?.message?.content?.trim();
+
+        // Clean up: Remove surrounding quotes if AI added them
+        if (enhancedPrompt) {
+            enhancedPrompt = enhancedPrompt
+                .replace(/^["'`]+/, '')  // Remove leading quotes
+                .replace(/["'`]+$/, '')  // Remove trailing quotes
+                .trim();
+        }
+
+        if (enhancedPrompt && enhancedPrompt.length > userPrompt.length) {
+            console.log(`✅ [PROMPT ENHANCED] "${userPrompt}" → "${enhancedPrompt.substring(0, 80)}..."`);
+            return { 
+                enhanced: true, 
+                prompt: enhancedPrompt, 
+                original: userPrompt 
+            };
+        }
+
+        return { enhanced: false, prompt: userPrompt, original: userPrompt };
+
+    } catch (err) {
+        console.error(`❌ Prompt enhancement error:`, err.message);
+        return { enhanced: false, prompt: userPrompt, original: userPrompt };
+    }
+}
+
 // Gemini Vision API Helper (kept for gender detection only)
 async function callGeminiAPI(endpoint, payload) {
     const apiKeys = [
@@ -5009,16 +5097,16 @@ const TEXT_FILE_EXTENSIONS = [
 
 async function extractFileAttachments(attachments) {
     const fileContents = [];
-    
+
     for (const att of attachments.values()) {
         const fileName = att.name?.toLowerCase() || '';
         const contentType = att.contentType?.toLowerCase() || '';
-        
+
         // Skip images - they're handled separately
         if (contentType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp|ico|svg)$/i.test(fileName)) {
             continue;
         }
-        
+
         // Check if it's a text-based file
         const isTextFile = TEXT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext)) ||
                           contentType.startsWith('text/') ||
@@ -5026,14 +5114,14 @@ async function extractFileAttachments(attachments) {
                           contentType.includes('javascript') ||
                           contentType.includes('xml') ||
                           contentType === 'application/octet-stream'; // Sometimes Discord sends code files as this
-        
+
         // Also handle PDF (extract as binary notification for now)
         const isPDF = fileName.endsWith('.pdf') || contentType === 'application/pdf';
-        
+
         if (isTextFile || isPDF) {
             try {
                 console.log(`📄 Fetching file: ${att.name} (${att.contentType || 'unknown type'})`);
-                
+
                 if (isPDF) {
                     // For PDFs, just note that it's a PDF (can't extract text without library)
                     fileContents.push({
@@ -5047,13 +5135,13 @@ async function extractFileAttachments(attachments) {
                     const response = await fetch(att.url);
                     if (response.ok) {
                         let text = await response.text();
-                        
+
                         // Limit content size to prevent token overflow (max 50KB)
                         const MAX_SIZE = 50000;
                         if (text.length > MAX_SIZE) {
                             text = text.substring(0, MAX_SIZE) + `\n\n... [TRUNCATED - File too large, showing first ${MAX_SIZE} characters]`;
                         }
-                        
+
                         fileContents.push({
                             name: att.name,
                             type: 'text',
@@ -5091,14 +5179,14 @@ async function extractFileAttachments(attachments) {
             });
         }
     }
-    
+
     return fileContents;
 }
 
 // Format file contents for AI context
 function formatFileContentsForAI(fileContents) {
     if (fileContents.length === 0) return '';
-    
+
     let formatted = '\n\n📎 **ATTACHED FILES:**\n';
     for (const file of fileContents) {
         formatted += `\n--- FILE: ${file.name} (${(file.size / 1024).toFixed(1)} KB) ---\n`;
@@ -5279,7 +5367,7 @@ async function runTool(toolCall, id, msg = null) {
         // --- FREE UNLIMITED DUCKDUCKGO SEARCH (v6.1.0) ---
         try {
             console.log(`🦆 DuckDuckGo FREE Search: "${query}"`);
-            
+
             const ddgResults = await ddgSearch(query, {
                 safeSearch: 0,
                 locale: 'en-in',
@@ -5311,7 +5399,7 @@ async function runTool(toolCall, id, msg = null) {
             // If no results, try news search
             console.log(`🔄 No results, trying DuckDuckGo news...`);
             const ddgNews = await ddgSearch(query + " news", { safeSearch: 0 });
-            
+
             if (ddgNews && ddgNews.results && ddgNews.results.length > 0) {
                 const newsResults = ddgNews.results.slice(0, 3).map((item, i) => 
                     `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
@@ -5324,13 +5412,13 @@ async function runTool(toolCall, id, msg = null) {
 
         } catch (err) {
             console.error("❌ DuckDuckGo Search Error:", err.message);
-            
+
             // Fallback: Try one more time with simpler query
             try {
                 console.log(`🔄 Retrying DuckDuckGo with simplified query...`);
                 const simplifiedQuery = query.split(' ').slice(0, 5).join(' ');
                 const retryResults = await ddgSearch(simplifiedQuery, { safeSearch: 0 });
-                
+
                 if (retryResults && retryResults.results && retryResults.results.length > 0) {
                     const topResults = retryResults.results.slice(0, 3).map((item, i) => 
                         `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
@@ -5340,7 +5428,7 @@ async function runTool(toolCall, id, msg = null) {
             } catch (retryErr) {
                 console.error("❌ DuckDuckGo retry failed:", retryErr.message);
             }
-            
+
             return `❌ Search temporarily unavailable. Try again in a moment!`;
         }
     }
@@ -5487,6 +5575,14 @@ async function runTool(toolCall, id, msg = null) {
             // Fallback to Mistral's prompt if extraction fails
             if (!actualPrompt || actualPrompt.length < 2) {
                 actualPrompt = parsedArgs.prompt || 'random image';
+            }
+
+            // 🧠 SMART PROMPT ENHANCEMENT - Developer in DM = no enhance, everyone else = enhance
+            const isDM = msg?.channel?.type === 1;
+            const enhanceResult = await enhanceImagePrompt(actualPrompt, id, isDM);
+            if (enhanceResult.enhanced) {
+                actualPrompt = enhanceResult.prompt;
+                console.log(`🧠 [ENHANCED] Original: "${enhanceResult.original}" → Enhanced: "${actualPrompt.substring(0, 80)}..."`);
             }
 
             // 🔥💀 EXTREME QUALITY ENHANCEMENT - ALWAYS APPLIED
@@ -7925,6 +8021,14 @@ async function runTool(toolCall, id, msg = null) {
             const originalPrompt = prompt;
             console.log(`🎨 [KONTEXT] USER PROMPT: "${originalPrompt}"`);
 
+            // 🧠 SMART PROMPT ENHANCEMENT - Developer in DM = no enhance, everyone else = enhance
+            const isDM = msg?.channel?.type === 1;
+            const enhanceResult = await enhanceImagePrompt(prompt, id, isDM);
+            if (enhanceResult.enhanced) {
+                prompt = enhanceResult.prompt;
+                console.log(`🧠 [ENHANCED] Original: "${originalPrompt}" → Enhanced: "${prompt.substring(0, 80)}..."`);
+            }
+
             // Model mapping: KONTEXT names → Pollinations models (KONTEXT ≈ flux-realism quality)
             const modelMap = {
                 'kontext-max': 'flux-realism',      // KONTEXT MAX ≈ flux-realism (best quality)
@@ -8139,9 +8243,35 @@ async function runTool(toolCall, id, msg = null) {
 
             console.log(`✂️ [Sharp] Editing image: ${operation}`);
 
-            // Fetch image
-            const response = await fetch(imageUrl);
+            // Fetch image with proper headers
+            const response = await fetch(imageUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'image/*,*/*'
+                }
+            });
+
+            // Check if response is actually an image
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('image') && !response.ok) {
+                return `❌ **Image Edit Error**: URL did not return a valid image. Content-Type: ${contentType}. Please provide a direct image URL (ending in .jpg, .png, .webp, etc.)`;
+            }
+
             const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+            // Validate buffer is actually image data (check magic bytes)
+            const isValidImage = imageBuffer.length > 8 && (
+                (imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8) || // JPEG
+                (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50) || // PNG
+                (imageBuffer[0] === 0x47 && imageBuffer[1] === 0x49) || // GIF
+                (imageBuffer[0] === 0x52 && imageBuffer[1] === 0x49) || // WEBP (RIFF)
+                (imageBuffer[0] === 0x42 && imageBuffer[1] === 0x4D)    // BMP
+            );
+
+            if (!isValidImage) {
+                console.warn(`⚠️ [Sharp] Invalid image data received from URL`);
+                return `❌ **Image Edit Error**: The URL returned non-image data (possibly HTML or redirect). Please use a direct image URL like:\n- Direct image links ending in .jpg, .png, .webp\n- Not Unsplash/Pexels page URLs - use their direct CDN links`;
+            }
 
             let processedImage = sharp(imageBuffer);
 
