@@ -6,6 +6,23 @@ This Discord bot integrates with Mistral AI to provide an AI-powered conversatio
 
 # Recent Changes (November 28, 2025)
 
+## Smart Prompt Enhancement for Image Generation (v6.2.1)
+- **AI-Powered Understanding**: Uses Mistral AI to understand user's actual intent from vague/broken prompts
+- **Hinglish Support**: Perfect understanding of Hindi+English mix like "space veiw bana"
+- **Intent Detection**: Fixes common misunderstandings (e.g., "space view" = outer space, NOT room)
+- **Auto-Expansion**: Converts short prompts to detailed, descriptive image prompts
+- **Developer Bypass**: Developer's DM prompts go as-is without modification
+- **Applies To**: Non-developers everywhere + Developer in server channels (NOT developer in DM)
+- **Graceful Fallback**: If enhancement fails, uses original prompt (no breaking changes)
+
+### Example Enhancement:
+```
+User: "ek clean space veiw image bana"
+Enhanced: "breathtaking view of outer space, deep cosmic void filled with millions 
+of stars, colorful nebulae in purple and blue hues, distant galaxies, Milky Way 
+galaxy core glowing, crystal clear night sky, NASA-style astrophotography"
+```
+
 ## MASSIVE KNOWLEDGE BASE EXPANSION (v6.2.0)
 - **120+ Topics Covered**: Complete world knowledge database for autonomous learning
 - **Domains Included**: AI, cybersecurity, crypto, programming, Discord, tech, gaming, science, social media, security tools, productivity, business, mobile dev, databases, cloud, design, data science, career/education
