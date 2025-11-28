@@ -4,9 +4,42 @@ This Discord bot integrates with Mistral AI to provide an AI-powered conversatio
 
 **Production Mode**: By default, the bot runs in production mode with clean responses and minimal logging. Autonomous learning is DISABLED by default (enable via `ENABLE_AUTO_LEARNING=true`).
 
-# Recent Changes (November 27, 2025)
+# Recent Changes (November 28, 2025)
 
-## EXTREME Image Generation Upgrade
+## File Attachment Reading (v6.1.0)
+- **Text Files**: Reads .txt, .md, .json, .js, .py, .ts, .html, .css, .xml, .yaml, .csv, and 40+ more file types
+- **PDF Detection**: Detects PDF files (text extraction requires additional library)
+- **Smart Content Extraction**: Fetches file content from Discord CDN and includes in AI context
+- **Size Limit**: Max 50KB per file to prevent token overflow
+- **Auto-Detection**: Works in DMs, server channels, and with ?ask command
+- **Code Files**: Full support for all major programming languages
+
+## FREE Unlimited Web Search (v6.1.0)
+- **Primary**: DuckDuckGo (duck-duck-scrape) - FREE, unlimited, no API key
+- **Features**: Auto-retry, news fallback, related topics, instant answers
+- **Removed**: Google Custom Search and SerpAPI dependency (were limited)
+- **Fallback**: Simplified query retry on failure
+
+## EXTREME Message Classification (v6.1.0)
+- **3-Layer Analysis**: Instant pattern match → AI classification → Enhanced regex fallback
+- **20+ Categories**: greeting, farewell, gratitude, casual_chat, emotional_support, simple_question, capability_query, image_generation, code_generation, web_search, file_analysis, url_fetch, security_tool, crypto_tool, math_calculation, translation, creative_writing, technical_query, feedback, meta_conversation
+- **Multi-Dimensional**: Intent, emotion, urgency, complexity scoring
+- **Hinglish Expert**: Perfect Hindi+English mix understanding
+- **Anti-Misclassification**: Capability questions never trigger generation
+- **Sub-millisecond**: Instant pattern matching for common messages
+
+### Supported File Extensions
+```
+.txt, .md, .json, .js, .ts, .jsx, .tsx, .py, .java, .c, .cpp, .h,
+.css, .html, .xml, .yaml, .yml, .ini, .cfg, .conf, .log, .csv,
+.sh, .bash, .zsh, .ps1, .bat, .cmd, .sql, .env, .gitignore,
+.dockerfile, .makefile, .gradle, .kt, .swift, .go, .rs, .rb, .php,
+.lua, .r, .scala, .dart, .vue, .svelte, .astro
+```
+
+## Previous Changes (November 27, 2025)
+
+### EXTREME Image Generation Upgrade
 - **Maximum Resolution**: 2048x2048 pixels (MAX quality always)
 - **Default Model**: `flux-realism` for photorealistic output
 - **Smart Style Detection**: Auto-detects anime/3D/realistic from keywords
