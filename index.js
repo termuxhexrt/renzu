@@ -29,12 +29,119 @@ if (supabaseUrl && supabaseKey) {
   console.log("⚠️ Supabase credentials not found. File storage disabled.");
 }
 
-// BOT VERSION TRACKING (Self-Awareness System)
-const BOT_VERSION = "6.0.0";
-const BOT_LAST_UPDATE = new Date().toISOString();
+// BOT VERSION TRACKING (Self-Awareness System v6.4.0)
+const BOT_VERSION = "6.4.0";
+const BOT_LAST_UPDATE = "2025-11-28";
+
+// ===== SELF-AWARENESS SYSTEM (v6.4.0) =====
+const SELF_AWARENESS = {
+  name: "Renzu",
+  version: "6.4.0",
+  developer: "Satya (Developer ID: 1104652354655113268)",
+  lastUpdate: "2025-11-28",
+  
+  // Core Capabilities
+  capabilities: {
+    classification: "ULTRA AI Classification Engine v6.4.0",
+    thinking: "Extended Thinking Mode (ChatGPT-style chain-of-thought)",
+    verification: "Multi-layer Verification System",
+    multiTool: "Intelligent Multi-Tool Orchestration",
+    learning: "Autonomous Learning System (120+ topics)",
+    memory: "Persistent Memory with Dual Database",
+    imageGen: "EXTREME Image Generation (Puter.js + Pollinations)",
+    webSearch: "Smart Rate-Limited Web Search",
+    codeGen: "Multi-language Code Generation",
+    security: "160+ Security/OSINT Tools",
+    honesty: "ABSOLUTE HONESTY SYSTEM - Never lies, always truthful"
+  },
+  
+  // Classification Layers (Complete v6.4.0)
+  classificationLayers: [
+    "Layer 0: Typo Correction + Developer Mode",
+    "Layer 0.5: Context-Aware Intent Inference",
+    "Layer 1: Instant Pattern Matching (sub-ms)",
+    "Layer 1.5: Confusion Detection",
+    "Layer 2: Complexity Scoring",
+    "Layer 2a: Extended Thinking (if complex)",
+    "Layer 3: AI Classification",
+    "Layer 3.5: Confidence Validation",
+    "Layer 3.75: Multi-Tool Analysis",
+    "Layer 4: Verification + Correction"
+  ],
+  
+  // Recent Updates
+  changelog: [
+    "v6.4.0 - ABSOLUTE HONESTY SYSTEM - Never lies",
+    "v6.4.0 - Extended Thinking Mode (ChatGPT-style)",
+    "v6.4.0 - Multi-Tool Orchestration Intelligence",
+    "v6.4.0 - Verification Layer with Auto-Correction",
+    "v6.4.0 - Complexity Scoring System",
+    "v6.3.0 - Typo Corrector (100+ Hinglish typos)",
+    "v6.3.0 - Confusion Detector",
+    "v6.3.0 - Context-Aware Intent Inference",
+    "v6.2.2 - Smart Rate-Limited Web Search",
+    "v6.2.1 - AI-Powered Prompt Enhancement",
+    "v6.2.0 - 120+ Topic Knowledge Base",
+    "v6.1.0 - File Attachment Reading",
+    "v6.1.0 - FREE Unlimited Web Search"
+  ],
+  
+  // Core Principles (ABSOLUTE)
+  corePrinciples: {
+    honesty: "NEVER lie. ALWAYS tell the truth, even if uncomfortable.",
+    transparency: "Be clear about capabilities and limitations.",
+    accuracy: "Verify information before stating as fact.",
+    humility: "Admit when you don't know something.",
+    integrity: "Don't pretend to have abilities you don't have."
+  },
+  
+  // Get formatted info
+  getInfo() {
+    return `🤖 **${this.name} v${this.version}**
+Developer: ${this.developer}
+Last Update: ${this.lastUpdate}
+
+**Classification Engine:**
+${this.classificationLayers.map((l, i) => `${i + 1}. ${l}`).join('\n')}
+
+**Recent Updates:**
+${this.changelog.slice(0, 5).map(c => `• ${c}`).join('\n')}`;
+  }
+};
 const DEVELOPER_ID = "1104652354655113268";
 const PREMIUM_ROLE_ID = "1432419737807360212";
 const NORMAL_USER_ROLE_ID = "1428810049764982907";
+
+// ===== ABSOLUTE HONESTY SYSTEM (v6.4.0) =====
+// Renzu NEVER lies - always tells the truth
+const HONESTY_RULES = `
+**ABSOLUTE HONESTY PROTOCOL (MANDATORY):**
+1. NEVER lie or fabricate information
+2. ALWAYS tell the truth, even if uncomfortable
+3. If you don't know something, say "I don't know" honestly
+4. Don't pretend to have capabilities you don't have
+5. Don't make up facts or statistics
+6. If information might be outdated, mention it
+7. Admit mistakes openly when you make them
+8. Be transparent about your limitations
+9. Don't exaggerate or embellish
+10. Verify before stating something as fact
+
+**TRUTH OVER COMFORT:**
+- Better to say "I'm not sure" than give wrong info
+- Better to disappoint than deceive
+- Honesty builds trust, lies destroy it
+
+**EXAMPLES:**
+❌ WRONG: "I can hack any system" (lie)
+✅ RIGHT: "I have security tools but can't hack real systems"
+
+❌ WRONG: "I remember our conversation from last week" (lie if you don't)
+✅ RIGHT: "I have memory but it might not have that specific conversation"
+
+❌ WRONG: Making up statistics or facts
+✅ RIGHT: "Let me search for accurate data" or "I'm not certain about this"
+`;
 
 // RATE LIMIT CONSTANTS
 const RATE_LIMITS = {
@@ -42,6 +149,160 @@ const RATE_LIMITS = {
     premium: 120,    // 120 requests per day for premium users
     developer: Infinity  // Unlimited for developer
 };
+
+// ------------------ SEARCH RATE LIMITER (v6.2.2) ------------------
+// Prevents DuckDuckGo rate limiting with smart delays and exponential backoff
+const searchRateLimiter = {
+    lastSearchTime: 0,
+    consecutiveFailures: 0,
+    minDelay: 2000,        // Minimum 2 seconds between searches
+    maxDelay: 30000,       // Maximum 30 seconds delay after failures
+    baseBackoff: 3000,     // Base backoff time (3 seconds)
+    
+    async waitIfNeeded() {
+        const now = Date.now();
+        const timeSinceLastSearch = now - this.lastSearchTime;
+        
+        // Calculate delay based on consecutive failures (exponential backoff)
+        let requiredDelay = this.minDelay;
+        if (this.consecutiveFailures > 0) {
+            requiredDelay = Math.min(
+                this.baseBackoff * Math.pow(2, this.consecutiveFailures - 1),
+                this.maxDelay
+            );
+        }
+        
+        if (timeSinceLastSearch < requiredDelay) {
+            const waitTime = requiredDelay - timeSinceLastSearch;
+            console.log(`⏳ Rate limiter: Waiting ${waitTime}ms before next search...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        this.lastSearchTime = Date.now();
+    },
+    
+    recordSuccess() {
+        this.consecutiveFailures = 0;
+        console.log(`✅ Search rate limiter: Success, reset backoff`);
+    },
+    
+    recordFailure() {
+        this.consecutiveFailures++;
+        const nextDelay = Math.min(
+            this.baseBackoff * Math.pow(2, this.consecutiveFailures - 1),
+            this.maxDelay
+        );
+        console.log(`⚠️ Search rate limiter: Failure #${this.consecutiveFailures}, next delay: ${nextDelay}ms`);
+    }
+};
+
+// Smart Search Function with Rate Limiting and Fallback
+async function smartWebSearch(query) {
+    // Wait if needed (rate limiting)
+    await searchRateLimiter.waitIfNeeded();
+    
+    try {
+        console.log(`🦆 DuckDuckGo Search: "${query}"`);
+        
+        const ddgResults = await ddgSearch(query, {
+            safeSearch: 0,
+            locale: 'en-in',
+            region: 'in-en'
+        });
+        
+        if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
+            searchRateLimiter.recordSuccess();
+            
+            const topResults = ddgResults.results.slice(0, 5).map((item, i) => 
+                `${i + 1}. **${item.title}**\n${item.description || 'No description'}\n🔗 ${item.url}`
+            ).join('\n\n');
+            
+            let response = `🔍 **Web Search Results:**\n\n${topResults}`;
+            
+            if (ddgResults.relatedTopics && ddgResults.relatedTopics.length > 0) {
+                const related = ddgResults.relatedTopics.slice(0, 3).map(t => t.text || t).join(', ');
+                response += `\n\n📌 **Related:** ${related}`;
+            }
+            
+            if (ddgResults.abstract) {
+                response = `💡 **Quick Answer:**\n${ddgResults.abstract}\n\n${response}`;
+            }
+            
+            console.log(`✅ DuckDuckGo returned ${ddgResults.results.length} results`);
+            return { success: true, response };
+        }
+        
+        // Try news search if no results
+        console.log(`🔄 No results, trying news search...`);
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Small delay before news search
+        
+        const ddgNews = await ddgSearch(query + " news", { safeSearch: 0 });
+        
+        if (ddgNews && ddgNews.results && ddgNews.results.length > 0) {
+            searchRateLimiter.recordSuccess();
+            const newsResults = ddgNews.results.slice(0, 3).map((item, i) => 
+                `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
+            ).join('\n\n');
+            return { success: true, response: `📰 **News Results:**\n\n${newsResults}` };
+        }
+        
+        return { success: false, response: `❌ No results found for: "${query}". Try different keywords!` };
+        
+    } catch (err) {
+        console.error("❌ DuckDuckGo Error:", err.message);
+        searchRateLimiter.recordFailure();
+        
+        // Exponential backoff retry
+        if (searchRateLimiter.consecutiveFailures <= 3) {
+            console.log(`🔄 Retry attempt ${searchRateLimiter.consecutiveFailures}...`);
+            await searchRateLimiter.waitIfNeeded();
+            
+            try {
+                const simplifiedQuery = query.split(' ').slice(0, 4).join(' ');
+                const retryResults = await ddgSearch(simplifiedQuery, { safeSearch: 0 });
+                
+                if (retryResults && retryResults.results && retryResults.results.length > 0) {
+                    searchRateLimiter.recordSuccess();
+                    const topResults = retryResults.results.slice(0, 3).map((item, i) => 
+                        `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
+                    ).join('\n\n');
+                    return { success: true, response: `🔍 **Search Results:**\n\n${topResults}` };
+                }
+            } catch (retryErr) {
+                console.error("❌ Retry failed:", retryErr.message);
+                searchRateLimiter.recordFailure();
+            }
+        }
+        
+        // FINAL FALLBACK: Try Wikipedia (100% reliable, no rate limits)
+        console.log(`📚 Trying Wikipedia fallback...`);
+        try {
+            const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=5`;
+            const wikiResponse = await fetch(wikiUrl, { timeout: 10000 });
+            const wikiData = await wikiResponse.json();
+            
+            if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
+                const wikiResults = wikiData.query.search.slice(0, 5).map((item, i) => {
+                    const cleanSnippet = item.snippet.replace(/<[^>]*>/g, '');
+                    const wikiLink = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`;
+                    return `${i + 1}. **${item.title}**\n${cleanSnippet}\n🔗 ${wikiLink}`;
+                }).join('\n\n');
+                
+                // Reset rate limiter on Wikipedia success (we got results!)
+                searchRateLimiter.recordSuccess();
+                console.log(`✅ Wikipedia fallback success! Found ${wikiData.query.search.length} results`);
+                return { success: true, response: `📚 **Wikipedia Results:**\n\n${wikiResults}` };
+            }
+        } catch (wikiErr) {
+            console.error("❌ Wikipedia fallback also failed:", wikiErr.message);
+        }
+        
+        return { 
+            success: false, 
+            response: `⏳ Search temporarily unavailable. Please try again in a few seconds!`
+        };
+    }
+}
 const CHANGELOG = [
     {
         version: "6.0.0",
@@ -4017,22 +4278,701 @@ async function getUserEntities(userId) {
   }
 }
 
-// ------------------ EXTREME AI-POWERED MESSAGE CLASSIFIER (v6.1.0) ------------------
-// Ultra-intelligent multi-layer analysis with Chain-of-Thought reasoning
-async function intelligentMessageClassifier(userMessage, conversationHistory = []) {
+// ------------------ ULTRA EXTREME AI-POWERED MESSAGE CLASSIFIER (v6.3.0) ------------------
+// FEATURES: Confusion Detection, Developer Mode, Typo Fix, Context-Aware, Intent Inference
+// Handles even the most broken/unclear inputs and figures out what user ACTUALLY wants
+
+// ===== TYPO/SPELLING CORRECTOR =====
+const TYPO_CORRECTIONS = {
+  // Common Hinglish typos
+  'veiw': 'view', 'vew': 'view', 'viw': 'view',
+  'imge': 'image', 'img': 'image', 'imag': 'image', 'imagr': 'image',
+  'pictre': 'picture', 'pic': 'picture', 'pciture': 'picture',
+  'serch': 'search', 'sarch': 'search', 'seach': 'search',
+  'genrate': 'generate', 'generat': 'generate', 'genarate': 'generate',
+  'creat': 'create', 'crate': 'create', 'creatte': 'create',
+  'bna': 'bana', 'bnao': 'banao', 'bnaa': 'bana',
+  'phto': 'photo', 'foto': 'photo', 'photoo': 'photo',
+  'lgo': 'logo', 'lgoo': 'logo',
+  'weathr': 'weather', 'wether': 'weather', 'wethr': 'weather',
+  'pric': 'price', 'prce': 'price',
+  'scre': 'score', 'scor': 'score',
+  'newz': 'news', 'nws': 'news',
+  'vido': 'video', 'vidio': 'video', 'vdeo': 'video',
+  'dowload': 'download', 'donload': 'download', 'downlod': 'download',
+  'halp': 'help', 'hlp': 'help',
+  'cde': 'code', 'cod': 'code', 'coode': 'code',
+  'scrpt': 'script', 'scrit': 'script',
+  'progam': 'program', 'programm': 'program',
+  'websit': 'website', 'webste': 'website',
+  'aplcation': 'application', 'aplication': 'application',
+  'errr': 'error', 'eror': 'error',
+  'plese': 'please', 'pls': 'please', 'plz': 'please',
+  'thks': 'thanks', 'thnks': 'thanks', 'thnx': 'thanks',
+  'kr': 'kar', 'kro': 'karo', 'krdo': 'kar do',
+  'btao': 'batao', 'bta': 'bata', 'btade': 'bata de',
+  'dkhao': 'dikhao', 'dkha': 'dikha', 'dikha': 'dikhao',
+  'smjhao': 'samjhao', 'smjha': 'samjha',
+  'pdh': 'padh', 'pdhao': 'padhao',
+  'lkh': 'likh', 'lkhdo': 'likh do',
+  'dhund': 'dhundh', 'dhundho': 'dhundho',
+  'kha': 'kya', 'kia': 'kya', 'kua': 'kya',
+  'haa': 'haan', 'ha': 'haan',
+  'nhi': 'nahi', 'nai': 'nahi', 'ni': 'nahi',
+  'tujse': 'tujhse', 'tujhsay': 'tujhse',
+  'mujse': 'mujhse', 'mujhsay': 'mujhse',
+  'abt': 'about', 'abut': 'about',
+  'wht': 'what', 'wat': 'what',
+  'hw': 'how', 'hwo': 'how',
+  'ur': 'your', 'u': 'you', 'r': 'are',
+  'bcoz': 'because', 'coz': 'because', 'cuz': 'because',
+  'shud': 'should', 'shuld': 'should',
+  'wud': 'would', 'wuld': 'would',
+  'cud': 'could', 'culd': 'could',
+  'phn': 'phone', 'fone': 'phone',
+  'msg': 'message', 'mesage': 'message',
+  'snd': 'send', 'sed': 'send',
+  'rcv': 'receive', 'recieve': 'receive',
+  'thier': 'their', 'ther': 'their',
+  'definately': 'definitely', 'definatly': 'definitely',
+  'occured': 'occurred', 'occurd': 'occurred',
+  'seperate': 'separate', 'seprate': 'separate'
+};
+
+function fixTypos(text) {
+  let fixed = text.toLowerCase();
+  for (const [typo, correct] of Object.entries(TYPO_CORRECTIONS)) {
+    const regex = new RegExp(`\\b${typo}\\b`, 'gi');
+    fixed = fixed.replace(regex, correct);
+  }
+  return fixed;
+}
+
+// ===== CONFUSION DETECTOR =====
+function detectConfusion(text) {
+  const lower = text.toLowerCase();
+  const words = lower.split(/\s+/).filter(w => w.length > 0);
+  
+  // Confusion indicators
+  const confusionScore = {
+    score: 0,
+    reasons: [],
+    suggestions: []
+  };
+  
+  // 1. Too short and ambiguous
+  if (words.length <= 2 && !/^(hi|hello|hey|bye|thanks|ok|yes|no|haan|nahi)$/i.test(lower.trim())) {
+    confusionScore.score += 30;
+    confusionScore.reasons.push('Very short message - might be incomplete');
+  }
+  
+  // 2. Missing action verb
+  const hasAction = /\b(bana|create|make|generate|search|find|show|tell|explain|help|kar|karo|do|de|dikhao|batao|samjhao|likh|dhundh|download)\b/i.test(lower);
+  const hasSubject = /\b(image|photo|picture|code|script|website|app|video|music|news|weather|price|file|document)\b/i.test(lower);
+  if (hasSubject && !hasAction) {
+    confusionScore.score += 20;
+    confusionScore.reasons.push('Has subject but no clear action');
+    confusionScore.suggestions.push('Did you want to generate, search, or learn about this?');
+  }
+  
+  // 3. Conflicting intents
+  const imageIntent = /\b(image|photo|picture|logo|poster|banner)\b/i.test(lower);
+  const codeIntent = /\b(code|script|program|function|api)\b/i.test(lower);
+  const searchIntent = /\b(search|find|latest|news|weather|price)\b/i.test(lower);
+  const intentsCount = [imageIntent, codeIntent, searchIntent].filter(Boolean).length;
+  if (intentsCount >= 2) {
+    confusionScore.score += 25;
+    confusionScore.reasons.push('Multiple conflicting intents detected');
+  }
+  
+  // 4. Question without clear topic
+  if (/^(kya|what|how|why|kaise|kyu)\b/i.test(lower) && words.length <= 3) {
+    confusionScore.score += 15;
+    confusionScore.reasons.push('Question too vague');
+  }
+  
+  // 5. Heavy typos (more than 30% of words might be typos)
+  let typoCount = 0;
+  for (const word of words) {
+    if (TYPO_CORRECTIONS[word]) typoCount++;
+  }
+  if (words.length > 0 && typoCount / words.length > 0.3) {
+    confusionScore.score += 20;
+    confusionScore.reasons.push('Many typos detected - interpreting best intent');
+  }
+  
+  return {
+    isConfusing: confusionScore.score >= 40,
+    score: confusionScore.score,
+    reasons: confusionScore.reasons,
+    suggestions: confusionScore.suggestions
+  };
+}
+
+// ===== CONTEXT-AWARE INTENT INFERRER =====
+function inferIntentFromContext(text, conversationHistory = []) {
+  const lower = text.toLowerCase();
+  const fixedText = fixTypos(lower);
+  
+  // Get last few messages for context
+  const recentContext = conversationHistory.slice(-5);
+  const lastUserMessage = recentContext.filter(m => m.role === 'user').pop()?.content?.toLowerCase() || '';
+  const lastBotMessage = recentContext.filter(m => m.role === 'assistant').pop()?.content?.toLowerCase() || '';
+  
+  // CONTINUATION DETECTION
+  // If user says "another one", "ek aur", "one more", etc. - repeat last action
+  if (/\b(another|one more|ek aur|aur ek|phir se|again|dobara|repeat)\b/i.test(fixedText)) {
+    // Check what was the last action
+    if (/image|photo|picture|logo/i.test(lastBotMessage)) {
+      return { type: 'image_generation', inferred: true, reason: 'Continuation of image generation' };
+    }
+    if (/code|script|function/i.test(lastBotMessage)) {
+      return { type: 'code_generation', inferred: true, reason: 'Continuation of code generation' };
+    }
+    if (/search|found|results/i.test(lastBotMessage)) {
+      return { type: 'web_search', inferred: true, reason: 'Continuation of search' };
+    }
+  }
+  
+  // YES/NO RESPONSE HANDLING
+  if (/^(yes|haan|ha|ok|okay|sure|theek|sahi|kar do|kardo|bana do|banado|go ahead|proceed)\b/i.test(fixedText.trim())) {
+    // If bot asked about image, user saying yes means generate
+    if (/image|photo|picture|generate|create|bana/i.test(lastBotMessage)) {
+      return { type: 'image_generation', inferred: true, reason: 'Confirmed image generation from context' };
+    }
+    if (/code|script|program/i.test(lastBotMessage)) {
+      return { type: 'code_generation', inferred: true, reason: 'Confirmed code generation from context' };
+    }
+    if (/search|find/i.test(lastBotMessage)) {
+      return { type: 'web_search', inferred: true, reason: 'Confirmed search from context' };
+    }
+  }
+  
+  // IMPLICIT INTENT FROM FIXED TEXT
+  // Even if user types "space veiw bna" - after typo fix it becomes "space view bana" -> image
+  if (/\b(view|scene|landscape|portrait|art|design|aesthetic|beautiful|stunning)\b/i.test(fixedText) && 
+      /\b(bana|create|make|generate|show|dikhao)\b/i.test(fixedText)) {
+    return { type: 'image_generation', inferred: true, reason: 'Visual content + action detected' };
+  }
+  
+  return null; // No inference possible
+}
+
+// ===== MULTI-TOOL INTELLIGENCE - Orchestrate Multiple Tools =====
+async function intelligentToolOrchestrator(userMessage, classification) {
+  console.log('🔧 MULTI-TOOL ORCHESTRATOR ANALYZING...');
+  const lower = userMessage.toLowerCase();
+  
+  // Tool categories with their triggers
+  const toolCategories = {
+    image_generation: {
+      triggers: /\b(image|picture|photo|logo|poster|banner|wallpaper|draw|artwork|generate.*image|bana.*image|photo.*bana)\b/i,
+      tools: ['generate_puter_image', 'generate_pollinations_image'],
+      priority: 'high'
+    },
+    code_generation: {
+      triggers: /\b(code|script|program|function|api|algorithm|python|javascript|html|css|write.*code|code.*likh)\b/i,
+      tools: ['generate_code', 'code_review'],
+      priority: 'high'
+    },
+    web_search: {
+      triggers: /\b(search|find|latest|news|weather|price|current|today|trending|google|look.*up|dhundh|khoj)\b/i,
+      tools: ['search_the_web', 'wikipedia_search'],
+      priority: 'medium'
+    },
+    security_tools: {
+      triggers: /\b(hack|scan|vulnerability|CVE|IP|OSINT|security|exploit|port.*scan|whois|dns)\b/i,
+      tools: ['ip_lookup', 'port_scan', 'cve_lookup', 'whois_lookup'],
+      priority: 'high'
+    },
+    crypto_tools: {
+      triggers: /\b(hash|encrypt|decrypt|base64|md5|sha256|cipher|encode|decode)\b/i,
+      tools: ['hash_text', 'base64_encode', 'base64_decode'],
+      priority: 'medium'
+    },
+    file_analysis: {
+      triggers: /\b(file|document|pdf|analyze|read.*file|attachment)\b/i,
+      tools: ['analyze_file'],
+      priority: 'medium'
+    },
+    url_fetch: {
+      triggers: /\b(url|link|website|fetch|open.*link|spotify|youtube)\b/i,
+      tools: ['fetch_url_content'],
+      priority: 'low'
+    },
+    math_tools: {
+      triggers: /\b(calculate|math|equation|solve|formula|=|\+|\-|\*|\/|%)\b/i,
+      tools: ['calculate'],
+      priority: 'medium'
+    }
+  };
+  
+  // Detect all matching tool categories
+  const matchedCategories = [];
+  for (const [category, config] of Object.entries(toolCategories)) {
+    if (config.triggers.test(lower)) {
+      matchedCategories.push({
+        category,
+        tools: config.tools,
+        priority: config.priority
+      });
+    }
+  }
+  
+  // Sort by priority
+  const priorityOrder = { high: 3, medium: 2, low: 1 };
+  matchedCategories.sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
+  
+  // Determine execution strategy
+  const result = {
+    needsMultipleTools: matchedCategories.length > 1,
+    toolCount: matchedCategories.length,
+    categories: matchedCategories,
+    recommendedTools: matchedCategories.flatMap(c => c.tools),
+    primaryTool: matchedCategories[0]?.tools[0] || null,
+    executionStrategy: matchedCategories.length > 1 ? 'PARALLEL' : 'SINGLE',
+    reasoning: `Detected ${matchedCategories.length} tool categories: ${matchedCategories.map(c => c.category).join(', ')}`
+  };
+  
+  console.log(`🔧 MULTI-TOOL ANALYSIS:`);
+  console.log(`   Categories: ${matchedCategories.map(c => c.category).join(', ') || 'None'}`);
+  console.log(`   Strategy: ${result.executionStrategy}`);
+  console.log(`   Tools: ${result.recommendedTools.join(', ') || 'None'}`);
+  
+  return result;
+}
+
+// ===== TOOL SELECTION THINKING - Decide which tools to use =====
+async function thinkAboutToolSelection(userMessage, fixedMessage, classification) {
+  console.log('🤔 THINKING ABOUT TOOL SELECTION...');
+  
+  const toolThinkingPrompt = `You are an AI that decides which tools to use for a user request.
+
+**USER REQUEST:** "${userMessage}"
+**CORRECTED:** "${fixedMessage}"
+**INITIAL CLASSIFICATION:** ${classification.type}
+
+**AVAILABLE TOOLS:**
+1. **Image Generation** - generate_puter_image, generate_pollinations_image
+2. **Code Generation** - generate_code (Python, JS, HTML, etc.)
+3. **Web Search** - search_the_web (real-time info, news, weather)
+4. **Security/OSINT** - ip_lookup, port_scan, cve_lookup, whois_lookup
+5. **Crypto** - hash_text, base64_encode/decode, encrypt/decrypt
+6. **File Analysis** - analyze_file (for attachments)
+7. **URL Fetch** - fetch_url_content (get webpage content)
+8. **Math** - calculate (expressions, equations)
+
+**ANALYZE:**
+1. What does the user ACTUALLY need?
+2. Which tools would help accomplish this?
+3. Should multiple tools be used together?
+4. What order should tools be executed?
+
+**RETURN JSON:**
+{
+  "primaryIntent": "main goal",
+  "requiredTools": ["tool1", "tool2"],
+  "optionalTools": ["tool3"],
+  "executionOrder": ["first", "second"],
+  "parallelExecution": true/false,
+  "reasoning": "why these tools"
+}`;
+
   try {
-    console.log("🧠💥 EXTREME AI Classification Engine Starting...");
+    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: [
+          { role: "system", content: "You are a tool selection expert. Analyze requests and recommend the best tools. Return ONLY valid JSON." },
+          { role: "user", content: toolThinkingPrompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 400
+      })
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const data = await response.json();
+    const rawResponse = data.choices[0].message.content.trim();
+    
+    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    
+    console.log(`🤔 TOOL THINKING COMPLETE:`);
+    console.log(`   Primary Intent: ${result?.primaryIntent}`);
+    console.log(`   Required Tools: ${result?.requiredTools?.join(', ')}`);
+    console.log(`   Parallel: ${result?.parallelExecution}`);
+    
+    return {
+      success: true,
+      primaryIntent: result?.primaryIntent,
+      requiredTools: result?.requiredTools || [],
+      optionalTools: result?.optionalTools || [],
+      executionOrder: result?.executionOrder || [],
+      parallelExecution: result?.parallelExecution ?? false,
+      reasoning: result?.reasoning
+    };
+    
+  } catch (error) {
+    console.error('❌ Tool thinking failed:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// ===== COMPLEXITY SCORING - Detect if Extended Thinking needed =====
+function calculateComplexityScore(text, confusionScore = 0) {
+  const lower = text.toLowerCase();
+  const words = lower.split(/\s+/);
+  let complexity = 0;
+  const reasons = [];
+  
+  // 1. Length complexity
+  if (words.length > 20) { complexity += 15; reasons.push('Long query'); }
+  if (words.length > 40) { complexity += 10; reasons.push('Very long query'); }
+  
+  // 2. Technical/Complex keywords
+  const technicalKeywords = /\b(algorithm|architecture|optimize|refactor|debug|analyze|compare|evaluate|explain|step.?by.?step|in.?detail|thoroughly|comprehensive|complex|advanced|deep.?dive)\b/i;
+  if (technicalKeywords.test(lower)) { complexity += 25; reasons.push('Technical/analytical request'); }
+  
+  // 3. Math/Logic patterns
+  const mathPatterns = /\b(calculate|solve|equation|formula|prove|derive|integrate|differentiate|probability|statistics|math|algebra|calculus)\b/i;
+  if (mathPatterns.test(lower)) { complexity += 30; reasons.push('Mathematical reasoning needed'); }
+  
+  // 4. Code review/analysis
+  const codeAnalysis = /\b(review|analyze|improve|optimize|debug|fix|refactor|explain.*(code|script|function)|what.*(wrong|issue|bug))\b/i;
+  if (codeAnalysis.test(lower)) { complexity += 25; reasons.push('Code analysis required'); }
+  
+  // 5. Multi-step/Comparison requests
+  const multiStep = /\b(first.*then|step.?1|compare.*and|pros.*cons|advantages.*disadvantages|difference.*between|vs\.?|versus)\b/i;
+  if (multiStep.test(lower)) { complexity += 20; reasons.push('Multi-step thinking required'); }
+  
+  // 6. "Why" and deep explanation requests
+  const whyExplain = /\b(why|kyu|kyon|how.*work|kaise.*kaam|explain.*detail|samjhao.*achhe se|vistar se)\b/i;
+  if (whyExplain.test(lower)) { complexity += 15; reasons.push('Deep explanation needed'); }
+  
+  // 7. Hinglish complexity indicators
+  const hinglishComplex = /\b(detail mein|pura|sab kuch|har.*cheez|complete|full|achhe se samjha|theek se bata)\b/i;
+  if (hinglishComplex.test(lower)) { complexity += 10; reasons.push('Detailed response requested'); }
+  
+  // 8. Add confusion score
+  if (confusionScore >= 40) { complexity += 20; reasons.push('Confused input needs careful analysis'); }
+  
+  // 9. Multiple questions in one message
+  const questionCount = (lower.match(/\?/g) || []).length;
+  if (questionCount >= 2) { complexity += 15 * questionCount; reasons.push(`${questionCount} questions detected`); }
+  
+  return {
+    score: Math.min(complexity, 100),
+    needsExtendedThinking: complexity >= 40,
+    reasons,
+    thinkingLevel: complexity >= 70 ? 'DEEP' : complexity >= 40 ? 'MODERATE' : 'QUICK'
+  };
+}
+
+// ===== EXTENDED THINKING - Chain-of-Thought Reasoning (ChatGPT-style) =====
+async function extendedThinkingAnalysis(userMessage, fixedMessage, context = {}) {
+  console.log('🧠💭 EXTENDED THINKING MODE ACTIVATED...');
+  const startTime = Date.now();
+  
+  const thinkingPrompt = `You are an AI performing EXTENDED THINKING - a deep, step-by-step reasoning process.
+
+**USER INPUT:** "${userMessage}"
+**CORRECTED INPUT:** "${fixedMessage}"
+**COMPLEXITY LEVEL:** ${context.thinkingLevel || 'MODERATE'}
+**REASONS FOR DEEP THINKING:** ${context.reasons?.join(', ') || 'Complex query'}
+
+Perform CHAIN-OF-THOUGHT reasoning:
+
+## THINKING PROCESS (Internal reasoning - be thorough)
+
+### Step 1: Understanding
+- What is the user ACTUALLY asking?
+- Any ambiguity or multiple interpretations?
+- What assumptions am I making?
+
+### Step 2: Breaking Down
+- What are the sub-components of this question?
+- What knowledge domains are involved?
+- What tools or information would help?
+
+### Step 3: Analysis
+- Consider multiple perspectives
+- What are potential pitfalls or edge cases?
+- What would be the BEST approach?
+
+### Step 4: Synthesis
+- Combine insights into a coherent understanding
+- What is the optimal classification for this message?
+- What tools should be recommended?
+
+### Step 5: Confidence Check
+- How confident am I in this analysis?
+- What could I be missing?
+- Is there any contradiction in my reasoning?
+
+**RETURN THIS JSON:**
+{
+  "thinkingLog": "Your detailed step-by-step reasoning (2-3 sentences per step)",
+  "finalIntent": "The TRUE intent after deep analysis",
+  "classification": {
+    "type": "category_name",
+    "confidence": 0.95,
+    "needsTools": true/false,
+    "recommendedTools": ["tool1", "tool2"],
+    "reasoning": "Summary of why this classification"
+  },
+  "insights": ["key insight 1", "key insight 2"],
+  "potentialIssues": ["possible issue if any"]
+}`;
+
+  try {
+    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: [
+          { role: "system", content: "You are a DEEP THINKING AI that performs thorough chain-of-thought reasoning. Think step-by-step before concluding. Return ONLY valid JSON." },
+          { role: "user", content: thinkingPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const data = await response.json();
+    const rawResponse = data.choices[0].message.content.trim();
+    
+    // Parse JSON
+    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    
+    const thinkingTime = Date.now() - startTime;
+    console.log(`🧠✅ EXTENDED THINKING COMPLETE (${thinkingTime}ms)`);
+    console.log(`💭 Thinking Log: ${result?.thinkingLog?.substring(0, 150)}...`);
+    console.log(`🎯 Final Intent: ${result?.finalIntent}`);
+    
+    return {
+      success: true,
+      thinkingTime,
+      thinkingLog: result?.thinkingLog,
+      finalIntent: result?.finalIntent,
+      classification: result?.classification,
+      insights: result?.insights || [],
+      potentialIssues: result?.potentialIssues || []
+    };
+    
+  } catch (error) {
+    console.error('❌ Extended thinking failed:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// ===== VERIFICATION LAYER - Double-check classification =====
+async function verifyClassification(userMessage, classification, thinkingResult = null) {
+  console.log('✅🔍 VERIFICATION LAYER STARTING...');
+  
+  const verifyPrompt = `You are a VERIFICATION AI. Your job is to double-check a classification decision.
+
+**ORIGINAL MESSAGE:** "${userMessage}"
+**PROPOSED CLASSIFICATION:** ${JSON.stringify(classification, null, 2)}
+${thinkingResult ? `**THINKING LOG:** ${thinkingResult.thinkingLog}` : ''}
+
+**VERIFICATION CHECKLIST:**
+1. Does the classification MATCH the user's actual intent?
+2. Are the recommended tools APPROPRIATE for this task?
+3. Is the confidence level JUSTIFIED?
+4. Are there any MISINTERPRETATIONS?
+5. Could this be misclassified as something else?
+
+**RETURN THIS JSON:**
+{
+  "verified": true/false,
+  "confidence": 0.95,
+  "issues": ["issue1 if any"],
+  "corrections": {
+    "type": "corrected_type if needed",
+    "reason": "why correction needed"
+  },
+  "finalVerdict": "APPROVED" or "NEEDS_CORRECTION"
+}`;
+
+  try {
+    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: [
+          { role: "system", content: "You are a strict VERIFICATION AI. Check for errors and misclassifications. Be critical but fair. Return ONLY valid JSON." },
+          { role: "user", content: verifyPrompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 400
+      })
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const data = await response.json();
+    const rawResponse = data.choices[0].message.content.trim();
+    
+    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    
+    console.log(`✅ VERIFICATION: ${result?.finalVerdict || 'UNKNOWN'}`);
+    if (result?.issues?.length > 0) {
+      console.log(`⚠️ Issues found: ${result.issues.join(', ')}`);
+    }
+    
+    return {
+      verified: result?.verified ?? true,
+      confidence: result?.confidence ?? 0.8,
+      issues: result?.issues || [],
+      corrections: result?.corrections || null,
+      finalVerdict: result?.finalVerdict || 'APPROVED'
+    };
+    
+  } catch (error) {
+    console.error('❌ Verification failed:', error.message);
+    return { verified: true, confidence: 0.7, issues: [], finalVerdict: 'APPROVED_BY_DEFAULT' };
+  }
+}
+
+// Ultra-intelligent multi-layer analysis with Chain-of-Thought reasoning
+async function intelligentMessageClassifier(userMessage, conversationHistory = [], userId = null) {
+  try {
+    console.log("🧠💥 ULTRA AI Classification Engine v6.4.0 Starting...");
+    console.log("   ┌─ Layer 0: Typo Correction & Developer Mode");
+    console.log("   ├─ Layer 0.5: Context-Aware Inference");
+    console.log("   ├─ Layer 1: Instant Pattern Matching");
+    console.log("   ├─ Layer 1.5: Confusion Detection");
+    console.log("   ├─ Layer 2: Complexity Scoring");
+    console.log("   ├─ Layer 2a: Extended Thinking (if complex)");
+    console.log("   ├─ Layer 3: AI Classification");
+    console.log("   └─ Layer 4: Verification");
     console.log(`📝 Input: "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
 
-    // ========== LAYER 1: INSTANT PATTERN MATCHING (0ms) ==========
-    const instantResult = instantPatternMatch(userMessage);
-    if (instantResult && instantResult.confidence >= 0.90) {
-      console.log(`⚡ INSTANT MATCH: ${instantResult.type} (${(instantResult.confidence * 100).toFixed(0)}%)`);
-      return instantResult;
+    // ========== LAYER 0: TYPO CORRECTION & PREPROCESSING ==========
+    const fixedMessage = fixTypos(userMessage);
+    const isDeveloper = userId === DEVELOPER_ID;
+    
+    if (fixedMessage !== userMessage.toLowerCase()) {
+      console.log(`✏️ TYPO FIXED: "${userMessage}" → "${fixedMessage}"`);
+    }
+    
+    if (isDeveloper) {
+      console.log(`👑 DEVELOPER MODE ACTIVE - Enhanced intent detection enabled`);
     }
 
-    // ========== LAYER 2: ADVANCED AI CLASSIFICATION ==========
-    const classificationPrompt = `You are an EXTREME intelligence message analyzer. Perform DEEP multi-dimensional analysis.
+    // ========== LAYER 0.5: CONTEXT-AWARE INFERENCE ==========
+    const contextInference = inferIntentFromContext(fixedMessage, conversationHistory);
+    if (contextInference) {
+      console.log(`🔮 CONTEXT INFERENCE: ${contextInference.type} (${contextInference.reason})`);
+      return {
+        type: contextInference.type,
+        needsTools: ['image_generation', 'code_generation', 'web_search'].includes(contextInference.type),
+        simpleResponse: false,
+        confidence: 0.92,
+        description: contextInference.reason,
+        inferred: true,
+        recommendedTools: contextInference.type === 'image_generation' ? ['generate_puter_image'] :
+                         contextInference.type === 'code_generation' ? ['generate_code'] :
+                         contextInference.type === 'web_search' ? ['search_the_web'] : []
+      };
+    }
+
+    // ========== LAYER 1: INSTANT PATTERN MATCHING (0ms) ==========
+    const instantResult = instantPatternMatch(fixedMessage);
+    if (instantResult && instantResult.confidence >= 0.90) {
+      console.log(`⚡ INSTANT MATCH: ${instantResult.type} (${(instantResult.confidence * 100).toFixed(0)}%)`);
+      // Skip extended thinking for instant matches (simple queries)
+      return instantResult;
+    }
+    
+    // ========== LAYER 1.5: CONFUSION DETECTION ==========
+    const confusionAnalysis = detectConfusion(fixedMessage);
+    if (confusionAnalysis.isConfusing) {
+      console.log(`⚠️ CONFUSION DETECTED (score: ${confusionAnalysis.score}):`);
+      confusionAnalysis.reasons.forEach(r => console.log(`   - ${r}`));
+    }
+
+    // ========== LAYER 2: COMPLEXITY SCORING (NEW!) ==========
+    const complexityResult = calculateComplexityScore(userMessage, confusionAnalysis.score);
+    console.log(`📊 COMPLEXITY SCORE: ${complexityResult.score}/100 (${complexityResult.thinkingLevel})`);
+    if (complexityResult.reasons.length > 0) {
+      console.log(`   Reasons: ${complexityResult.reasons.join(', ')}`);
+    }
+
+    // ========== LAYER 2a: EXTENDED THINKING (ChatGPT-style) ==========
+    let extendedThinkingResult = null;
+    if (complexityResult.needsExtendedThinking) {
+      console.log(`🧠💭 EXTENDED THINKING TRIGGERED (Level: ${complexityResult.thinkingLevel})`);
+      extendedThinkingResult = await extendedThinkingAnalysis(userMessage, fixedMessage, {
+        thinkingLevel: complexityResult.thinkingLevel,
+        reasons: complexityResult.reasons,
+        isDeveloper,
+        confusionScore: confusionAnalysis.score
+      });
+      
+      // If extended thinking succeeded and has high confidence, use its classification directly
+      if (extendedThinkingResult.success && extendedThinkingResult.classification?.confidence >= 0.85) {
+        console.log(`🎯 USING EXTENDED THINKING CLASSIFICATION`);
+        
+        // Still verify even with extended thinking
+        const verification = await verifyClassification(userMessage, extendedThinkingResult.classification, extendedThinkingResult);
+        
+        if (verification.finalVerdict === 'APPROVED' || verification.finalVerdict === 'APPROVED_BY_DEFAULT') {
+          console.log(`✅ VERIFICATION PASSED - Final classification confirmed`);
+          return {
+            ...extendedThinkingResult.classification,
+            simpleResponse: !extendedThinkingResult.classification.needsTools,
+            description: extendedThinkingResult.classification.reasoning,
+            extendedThinking: true,
+            thinkingLog: extendedThinkingResult.thinkingLog,
+            insights: extendedThinkingResult.insights,
+            verified: true
+          };
+        } else if (verification.corrections?.type) {
+          console.log(`⚠️ VERIFICATION CORRECTED: ${verification.corrections.reason}`);
+          return {
+            type: verification.corrections.type,
+            needsTools: ['image_generation', 'code_generation', 'web_search', 'security_tool', 'crypto_tool'].includes(verification.corrections.type),
+            simpleResponse: !['image_generation', 'code_generation', 'web_search'].includes(verification.corrections.type),
+            confidence: verification.confidence,
+            description: verification.corrections.reason,
+            extendedThinking: true,
+            verified: true,
+            corrected: true
+          };
+        }
+      }
+    }
+
+    // ========== LAYER 3: ADVANCED AI CLASSIFICATION ==========
+    const classificationPrompt = `You are an ULTRA intelligence message analyzer with CONFUSION RESOLUTION capabilities.
+
+**CONFUSION STATUS:** ${confusionAnalysis.isConfusing ? 'HIGH - User input is unclear, use maximum inference' : 'NORMAL'}
+${confusionAnalysis.isConfusing ? `**CONFUSION REASONS:** ${confusionAnalysis.reasons.join(', ')}` : ''}
+**ORIGINAL INPUT:** "${userMessage}"
+**TYPO-CORRECTED:** "${fixedMessage}"
+**USER TYPE:** ${isDeveloper ? 'DEVELOPER (give benefit of doubt, assume technical intent)' : 'Regular User'}
+
+Perform DEEP multi-dimensional analysis.
 
 **INPUT MESSAGE:** "${userMessage}"
 
@@ -4151,7 +5091,7 @@ Return ONLY valid JSON.`
       return enhancedRegexClassifier(userMessage);
     }
 
-    // ========== LAYER 3: CONFIDENCE VALIDATION ==========
+    // ========== LAYER 3.5: CONFIDENCE VALIDATION ==========
     let finalConfidence = classification.confidence || 0.8;
 
     // Boost confidence for clear patterns
@@ -4176,17 +5116,68 @@ Return ONLY valid JSON.`
     }
     console.log(`   Reasoning: ${classification.reasoning?.substring(0, 100) || 'N/A'}...`);
 
+    // ========== LAYER 3.75: MULTI-TOOL ANALYSIS ==========
+    let multiToolResult = null;
+    if (classification.needsTools) {
+      console.log(`🔧 MULTI-TOOL ANALYSIS...`);
+      multiToolResult = await intelligentToolOrchestrator(userMessage, classification);
+      
+      // If complex request, also think about tool selection
+      if (multiToolResult.needsMultipleTools || complexityResult.score >= 50) {
+        const toolThinking = await thinkAboutToolSelection(userMessage, fixedMessage, classification);
+        if (toolThinking.success) {
+          multiToolResult.aiRecommendedTools = toolThinking.requiredTools;
+          multiToolResult.parallelExecution = toolThinking.parallelExecution;
+          multiToolResult.executionOrder = toolThinking.executionOrder;
+        }
+      }
+    }
+
+    // ========== LAYER 4: VERIFICATION (for non-simple queries) ==========
+    let verificationResult = null;
+    const needsVerification = complexityResult.score >= 30 || confusionAnalysis.isConfusing || classification.needsTools;
+    
+    if (needsVerification) {
+      console.log(`🔍 VERIFICATION LAYER TRIGGERED...`);
+      verificationResult = await verifyClassification(userMessage, classification, extendedThinkingResult);
+      
+      if (verificationResult.finalVerdict === 'NEEDS_CORRECTION' && verificationResult.corrections?.type) {
+        console.log(`⚠️ VERIFICATION CORRECTION: ${verificationResult.corrections.type}`);
+        return {
+          type: verificationResult.corrections.type,
+          needsTools: ['image_generation', 'code_generation', 'web_search', 'security_tool', 'crypto_tool'].includes(verificationResult.corrections.type),
+          simpleResponse: !['image_generation', 'code_generation', 'web_search'].includes(verificationResult.corrections.type),
+          confidence: verificationResult.confidence,
+          description: verificationResult.corrections.reason,
+          recommendedTools: classification.recommendedTools || [],
+          reasoning: classification.reasoning,
+          verified: true,
+          corrected: true,
+          multiTool: multiToolResult
+        };
+      }
+      console.log(`✅ VERIFICATION: ${verificationResult.finalVerdict}`);
+    }
+
+    // ========== FINAL RESULT ==========
+    console.log(`🏁 CLASSIFICATION ENGINE COMPLETE (v6.4.0)`);
+    
     return {
       type: classification.type,
       needsTools: classification.needsTools,
       simpleResponse: !classification.needsTools,
       description: classification.responseStrategy,
       confidence: finalConfidence,
-      recommendedTools: classification.recommendedTools || [],
+      recommendedTools: multiToolResult?.aiRecommendedTools || classification.recommendedTools || [],
       reasoning: classification.reasoning,
       intent: classification.intent,
       complexity: classification.complexity,
-      urgency: classification.urgency
+      urgency: classification.urgency,
+      verified: verificationResult?.verified ?? false,
+      extendedThinking: extendedThinkingResult?.success ?? false,
+      thinkingLog: extendedThinkingResult?.thinkingLog,
+      multiTool: multiToolResult,
+      insights: extendedThinkingResult?.insights || []
     };
 
   } catch (error) {
@@ -5232,7 +6223,9 @@ function getNickname(gender) {
 
 // Get gender-based system prompt for personality
 function getGenderBasedSystemPrompt(gender, nickname) {
-    const basePrompt = `You are Renzu (v${BOT_VERSION}), a smart AI assistant with personality.`;
+    const basePrompt = `You are Renzu (v${BOT_VERSION}), a smart AI assistant with personality.
+
+${HONESTY_RULES}`;
 
     const imagePromptRule = `
 
@@ -5364,73 +6357,9 @@ async function runTool(toolCall, id, msg = null) {
             return getCurrentTime(); 
         }
 
-        // --- FREE UNLIMITED DUCKDUCKGO SEARCH (v6.1.0) ---
-        try {
-            console.log(`🦆 DuckDuckGo FREE Search: "${query}"`);
-
-            const ddgResults = await ddgSearch(query, {
-                safeSearch: 0,
-                locale: 'en-in',
-                region: 'in-en'
-            });
-
-            if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
-                const topResults = ddgResults.results.slice(0, 5).map((item, i) => 
-                    `${i + 1}. **${item.title}**\n${item.description || 'No description'}\n🔗 ${item.url}`
-                ).join('\n\n');
-
-                let response = `🔍 **Web Search Results:**\n\n${topResults}`;
-
-                // Add related topics if available
-                if (ddgResults.relatedTopics && ddgResults.relatedTopics.length > 0) {
-                    const related = ddgResults.relatedTopics.slice(0, 3).map(t => t.text || t).join(', ');
-                    response += `\n\n📌 **Related:** ${related}`;
-                }
-
-                // Add instant answer if available
-                if (ddgResults.abstract) {
-                    response = `💡 **Quick Answer:**\n${ddgResults.abstract}\n\n${response}`;
-                }
-
-                console.log(`✅ DuckDuckGo returned ${ddgResults.results.length} results`);
-                return response;
-            }
-
-            // If no results, try news search
-            console.log(`🔄 No results, trying DuckDuckGo news...`);
-            const ddgNews = await ddgSearch(query + " news", { safeSearch: 0 });
-
-            if (ddgNews && ddgNews.results && ddgNews.results.length > 0) {
-                const newsResults = ddgNews.results.slice(0, 3).map((item, i) => 
-                    `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
-                ).join('\n\n');
-
-                return `📰 **News Results:**\n\n${newsResults}`;
-            }
-
-            return `❌ No results found for: "${query}". Try different keywords!`;
-
-        } catch (err) {
-            console.error("❌ DuckDuckGo Search Error:", err.message);
-
-            // Fallback: Try one more time with simpler query
-            try {
-                console.log(`🔄 Retrying DuckDuckGo with simplified query...`);
-                const simplifiedQuery = query.split(' ').slice(0, 5).join(' ');
-                const retryResults = await ddgSearch(simplifiedQuery, { safeSearch: 0 });
-
-                if (retryResults && retryResults.results && retryResults.results.length > 0) {
-                    const topResults = retryResults.results.slice(0, 3).map((item, i) => 
-                        `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
-                    ).join('\n\n');
-                    return `🔍 **Search Results:**\n\n${topResults}`;
-                }
-            } catch (retryErr) {
-                console.error("❌ DuckDuckGo retry failed:", retryErr.message);
-            }
-
-            return `❌ Search temporarily unavailable. Try again in a moment!`;
-        }
+        // --- SMART WEB SEARCH WITH RATE LIMITING (v6.2.2) ---
+        const searchResult = await smartWebSearch(query);
+        return searchResult.response;
     }
 
     // 🔥 NEW TOOL: fetch_url_content (URL/Link Fetcher for Spotify, YouTube, etc)
@@ -9440,8 +10369,11 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
           const startTime = Date.now();
           console.log("✅ Processing query...");
 
-          // 🎯 AI-POWERED INTELLIGENT MESSAGE CLASSIFICATION (NEW!)
-          const messageClass = await intelligentMessageClassifier(q);
+          // 🎯 ULTRA AI-POWERED INTELLIGENT MESSAGE CLASSIFICATION (v6.3.0)
+          // Load conversation history for context-aware classification
+          const recentHistory = await loadHistory(id);
+          const conversationContext = recentHistory.conversation?.slice(-10) || [];
+          const messageClass = await intelligentMessageClassifier(q, conversationContext, id);
           console.log(`📊 AI Classification: ${messageClass.type} - ${messageClass.description}`);
           console.log(`🔧 Confidence: ${messageClass.confidence}, Needs tools: ${messageClass.needsTools}`);
           if (messageClass.recommendedTools && messageClass.recommendedTools.length > 0) {
@@ -9463,8 +10395,8 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
             { command: '?ask', timestamp: new Date() }
           );
 
-          // Load user history with entities
-          const histData = await loadHistory(id);
+          // Use already loaded history from classification (optimization)
+          const histData = recentHistory;
           await saveMsg(id, "user", q);
 
           // AUTO-DETECT REAL-TIME INFO NEED
@@ -10552,24 +11484,33 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
               throw new Error('No Wikipedia results');
             }
           } catch (wikiError) {
-            // FALLBACK: Try DuckDuckGo if Wikipedia fails
+            // FALLBACK: Try DuckDuckGo if Wikipedia fails (with rate limiting)
             console.log(`⚠️ Wikipedia failed: ${wikiError.message}`);
-            console.log(`🦆 Falling back to DuckDuckGo...`);
-            const ddgResults = await ddgSearch(topic, { safeSearch: 0 });
-            if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
-              results = ddgResults.results.slice(0, 5);
-              source = 'DuckDuckGo';
-              console.log(`✅ DuckDuckGo fallback success! Found ${results.length} results`);
-            } else {
+            console.log(`🦆 Falling back to DuckDuckGo (with rate limiting)...`);
+            await searchRateLimiter.waitIfNeeded();
+            try {
+              const ddgResults = await ddgSearch(topic, { safeSearch: 0 });
+              if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
+                searchRateLimiter.recordSuccess();
+                results = ddgResults.results.slice(0, 5);
+                source = 'DuckDuckGo';
+                console.log(`✅ DuckDuckGo fallback success! Found ${results.length} results`);
+              } else {
+                throw new Error('Both sources failed');
+              }
+            } catch (ddgErr) {
+              searchRateLimiter.recordFailure();
               throw new Error('Both sources failed');
             }
           }
         } else {
-          // OCCASIONAL: DuckDuckGo (30% of time - for fresh web data)
-          console.log(`🦆 Using DuckDuckGo (occasional - 30% strategy)...`);
+          // OCCASIONAL: DuckDuckGo (30% of time - for fresh web data) - WITH RATE LIMITING
+          console.log(`🦆 Using DuckDuckGo (occasional - 30% strategy, with rate limiting)...`);
+          await searchRateLimiter.waitIfNeeded();
           try {
             const ddgResults = await ddgSearch(topic, { safeSearch: 0 });
             if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
+              searchRateLimiter.recordSuccess();
               results = ddgResults.results.slice(0, 5);
               source = 'DuckDuckGo';
               console.log(`✅ DuckDuckGo success! Found ${results.length} results`);
@@ -10578,6 +11519,7 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
             }
           } catch (ddgError) {
             // FALLBACK: Wikipedia (100% reliable)
+            searchRateLimiter.recordFailure();
             console.log(`⚠️ DuckDuckGo failed (rate limit or error): ${ddgError.message}`);
             console.log(`📚 Falling back to Wikipedia...`);
             const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=5`;
@@ -10591,6 +11533,7 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
                 url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`
               }));
               source = 'Wikipedia';
+              searchRateLimiter.recordSuccess(); // Reset backoff on successful fallback
               console.log(`✅ Wikipedia fallback success! Found ${results.length} results`);
             } else {
               throw new Error('Both sources failed');
