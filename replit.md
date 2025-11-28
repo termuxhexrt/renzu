@@ -6,6 +6,14 @@ This Discord bot integrates with Mistral AI to provide an AI-powered conversatio
 
 # Recent Changes (November 28, 2025)
 
+## MASSIVE KNOWLEDGE BASE EXPANSION (v6.2.0)
+- **120+ Topics Covered**: Complete world knowledge database for autonomous learning
+- **Domains Included**: AI, cybersecurity, crypto, programming, Discord, tech, gaming, science, social media, security tools, productivity, business, mobile dev, databases, cloud, design, data science, career/education
+- **Autonomous Learning**: Free unlimited learning on all topics (DuckDuckGo + Wikipedia rotation)
+- **Knowledge Rotation**: 70% Wikipedia (reliable, no rate limits) + 30% DuckDuckGo (real-time data)
+- **Enable**: Set `ENABLE_AUTO_LEARNING=true` to start autonomous knowledge absorption
+- **No API Keys**: Completely free unlimited learning system 🔥
+
 ## File Attachment Reading (v6.1.0)
 - **Text Files**: Reads .txt, .md, .json, .js, .py, .ts, .html, .css, .xml, .yaml, .csv, and 40+ more file types
 - **PDF Detection**: Detects PDF files (text extraction requires additional library)
