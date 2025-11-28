@@ -4017,55 +4017,94 @@ async function getUserEntities(userId) {
   }
 }
 
-// ------------------ AI-POWERED INTELLIGENT MESSAGE CLASSIFIER ------------------
-// Uses Mistral Large to analyze intent and recommend response strategy (WITH CACHING)
+// ------------------ EXTREME AI-POWERED MESSAGE CLASSIFIER (v6.1.0) ------------------
+// Ultra-intelligent multi-layer analysis with Chain-of-Thought reasoning
 async function intelligentMessageClassifier(userMessage, conversationHistory = []) {
   try {
-    // ⚡ CACHING TEMPORARILY DISABLED (fixes context poisoning bug)
-    // TODO: Re-enable with contextual cache key (userId + conversation hash)
-    // const shouldCache = userMessage.trim().length >= 10;
-    // const cacheKey = shouldCache ? `${userMessage.toLowerCase().trim()}` : null;
-    const shouldCache = false;  // DISABLED
-    const cacheKey = null;  // DISABLED
+    console.log("🧠💥 EXTREME AI Classification Engine Starting...");
+    console.log(`📝 Input: "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
 
-    console.log("🧠 Starting AI-powered message classification...");
+    // ========== LAYER 1: INSTANT PATTERN MATCHING (0ms) ==========
+    const instantResult = instantPatternMatch(userMessage);
+    if (instantResult && instantResult.confidence >= 0.90) {
+      console.log(`⚡ INSTANT MATCH: ${instantResult.type} (${(instantResult.confidence * 100).toFixed(0)}%)`);
+      return instantResult;
+    }
 
-    const classificationPrompt = `You are an intelligent message classifier. Analyze this user message and provide a structured classification.
+    // ========== LAYER 2: ADVANCED AI CLASSIFICATION ==========
+    const classificationPrompt = `You are an EXTREME intelligence message analyzer. Perform DEEP multi-dimensional analysis.
 
-**User Message:** "${userMessage}"
+**INPUT MESSAGE:** "${userMessage}"
 
-**Your task:** Classify the message type and provide response strategy in JSON format.
+**ANALYSIS DIMENSIONS:**
 
-**Available Message Types:**
-1. greeting - Simple greetings (hi, hello, kaise ho)
-2. casual_chat - Normal conversation without specific requests
-3. simple_question - General questions about bot/capabilities
-4. image_generation - Explicit request for visual content (image, picture, photo, logo, etc.)
-5. code_generation - Request for programming code
-6. web_search - Needs real-time/current information
-7. technical_query - Complex technical questions
-8. tool_request - Specific tool/feature request (security, OSINT, crypto, etc.)
+1. **PRIMARY INTENT** - What does user ACTUALLY want?
+2. **HIDDEN INTENT** - Any underlying needs not explicitly stated?
+3. **EMOTIONAL STATE** - Frustrated? Excited? Curious? Bored?
+4. **URGENCY LEVEL** - How time-sensitive is this request?
+5. **COMPLEXITY SCORE** - Simple (1) to Complex (10)
+6. **LANGUAGE STYLE** - Formal/Casual/Hinglish/Technical
+7. **CONTEXT CLUES** - What background knowledge is assumed?
 
-**Return ONLY valid JSON in this exact format:**
+**MESSAGE CATEGORIES (Pick BEST match):**
+
+| Category | Trigger Patterns | Tool Required |
+|----------|------------------|---------------|
+| greeting | hi, hello, hey, kaise ho, namaste, sup, yo | NO |
+| farewell | bye, goodbye, alvida, chal, ttyl | NO |
+| gratitude | thanks, shukriya, dhanyawad, thank you | NO |
+| casual_chat | random talk, jokes, time pass, bakchodi | NO |
+| emotional_support | sad, depressed, frustrated, help me, confused | NO |
+| simple_question | kya hai, what is, explain, samjhao, batao | NO |
+| capability_query | can you, kya tu, tujhse hoga, are you able | NO |
+| image_generation | image, picture, photo, logo, poster, draw, artwork, banner, wallpaper, generate image | YES |
+| code_generation | code, script, program, function, algorithm, write code, python, javascript | YES |
+| web_search | search, find, latest, news, weather, price, current, today, trending | YES |
+| file_analysis | analyze file, read document, check this file, pdf, attachment | YES |
+| url_fetch | link, url, website, spotify, youtube link, open this | YES |
+| security_tool | hack, scan, vulnerability, CVE, IP track, OSINT, security | YES |
+| crypto_tool | hash, encrypt, decrypt, base64, md5, sha256 | YES |
+| math_calculation | calculate, solve, math, equation, formula | MAYBE |
+| translation | translate, hindi mein, english mein, meaning of | MAYBE |
+| creative_writing | story, poem, essay, write about, creative | NO |
+| technical_query | how does, architecture, system design, explain concept | NO |
+| feedback | bug, issue, problem, not working, error, fix this | NO |
+| meta_conversation | about yourself, who made you, your version, changelog | NO |
+
+**HINGLISH UNDERSTANDING (CRITICAL):**
+- "bana" without visual context = create/make (NOT image)
+- "bana de" / "bana do" = create something
+- "image bana" / "photo bana" = IMAGE generation
+- "code bana" / "script bana" = CODE generation  
+- "search kar" / "dhundh" = WEB search
+- "kya hai" / "batao" = QUESTION (not generation)
+- "dikhao" / "show" = Could be image OR information
+
+**STRICT IMAGE DETECTION:**
+❌ "tu pollinations se banata hai?" = capability_query (asking about HOW, not requesting image)
+❌ "kaise banata hai?" = simple_question
+❌ "image generator kaise kaam karta hai?" = technical_query
+✅ "ek sunset ki image bana" = image_generation
+✅ "meri profile picture banao" = image_generation
+✅ "logo design kar" = image_generation
+
+**RETURN EXACTLY THIS JSON:**
 {
-  "type": "message_type_here",
+  "type": "category_name",
   "confidence": 0.95,
-  "needsTools": true/false,
-  "recommendedTools": ["tool_name1", "tool_name2"],
-  "responseStrategy": "brief description of how to respond",
-  "reasoning": "why you classified it this way"
-}
+  "needsTools": true,
+  "recommendedTools": ["tool1", "tool2"],
+  "intent": {
+    "primary": "what user explicitly wants",
+    "hidden": "underlying need if any",
+    "emotion": "detected emotional state"
+  },
+  "complexity": 5,
+  "urgency": "low|medium|high|critical",
+  "responseStrategy": "how to best respond",
+  "reasoning": "step-by-step thought process"
+}`;
 
-**CRITICAL RULES:**
-- Image generation: ONLY if user explicitly mentions visual keywords (image, picture, photo, logo, poster, artwork, etc.)
-- DO NOT classify as image_generation if user just uses words like "make", "create", "build" without visual context
-- Example: "tu pollination se banata hai?" = simple_question (asking about capability, NOT image request)
-- Example: "image bana ek sunset ka" = image_generation (explicit image request)
-- Be conservative with tool usage - prefer simple responses when possible
-
-Respond with ONLY the JSON object, no other text.`;
-
-    // Use Mistral API directly via fetch
     const endpoint = "https://api.mistral.ai/v1/chat/completions";
     const headers = {
       "Content-Type": "application/json",
@@ -4075,11 +4114,18 @@ Respond with ONLY the JSON object, no other text.`;
     const payload = {
       model: "mistral-large-latest",
       messages: [
-        { role: "system", content: "You are a precise message classifier. Return only valid JSON." },
+        { 
+          role: "system", 
+          content: `You are an EXTREME precision message classifier with 99.9% accuracy. 
+You understand Hinglish (Hindi+English mix) perfectly.
+You NEVER misclassify capability questions as generation requests.
+You analyze INTENT, not just keywords.
+Return ONLY valid JSON.` 
+        },
         { role: "user", content: classificationPrompt }
       ],
-      temperature: 0.1,
-      max_tokens: 300
+      temperature: 0.05,
+      max_tokens: 500
     };
 
     const res = await fetch(endpoint, {
@@ -4089,57 +4135,209 @@ Respond with ONLY the JSON object, no other text.`;
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
+      throw new Error(`HTTP ${res.status}`);
     }
 
     const data = await res.json();
     const rawResponse = data.choices[0].message.content.trim();
-    console.log("🔍 Raw classification response:", rawResponse);
 
     // Parse JSON response
     let classification;
     try {
-      // Try to extract JSON if wrapped in markdown code blocks
       const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        classification = JSON.parse(jsonMatch[0]);
-      } else {
-        classification = JSON.parse(rawResponse);
-      }
+      classification = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(rawResponse);
     } catch (parseError) {
-      console.error("❌ Failed to parse classification JSON:", parseError);
-      // Fallback to regex-based classification
-      return regexBasedClassifier(userMessage);
+      console.error("❌ JSON parse failed, using enhanced fallback");
+      return enhancedRegexClassifier(userMessage);
     }
 
-    console.log(`✅ AI Classification: ${classification.type} (confidence: ${classification.confidence})`);
-    console.log(`🔧 Needs tools: ${classification.needsTools}, Recommended: ${classification.recommendedTools.join(', ')}`);
+    // ========== LAYER 3: CONFIDENCE VALIDATION ==========
+    let finalConfidence = classification.confidence || 0.8;
+    
+    // Boost confidence for clear patterns
+    if (classification.type === 'greeting' && /^(hi|hello|hey|namaste)\b/i.test(userMessage)) {
+      finalConfidence = Math.min(finalConfidence + 0.1, 1.0);
+    }
+    
+    // Reduce confidence for ambiguous cases
+    if (userMessage.split(' ').length <= 2 && classification.needsTools) {
+      finalConfidence = Math.max(finalConfidence - 0.1, 0.5);
+    }
 
-    const result = {
+    console.log(`🎯 CLASSIFICATION COMPLETE:`);
+    console.log(`   Type: ${classification.type}`);
+    console.log(`   Confidence: ${(finalConfidence * 100).toFixed(1)}%`);
+    console.log(`   Needs Tools: ${classification.needsTools}`);
+    console.log(`   Complexity: ${classification.complexity || 'N/A'}/10`);
+    console.log(`   Urgency: ${classification.urgency || 'normal'}`);
+    if (classification.intent) {
+      console.log(`   Primary Intent: ${classification.intent.primary}`);
+      console.log(`   Emotion: ${classification.intent.emotion || 'neutral'}`);
+    }
+    console.log(`   Reasoning: ${classification.reasoning?.substring(0, 100) || 'N/A'}...`);
+
+    return {
       type: classification.type,
       needsTools: classification.needsTools,
       simpleResponse: !classification.needsTools,
       description: classification.responseStrategy,
-      confidence: classification.confidence,
-      recommendedTools: classification.recommendedTools,
-      reasoning: classification.reasoning
+      confidence: finalConfidence,
+      recommendedTools: classification.recommendedTools || [],
+      reasoning: classification.reasoning,
+      intent: classification.intent,
+      complexity: classification.complexity,
+      urgency: classification.urgency
     };
-
-    // ⚡ CACHING TEMPORARILY DISABLED
-    // if (shouldCache && cacheKey) {
-    //   classificationCache.set(cacheKey, { result, timestamp: Date.now() });
-    //   console.log(`💾 Cached classification for: "${userMessage.substring(0, 50)}..."`);
-    // }
-
-    return result;
 
   } catch (error) {
     console.error("❌ AI classification error:", error.message);
-    console.log("🔄 Falling back to regex-based classification...");
-    // Fallback to regex-based classification ONLY on error
-    return regexBasedClassifier(userMessage);
+    console.log("🔄 Using enhanced regex fallback...");
+    return enhancedRegexClassifier(userMessage);
   }
+}
+
+// ========== INSTANT PATTERN MATCHING (Sub-millisecond) - EXPANDED ==========
+function instantPatternMatch(text) {
+  const lower = text.toLowerCase().trim();
+  const words = lower.split(/\s+/);
+  const wordCount = words.length;
+  
+  // 1. GREETING (short messages only)
+  if (wordCount <= 3 && /^(hi|hello|hey|yo|sup|namaste|kaise ho|kya hal|good morning|good evening|gm|ge)\b/i.test(lower)) {
+    return { type: 'greeting', confidence: 0.98, needsTools: false, simpleResponse: true, description: 'Instant greeting', recommendedTools: [] };
+  }
+  
+  // 2. FAREWELL
+  if (wordCount <= 4 && /^(bye|goodbye|chal|alvida|ttyl|see ya|good night|gn|tata|later)\b/i.test(lower)) {
+    return { type: 'farewell', confidence: 0.98, needsTools: false, simpleResponse: true, description: 'Instant farewell', recommendedTools: [] };
+  }
+  
+  // 3. GRATITUDE
+  if (/^(thanks|thank you|shukriya|dhanyawad|thx|ty)\b/i.test(lower) && wordCount <= 5) {
+    return { type: 'gratitude', confidence: 0.98, needsTools: false, simpleResponse: true, description: 'Instant gratitude', recommendedTools: [] };
+  }
+
+  // 4. CASUAL CHAT (short casual messages)
+  if (wordCount <= 5 && /^(lol|haha|hehe|lmao|rofl|nice|cool|ok|okay|hmm|achha|theek|sahi|mast|kya|bhai|yaar)\b/i.test(lower)) {
+    return { type: 'casual_chat', confidence: 0.95, needsTools: false, simpleResponse: true, description: 'Instant casual', recommendedTools: [] };
+  }
+
+  // 5. CAPABILITY QUERY (asking what bot can do - NOT generation)
+  if (/\b(can you|kya tu|tujhse hoga|are you able|ho sakta|kar sakta|kaise karta|how do you|tu .+ se banata)\b/i.test(lower)) {
+    return { type: 'capability_query', confidence: 0.95, needsTools: false, simpleResponse: true, description: 'Capability question', recommendedTools: [] };
+  }
+
+  // 6. META/ABOUT BOT
+  if (/\b(who are you|kaun ho|your name|tera naam|about you|version|changelog|kon hai tu)\b/i.test(lower)) {
+    return { type: 'meta_conversation', confidence: 0.95, needsTools: false, simpleResponse: true, description: 'About bot', recommendedTools: [] };
+  }
+  
+  // 7. IMAGE GENERATION (explicit keywords with action)
+  if (/\b(image|picture|photo|logo|poster|banner|wallpaper|artwork|illustration)\s*(bana|generate|create|draw|design|make)/i.test(lower) ||
+      /\b(bana|generate|create|draw|design|make)\s*(ek|one|a|an|mera|mere|meri)?\s*(image|picture|photo|logo|poster|banner)/i.test(lower)) {
+    return { type: 'image_generation', confidence: 0.96, needsTools: true, simpleResponse: false, description: 'Image request', recommendedTools: ['generate_puter_image'] };
+  }
+
+  // 8. CODE GENERATION (explicit)
+  if (/\b(code|script|program)\s*(bana|likh|write|generate|create)/i.test(lower) ||
+      /\b(bana|likh|write)\s*(ek|a|an)?\s*(code|script|program|function)/i.test(lower)) {
+    return { type: 'code_generation', confidence: 0.95, needsTools: true, simpleResponse: false, description: 'Code request', recommendedTools: ['generate_code'] };
+  }
+
+  // 9. WEB SEARCH (real-time data needed)
+  if (/\b(weather|mausam|news|khabar|score|price|rate|trending|latest|current|abhi ka)\b/i.test(lower)) {
+    return { type: 'web_search', confidence: 0.95, needsTools: true, simpleResponse: false, description: 'Real-time info', recommendedTools: ['search_the_web'] };
+  }
+
+  // 10. URL/LINK in message
+  if (/https?:\/\/|www\.|spotify\.com|youtube\.com|youtu\.be/i.test(lower)) {
+    return { type: 'url_fetch', confidence: 0.98, needsTools: true, simpleResponse: false, description: 'URL detected', recommendedTools: ['fetch_url_content'] };
+  }
+
+  // 11. CRYPTO/HASH operations
+  if (/\b(hash|md5|sha256|sha1|base64|encrypt|decrypt)\s/i.test(lower)) {
+    return { type: 'crypto_tool', confidence: 0.95, needsTools: true, simpleResponse: false, description: 'Crypto operation', recommendedTools: ['hash_operations', 'base64_operations'] };
+  }
+  
+  return null; // No instant match, proceed to AI for complex analysis
+}
+
+// ========== ENHANCED REGEX CLASSIFIER (Fallback) ==========
+function enhancedRegexClassifier(text) {
+  const lower = text.toLowerCase();
+  const words = lower.split(/\s+/);
+  const wordCount = words.length;
+
+  // 1. GREETINGS (Enhanced)
+  if (wordCount <= 4 && /^(hi|hello|hey|sup|yo|namaste|kaise ho|kya hal|good morning|good evening)\b/i.test(lower)) {
+    return { type: 'greeting', needsTools: false, simpleResponse: true, confidence: 0.92, description: 'Greeting detected' };
+  }
+
+  // 2. FAREWELL
+  if (wordCount <= 5 && /\b(bye|goodbye|alvida|chal|ttyl|see ya|good night|gn|tata)\b/i.test(lower)) {
+    return { type: 'farewell', needsTools: false, simpleResponse: true, confidence: 0.9, description: 'Farewell detected' };
+  }
+
+  // 3. GRATITUDE
+  if (/\b(thanks|thank you|shukriya|dhanyawad|thx|appreciated)\b/i.test(lower)) {
+    return { type: 'gratitude', needsTools: false, simpleResponse: true, confidence: 0.9, description: 'Gratitude detected' };
+  }
+
+  // 4. IMAGE GENERATION (Strict)
+  const imageKeywords = /\b(image|picture|photo|logo|poster|banner|artwork|illustration|icon|wallpaper|thumbnail|cover art|drawing|graphic|visual)\b/i;
+  const imageActions = /\b(generate|create|make|draw|design|bana|banao|bana de)\b/i;
+  if (imageKeywords.test(lower) && imageActions.test(lower)) {
+    return { type: 'image_generation', needsTools: true, simpleResponse: false, confidence: 0.88, description: 'Image generation request', recommendedTools: ['generate_puter_image'] };
+  }
+
+  // 5. CODE GENERATION
+  if (/\b(code|script|program|function|algorithm|python|javascript|java|html|css|api|backend|frontend)\b/i.test(lower) && 
+      /\b(write|create|make|generate|bana|likh|develop|build)\b/i.test(lower)) {
+    return { type: 'code_generation', needsTools: true, simpleResponse: false, confidence: 0.85, description: 'Code generation request', recommendedTools: ['generate_code'] };
+  }
+
+  // 6. WEB SEARCH
+  if (/\b(search|find|latest|news|weather|price|score|current|today|trending|abhi|real-?time)\b/i.test(lower)) {
+    return { type: 'web_search', needsTools: true, simpleResponse: false, confidence: 0.85, description: 'Real-time info needed', recommendedTools: ['search_the_web'] };
+  }
+
+  // 7. URL/LINK FETCH
+  if (/\b(http|https|www\.|spotify|youtube|youtu\.be|link|url)\b/i.test(lower)) {
+    return { type: 'url_fetch', needsTools: true, simpleResponse: false, confidence: 0.9, description: 'URL content fetch', recommendedTools: ['fetch_url_content'] };
+  }
+
+  // 8. SECURITY/OSINT
+  if (/\b(hack|scan|vulnerability|cve|ip track|osint|security|penetration|exploit)\b/i.test(lower)) {
+    return { type: 'security_tool', needsTools: true, simpleResponse: false, confidence: 0.85, description: 'Security tool request', recommendedTools: ['educational_trainer'] };
+  }
+
+  // 9. CRYPTO/HASH
+  if (/\b(hash|encrypt|decrypt|base64|md5|sha256|aes|cipher)\b/i.test(lower)) {
+    return { type: 'crypto_tool', needsTools: true, simpleResponse: false, confidence: 0.88, description: 'Crypto operation', recommendedTools: ['hash_operations', 'base64_operations'] };
+  }
+
+  // 10. CAPABILITY QUERY (Important - prevents misclassification)
+  if (/\b(can you|kya tu|tujhse|are you able|ho sakta|kar sakta|kaise karta)\b/i.test(lower)) {
+    return { type: 'capability_query', needsTools: false, simpleResponse: true, confidence: 0.85, description: 'Asking about capabilities', recommendedTools: [] };
+  }
+
+  // 11. SIMPLE QUESTION
+  if (/^(kya|kaise|kab|kahan|kyu|kaun|what|how|when|where|why|who|which)\b/i.test(lower)) {
+    return { type: 'simple_question', needsTools: false, simpleResponse: true, confidence: 0.8, description: 'General question', recommendedTools: [] };
+  }
+
+  // 12. CASUAL CHAT
+  if (wordCount <= 8 && /\b(bhai|yaar|bro|dude|lol|haha|achha|theek|ok|sahi|nice|cool|mast)\b/i.test(lower)) {
+    return { type: 'casual_chat', needsTools: false, simpleResponse: true, confidence: 0.75, description: 'Casual conversation', recommendedTools: [] };
+  }
+
+  // 13. META/ABOUT BOT
+  if (/\b(about you|who are you|kaun ho|your name|tera naam|version|changelog|update)\b/i.test(lower)) {
+    return { type: 'meta_conversation', needsTools: false, simpleResponse: true, confidence: 0.85, description: 'Asking about bot', recommendedTools: [] };
+  }
+
+  // 14. DEFAULT - Technical/Complex Query
+  return { type: 'technical_query', needsTools: false, simpleResponse: false, confidence: 0.6, description: 'Complex or ambiguous query', recommendedTools: [] };
 }
 
 // Classification result cache (simple in-memory cache to reduce API calls)
@@ -4162,51 +4360,6 @@ if (!globalThis.__classificationCacheCleanupActive) {
       console.log(`🧹 Cleaned ${cleanedCount} expired classification cache entries`);
     }
   }, 10 * 60 * 1000);
-}
-
-// Fallback regex-based classifier (used when AI classification fails)
-function regexBasedClassifier(text) {
-  const lower = text.toLowerCase();
-
-  // 1. GREETING DETECTION
-  const greetingPatterns = /^(hi|hello|hey|sup|kya hal|kaise ho|kya chal raha|namaste|hola)\b/i;
-  if (greetingPatterns.test(lower) && text.split(' ').length <= 3) {
-    return { type: 'greeting', needsTools: false, simpleResponse: true, description: 'Simple greeting', confidence: 0.9 };
-  }
-
-  // 2. IMAGE GENERATION - STRICT
-  const imagePatterns = /\b(image|picture|photo|logo|poster|banner|artwork|illustration|icon|wallpaper|thumbnail|cover art|character design|landscape|portrait|meme image|graphic|visual|drawing)\b/i;
-  const imageActions = /\b(generate|create|make|draw|show me|design|build)\s+(an?|my|some)?\s*(image|picture|photo|logo|poster|banner|artwork|illustration)/i;
-  if (imagePatterns.test(lower) || imageActions.test(lower)) {
-    return { type: 'image_generation', needsTools: true, simpleResponse: false, description: 'Explicit image generation request', confidence: 0.85 };
-  }
-
-  // 3. CODE GENERATION
-  const codePatterns = /\b(write code|create script|build program|make function|code to|script that|program for|how to code|give me code|python|javascript|java|c\+\+|implement|develop|algorithm)\b/i;
-  if (codePatterns.test(lower)) {
-    return { type: 'code_generation', needsTools: true, simpleResponse: false, description: 'Code generation request', confidence: 0.8 };
-  }
-
-  // 4. WEB SEARCH
-  const searchPatterns = /\b(weather|news|trending|score|price|today|current|latest|now|live|search for|find out)\b/i;
-  if (searchPatterns.test(lower)) {
-    return { type: 'web_search', needsTools: true, simpleResponse: false, description: 'Real-time information query', confidence: 0.85 };
-  }
-
-  // 5. SIMPLE QUESTION
-  const questionWords = /^(kya|kaise|kab|kahan|kyu|what|how|when|where|why|can you|tu|tum)/i;
-  if (questionWords.test(lower)) {
-    return { type: 'simple_question', needsTools: false, simpleResponse: true, description: 'General question', confidence: 0.75 };
-  }
-
-  // 6. CASUAL CHAT
-  const casualPatterns = /\b(bhai|yaar|lol|haha|achha|theek|ok|sahi|nice|cool|good|bad|matlab|samajh|dekh|sun)\b/i;
-  if (casualPatterns.test(lower) || text.split(' ').length < 6) {
-    return { type: 'casual_chat', needsTools: false, simpleResponse: true, description: 'Casual conversation', confidence: 0.7 };
-  }
-
-  // 7. DEFAULT
-  return { type: 'technical_query', needsTools: false, simpleResponse: false, description: 'Technical or complex query', confidence: 0.6 };
 }
 
 // ------------------ SELF-LEARNING MEMORY (ENHANCED) ------------------
@@ -4844,6 +4997,116 @@ async function markFirstDMSent(userId) {
     }
 }
 
+// ========== FILE ATTACHMENT READER (v6.1.0) ==========
+// Supported file types for text extraction
+const TEXT_FILE_EXTENSIONS = [
+    '.txt', '.md', '.json', '.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.c', '.cpp', '.h',
+    '.css', '.html', '.xml', '.yaml', '.yml', '.ini', '.cfg', '.conf', '.log', '.csv',
+    '.sh', '.bash', '.zsh', '.ps1', '.bat', '.cmd', '.sql', '.env', '.gitignore',
+    '.dockerfile', '.makefile', '.gradle', '.kt', '.swift', '.go', '.rs', '.rb', '.php',
+    '.lua', '.r', '.scala', '.dart', '.vue', '.svelte', '.astro'
+];
+
+async function extractFileAttachments(attachments) {
+    const fileContents = [];
+    
+    for (const att of attachments.values()) {
+        const fileName = att.name?.toLowerCase() || '';
+        const contentType = att.contentType?.toLowerCase() || '';
+        
+        // Skip images - they're handled separately
+        if (contentType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp|ico|svg)$/i.test(fileName)) {
+            continue;
+        }
+        
+        // Check if it's a text-based file
+        const isTextFile = TEXT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext)) ||
+                          contentType.startsWith('text/') ||
+                          contentType.includes('json') ||
+                          contentType.includes('javascript') ||
+                          contentType.includes('xml') ||
+                          contentType === 'application/octet-stream'; // Sometimes Discord sends code files as this
+        
+        // Also handle PDF (extract as binary notification for now)
+        const isPDF = fileName.endsWith('.pdf') || contentType === 'application/pdf';
+        
+        if (isTextFile || isPDF) {
+            try {
+                console.log(`📄 Fetching file: ${att.name} (${att.contentType || 'unknown type'})`);
+                
+                if (isPDF) {
+                    // For PDFs, just note that it's a PDF (can't extract text without library)
+                    fileContents.push({
+                        name: att.name,
+                        type: 'pdf',
+                        content: `[PDF FILE: ${att.name}] - PDF text extraction not available. User shared a PDF file.`,
+                        size: att.size
+                    });
+                } else {
+                    // Fetch text content
+                    const response = await fetch(att.url);
+                    if (response.ok) {
+                        let text = await response.text();
+                        
+                        // Limit content size to prevent token overflow (max 50KB)
+                        const MAX_SIZE = 50000;
+                        if (text.length > MAX_SIZE) {
+                            text = text.substring(0, MAX_SIZE) + `\n\n... [TRUNCATED - File too large, showing first ${MAX_SIZE} characters]`;
+                        }
+                        
+                        fileContents.push({
+                            name: att.name,
+                            type: 'text',
+                            content: text,
+                            size: att.size
+                        });
+                        console.log(`✅ Extracted ${text.length} chars from ${att.name}`);
+                    } else {
+                        console.error(`❌ Failed to fetch file ${att.name}: ${response.status}`);
+                        fileContents.push({
+                            name: att.name,
+                            type: 'error',
+                            content: `[ERROR: Could not read file ${att.name}]`,
+                            size: att.size
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error(`❌ Error extracting file ${att.name}:`, err.message);
+                fileContents.push({
+                    name: att.name,
+                    type: 'error',
+                    content: `[ERROR: ${err.message}]`,
+                    size: att.size
+                });
+            }
+        } else {
+            // Unknown file type - just note it exists
+            console.log(`⚠️ Unknown file type: ${att.name} (${att.contentType})`);
+            fileContents.push({
+                name: att.name,
+                type: 'unknown',
+                content: `[FILE: ${att.name}] - File type (${att.contentType || 'unknown'}) not supported for text extraction.`,
+                size: att.size
+            });
+        }
+    }
+    
+    return fileContents;
+}
+
+// Format file contents for AI context
+function formatFileContentsForAI(fileContents) {
+    if (fileContents.length === 0) return '';
+    
+    let formatted = '\n\n📎 **ATTACHED FILES:**\n';
+    for (const file of fileContents) {
+        formatted += `\n--- FILE: ${file.name} (${(file.size / 1024).toFixed(1)} KB) ---\n`;
+        formatted += '```\n' + file.content + '\n```\n';
+    }
+    return formatted;
+}
+
 // Get time-based greeting (IST timezone)
 function getTimeBasedGreeting(gender) {
     const now = new Date();
@@ -4993,97 +5256,92 @@ async function runTool(toolCall, id, msg = null) {
 
         // --- SUPER IMPROVED TIME/DATE DETECTION ---
         const timeDetectionPatterns = [
-            // Time queries
             /\b(time|samay|waqt|kya time|kitna baje|kitne baje)\b/i,
             /\b(abhi kitne baje|current time|what time)\b/i,
             /\b(clock|ghadi|ghanta)\b/i,
-
-            // Date queries
             /\b(date|tarikh|aaj ki date|today's date|kya date)\b/i,
             /\b(aaj ka din|aaj kya hai|din batao|current date)\b/i,
             /\b(calendar|mahina|month)\b/i,
-
-            // Year queries
             /\b(year|saal|konsa saal|which year|kya year)\b/i,
             /\b(abhi ka year|current year|is saal)\b/i,
-
-            // Day queries
             /\b(day|din|aaj kaunsa din|which day|today)\b/i,
             /\b(kaun sa din|weekday|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
-
-            // Combined queries
             /\b(time and date|date and time|samay aur din)\b/i,
             /\b(aaj kya hai|what is today|today's)\b/i
         ];
 
-        // Check if query matches any time/date pattern
         const isTimeQuery = timeDetectionPatterns.some(pattern => pattern.test(lowerQuery));
-
         if (isTimeQuery) {
             console.log(`⏰ TIME/DATE QUERY DETECTED: "${query}"`);
             return getCurrentTime(); 
         }
 
-        // --- IMPROVED DUAL SEARCH ENGINE (Google Custom Search + SerpAPI) ---
+        // --- FREE UNLIMITED DUCKDUCKGO SEARCH (v6.1.0) ---
         try {
-            // Try Google Custom Search first (better performance with CX ID)
-            const googleApiKey = process.env.GOOGLE_API_KEY;
-            const googleCxId = process.env.GOOGLE_CX_ID;
+            console.log(`🦆 DuckDuckGo FREE Search: "${query}"`);
+            
+            const ddgResults = await ddgSearch(query, {
+                safeSearch: 0,
+                locale: 'en-in',
+                region: 'in-en'
+            });
 
-            if (googleApiKey && googleCxId) {
-                console.log("🔍 Using Google Custom Search for better performance...");
-                const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCxId}&q=${encodeURIComponent(query)}&num=5`;
-
-                const googleRes = await fetch(googleUrl);
-                const googleData = await googleRes.json();
-
-                if (googleData.items && googleData.items.length > 0) {
-                    const topResults = googleData.items.slice(0, 3).map(item => 
-                        `📌 **${item.title}**\n${item.snippet}\n🔗 Source: ${item.link}`
-                    ).join('\n\n');
-
-                    return `🔍 **Real-time Search Results (Google Custom Search):**\n\n${topResults}`;
-                }
-            }
-
-            // Fallback to SerpAPI if Google Custom Search not available or failed
-            console.log("🔍 Falling back to SerpAPI...");
-            const serpApiKey = process.env.SERPAPI_KEY; 
-            if (!serpApiKey) return "Search Tool Error: No search API keys configured.";
-
-            let engine = 'google'; 
-            if (lowerQuery.includes('youtube') || lowerQuery.includes('yt') || lowerQuery.includes('video')) {
-                engine = 'youtube';
-            }
-
-            const serpUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&hl=en&gl=in&api_key=${serpApiKey}&engine=${engine}`;
-            const serpRes = await fetch(serpUrl);
-            const serpData = await serpRes.json();
-
-            // YouTube results
-            if (serpData.video_results && serpData.video_results.length > 0) {
-                const videos = serpData.video_results.slice(0, 5).map(v => 
-                    `🎥 ${v.title}\n👤 ${v.channel_name || 'N/A'} | 👁️ ${v.views || 'N/A'}`
+            if (ddgResults && ddgResults.results && ddgResults.results.length > 0) {
+                const topResults = ddgResults.results.slice(0, 5).map((item, i) => 
+                    `${i + 1}. **${item.title}**\n${item.description || 'No description'}\n🔗 ${item.url}`
                 ).join('\n\n');
-                return `📺 **YouTube Search Results:**\n\n${videos}`;
+
+                let response = `🔍 **Web Search Results:**\n\n${topResults}`;
+
+                // Add related topics if available
+                if (ddgResults.relatedTopics && ddgResults.relatedTopics.length > 0) {
+                    const related = ddgResults.relatedTopics.slice(0, 3).map(t => t.text || t).join(', ');
+                    response += `\n\n📌 **Related:** ${related}`;
+                }
+
+                // Add instant answer if available
+                if (ddgResults.abstract) {
+                    response = `💡 **Quick Answer:**\n${ddgResults.abstract}\n\n${response}`;
+                }
+
+                console.log(`✅ DuckDuckGo returned ${ddgResults.results.length} results`);
+                return response;
             }
 
-            // Direct answer
-            if (serpData.answer_box?.answer) {
-                return `💡 **Direct Answer:** ${serpData.answer_box.answer}\n🔗 Source: ${serpData.answer_box.source?.link || 'Web'}`;
+            // If no results, try news search
+            console.log(`🔄 No results, trying DuckDuckGo news...`);
+            const ddgNews = await ddgSearch(query + " news", { safeSearch: 0 });
+            
+            if (ddgNews && ddgNews.results && ddgNews.results.length > 0) {
+                const newsResults = ddgNews.results.slice(0, 3).map((item, i) => 
+                    `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
+                ).join('\n\n');
+
+                return `📰 **News Results:**\n\n${newsResults}`;
             }
 
-            // Organic results
-            if (serpData.organic_results?.length > 0) {
-                const top = serpData.organic_results[0];
-                return `🔍 **Search Result:**\n📌 ${top.title}\n📝 ${top.snippet}`;
-            }
-
-            return "Search found no clear results. Please try different keywords.";
+            return `❌ No results found for: "${query}". Try different keywords!`;
 
         } catch (err) {
-            console.error("❌ Search Tool Error:", err);
-            return `Search Error: ${err.message}. Please try again.`;
+            console.error("❌ DuckDuckGo Search Error:", err.message);
+            
+            // Fallback: Try one more time with simpler query
+            try {
+                console.log(`🔄 Retrying DuckDuckGo with simplified query...`);
+                const simplifiedQuery = query.split(' ').slice(0, 5).join(' ');
+                const retryResults = await ddgSearch(simplifiedQuery, { safeSearch: 0 });
+                
+                if (retryResults && retryResults.results && retryResults.results.length > 0) {
+                    const topResults = retryResults.results.slice(0, 3).map((item, i) => 
+                        `${i + 1}. **${item.title}**\n${item.description || ''}\n🔗 ${item.url}`
+                    ).join('\n\n');
+                    return `🔍 **Search Results:**\n\n${topResults}`;
+                }
+            } catch (retryErr) {
+                console.error("❌ DuckDuckGo retry failed:", retryErr.message);
+            }
+            
+            return `❌ Search temporarily unavailable. Try again in a moment!`;
         }
     }
 
@@ -7774,25 +8032,25 @@ async function runTool(toolCall, id, msg = null) {
             // 🔥 TARGET: 7.9 MB FORCED (Discord MAX for non-Nitro) + REAL-LIFE QUALITY
             const TARGET_MAX = 7.9 * 1024 * 1024; // 7.9 MB - absolute maximum under 8MB limit
             const TARGET_MIN = 7.0 * 1024 * 1024; // 7.0 MB minimum - we want BIG files
-            
+
             console.log(`📏 Initial size: ${finalSizeMB} MB`);
             console.log(`🎯 TARGET: 7.0-7.9 MB (FORCED MAXIMUM)`);
-            
+
             try {
                 // 🔥 STRATEGY: FORCE 7.9 MB with REAL-LIFE quality (no AI look)
                 // Use JPEG Q100 with maximum resolution possible that fits 7.9 MB
-                
+
                 let bestBuffer = imageBuffer;
                 let bestSize = imageBuffer.byteLength;
                 let bestQuality = 100;
                 let bestRes = upscaleTarget;
-                
+
                 // Step 1: Try increasing resolution until we hit ~7.9 MB
                 const resolutions = [4096, 4608, 5120, 5632, 6144]; // Try progressively larger
-                
+
                 for (const res of resolutions) {
                     const resHeight = size === 'landscape' ? Math.round(res * 0.5625) : (size === 'portrait' ? Math.round(res * 1.777) : res);
-                    
+
                     // REAL-LIFE processing: subtle enhancements, no over-sharpening
                     const jpegBuffer = await sharp(Buffer.from(rawBuffer))
                         .resize(res, resHeight, { fit: 'fill', kernel: 'lanczos3' })
@@ -7802,10 +8060,10 @@ async function runTool(toolCall, id, msg = null) {
                         .gamma(1.1)  // Natural gamma
                         .jpeg({ quality: 100, progressive: true, chromaSubsampling: '4:4:4' })  // MAX quality, no chroma loss
                         .toBuffer();
-                    
+
                     const jpegSizeMB = (jpegBuffer.byteLength / (1024 * 1024)).toFixed(2);
                     console.log(`📦 JPEG ${res}x${resHeight} Q100: ${jpegSizeMB} MB`);
-                    
+
                     // If fits under limit and larger than current, use it
                     if (jpegBuffer.byteLength <= TARGET_MAX) {
                         bestBuffer = jpegBuffer;
@@ -7817,14 +8075,14 @@ async function runTool(toolCall, id, msg = null) {
                         break;
                     }
                 }
-                
+
                 // Step 2: If still under 7 MB, increase quality further with tricks
                 if (bestSize < TARGET_MIN) {
                     console.log(`📦 Still small (${(bestSize/1024/1024).toFixed(2)} MB), adding detail...`);
-                    
+
                     // Add subtle noise/grain for more realistic look + bigger file
                     const resHeight = size === 'landscape' ? Math.round(bestRes * 0.5625) : (size === 'portrait' ? Math.round(bestRes * 1.777) : bestRes);
-                    
+
                     const enhancedBuffer = await sharp(Buffer.from(rawBuffer))
                         .resize(bestRes, resHeight, { fit: 'fill', kernel: 'lanczos3' })
                         .sharpen({ sigma: 3.0, m1: 1.0, m2: 0.5 })
@@ -7833,23 +8091,23 @@ async function runTool(toolCall, id, msg = null) {
                         .gamma(1.1)
                         .jpeg({ quality: 100, progressive: true, chromaSubsampling: '4:4:4', trellisQuantisation: true })
                         .toBuffer();
-                    
+
                     if (enhancedBuffer.byteLength <= TARGET_MAX && enhancedBuffer.byteLength > bestSize) {
                         bestBuffer = enhancedBuffer;
                         bestSize = enhancedBuffer.byteLength;
                         console.log(`✅ Enhanced: ${(bestSize/1024/1024).toFixed(2)} MB`);
                     }
                 }
-                
+
                 imageBuffer = bestBuffer;
                 qualityUsed = 100;
                 finalSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
                 console.log(`🏆 FINAL: ${finalSizeMB} MB @ ${bestRes}px (JPEG Q100 REAL-LIFE)`);
-                
+
             } catch (e) {
                 console.warn(`⚠️ Image processing failed: ${e.message}`);
             }
-            
+
             finalSizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
             const discordSafetyNote = parseFloat(finalSizeMB) >= 7 ? `🔥 MAXIMUM PREMIUM (${finalSizeMB} MB)` : (parseFloat(finalSizeMB) >= 5 ? `💎 PREMIUM (${finalSizeMB} MB)` : `✅ HIGH QUALITY (${finalSizeMB} MB)`);
             console.log(`✨ ABSOLUTE EXTREME KONTEXT! (${rawSizeMB} MB → ${finalSizeMB} MB @ ${upscaleTarget}x${upscaleHeight}, Sigma 10 (MAX) Quality ${qualityUsed}% ${discordSafetyNote})`);
@@ -8659,10 +8917,20 @@ async function runTool(toolCall, id, msg = null) {
             .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
             .map(att => ({ type: 'image_url', image_url: { url: att.url } }));
 
-          // Build multimodal content
+          // Extract text/document file attachments (v6.1.0)
+          const fileContents = await extractFileAttachments(msg.attachments);
+          const fileContext = formatFileContentsForAI(fileContents);
+
+          // Build multimodal content with file attachments
+          let baseText = q || '';
+          if (fileContext) {
+            baseText = (q || 'Analyze these files') + fileContext;
+            console.log(`📎 Added ${fileContents.length} file(s) to context`);
+          }
+
           let userContent = imageAttachments.length > 0 
-            ? [{ type: 'text', text: q || 'Describe this image' }, ...imageAttachments]
-            : q;
+            ? [{ type: 'text', text: baseText || 'Describe this image' }, ...imageAttachments]
+            : baseText || q;
 
           currentMessages.push({ role: "user", content: userContent });
 
@@ -8811,10 +9079,20 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
           .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
           .map(att => ({ type: 'image_url', image_url: { url: att.url } }));
 
-        // Build multimodal content
+        // Extract text/document file attachments (v6.1.0)
+        const fileContents = await extractFileAttachments(msg.attachments);
+        const fileContext = formatFileContentsForAI(fileContents);
+
+        // Build multimodal content with file attachments
+        let baseText = content || '';
+        if (fileContext) {
+          baseText = (content || 'Analyze these files') + fileContext;
+          console.log(`📎 Added ${fileContents.length} file(s) to context`);
+        }
+
         let userContent = imageAttachments.length > 0 
-          ? [{ type: 'text', text: content || 'Describe this image' }, ...imageAttachments]
-          : content;
+          ? [{ type: 'text', text: baseText || 'Describe this image' }, ...imageAttachments]
+          : baseText || content;
 
         currentMessages.push({ role: "user", content: userContent });
 
@@ -9094,15 +9372,25 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
             })
             .map(att => ({ type: 'image_url', image_url: { url: att.url } }));
 
-          // Build multimodal content if images exist
+          // Extract text/document file attachments (v6.1.0)
+          const fileContents = await extractFileAttachments(msg.attachments);
+          const fileContext = formatFileContentsForAI(fileContents);
+
+          // Build multimodal content with file attachments
+          let baseText = q || '';
+          if (fileContext) {
+            baseText = (q || 'Analyze these files') + fileContext;
+            console.log(`📎 Added ${fileContents.length} file(s) to context for ?ask`);
+          }
+
           let userContent;
           if (imageAttachments.length > 0) {
             userContent = [
-              { type: 'text', text: q || 'Describe this image' },
+              { type: 'text', text: baseText || 'Describe this image' },
               ...imageAttachments
             ];
           } else {
-            userContent = q;
+            userContent = baseText || q;
           }
 
           currentMessages.push({ role: "user", content: userContent });
