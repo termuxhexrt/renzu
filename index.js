@@ -15,6 +15,52 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { search as ddgSearch } from "duck-duck-scrape";
 
+// ------------------ ROBUST JSON PARSER (v6.5.1) ------------------
+function robustJsonParse(rawResponse) {
+  if (!rawResponse || typeof rawResponse !== 'string') return null;
+  
+  // Method 1: Direct parse (cleanest response)
+  try {
+    return JSON.parse(rawResponse);
+  } catch (e) {}
+  
+  // Method 2: Extract from markdown code block ```json ... ```
+  const codeBlockMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch (e) {}
+  }
+  
+  // Method 3: Find first complete JSON object { ... }
+  const jsonObjMatch = rawResponse.match(/\{[\s\S]*\}/);
+  if (jsonObjMatch) {
+    try {
+      return JSON.parse(jsonObjMatch[0]);
+    } catch (e) {}
+  }
+  
+  // Method 4: Find JSON array [ ... ]
+  const jsonArrMatch = rawResponse.match(/\[[\s\S]*\]/);
+  if (jsonArrMatch) {
+    try {
+      return JSON.parse(jsonArrMatch[0]);
+    } catch (e) {}
+  }
+  
+  // Method 5: Clean common issues (trailing commas, unquoted keys)
+  try {
+    const cleaned = rawResponse
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .replace(/(['"])?([a-zA-Z_][a-zA-Z0-9_]*)\1\s*:/g, '"$2":');
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch (e) {}
+  
+  return null;
+}
+
 // index.js (Top Section - After Imports, Before KEEP ALIVE)
 
 // ------------------ SUPABASE INITIALIZATION (DUAL DATABASE SETUP) ------------------
@@ -73,7 +119,7 @@ const SELF_AWARENESS = {
   // Working Features Status
   workingFeatures: {
     extendedThinking: { status: "ACTIVE", function: "generateResponseWithThinking()" },
-    responseValidation: { status: "ACTIVE", function: "validateResponseBeforeSending()" },
+    responseValidation: { status: "REMOVED", function: "N/A" },
     parallelTools: { status: "ACTIVE", function: "executeToolsInParallel()" },
     autoToolSelection: { status: "ACTIVE", function: "selectBestToolsAutomatically()" },
     honestyEnforcement: { status: "ACTIVE", method: "HONESTY_RULES in system prompts" }
@@ -4487,7 +4533,7 @@ function inferIntentFromContext(text, conversationHistory = []) {
 // Validates AI response for honesty, accuracy, and quality before sending to user
 async function validateResponseBeforeSending(userMessage, aiResponse, context = {}) {
   console.log('✅🔍 RESPONSE VALIDATION STARTING...');
-  
+
   const validationPrompt = `You are a STRICT RESPONSE VALIDATOR. Check this AI response before it's sent to the user.
 
 **USER'S QUESTION:** "${userMessage}"
@@ -4545,11 +4591,11 @@ async function validateResponseBeforeSending(userMessage, aiResponse, context = 
     const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
 
     console.log(`✅ VALIDATION RESULT: ${result?.verdict || 'UNKNOWN'} (Score: ${result?.score || 0}/100)`);
-    
+
     if (result?.issues?.length > 0) {
       console.log(`⚠️ Issues found: ${result.issues.join(', ')}`);
     }
-    
+
     if (result?.honestyViolations?.length > 0) {
       console.log(`🚨 HONESTY VIOLATIONS: ${result.honestyViolations.join(', ')}`);
     }
@@ -4580,7 +4626,7 @@ async function executeToolsInParallel(toolCalls, userId, msg = null) {
   const toolPromises = toolCalls.map(async (toolCall, index) => {
     const toolName = toolCall.function?.name || toolCall.name;
     console.log(`  [${index + 1}/${toolCalls.length}] Starting: ${toolName}`);
-    
+
     try {
       const result = await runTool(toolCall, userId, msg);
       console.log(`  ✅ [${index + 1}] ${toolName} completed`);
@@ -4603,7 +4649,7 @@ async function executeToolsInParallel(toolCalls, userId, msg = null) {
 
   const results = await Promise.all(toolPromises);
   const elapsed = Date.now() - startTime;
-  
+
   const successCount = results.filter(r => r.success).length;
   console.log(`🏁 PARALLEL EXECUTION COMPLETE: ${successCount}/${toolCalls.length} succeeded in ${elapsed}ms`);
 
@@ -4690,11 +4736,11 @@ async function generateResponseWithThinking(userMessage, messages, tools, contex
 
   // Step 1: Analyze the request
   console.log('  📊 Step 1: Analyzing request...');
-  
+
   // Step 2: Check if thinking is needed (complex queries only)
   const isComplex = userMessage.length > 50 || 
                     /\b(explain|analyze|compare|how|why|what if|complex|detailed)\b/i.test(userMessage);
-  
+
   if (!isComplex) {
     console.log('  ⚡ Simple query - skipping deep thinking');
     // For simple queries, just generate normally
@@ -5368,13 +5414,16 @@ Return ONLY valid JSON.`
     const data = await res.json();
     const rawResponse = data.choices[0].message.content.trim();
 
-    // Parse JSON response
+    // Parse JSON response with robust extraction
     let classification;
     try {
-      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-      classification = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(rawResponse);
+      classification = robustJsonParse(rawResponse);
+      if (!classification) {
+        console.log("🔄 AI response non-JSON, using smart fallback");
+        return enhancedRegexClassifier(userMessage);
+      }
     } catch (parseError) {
-      console.error("❌ JSON parse failed, using enhanced fallback");
+      console.log("🔄 JSON extraction failed, using smart fallback");
       return enhancedRegexClassifier(userMessage);
     }
 
@@ -10258,6 +10307,11 @@ async function runTool(toolCall, id, msg = null) {
           await saveMsg(id, "user", q);
           let currentMessages = histData ? histData.messages.slice(-50) : [];
 
+          // ========== ULTRA AI CLASSIFICATION ENGINE (DM) ==========
+          const classificationResult = await intelligentMessageClassifier(q, currentMessages, id);
+          console.log(`📊 DM Classification: ${classificationResult.type} (Confidence: ${(classificationResult.confidence * 100).toFixed(1)}%)`);
+          const selectedTools = classificationResult.needsTools ? TOOL_DEFINITIONS : [];
+
           // Extract images from attachments
           const imageAttachments = msg.attachments
             .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
@@ -10449,6 +10503,11 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
         const histData = await loadHistory(id);
         await saveMsg(id, "user", content);
         let currentMessages = histData ? histData.messages.slice(-50) : [];
+
+        // ========== ULTRA AI CLASSIFICATION ENGINE (DM - Non-Developer) ==========
+        const classificationResult = await intelligentMessageClassifier(content, currentMessages, id);
+        console.log(`📊 DM Classification: ${classificationResult.type} (Confidence: ${(classificationResult.confidence * 100).toFixed(1)}%)`);
+        const selectedTools = classificationResult.needsTools ? TOOL_DEFINITIONS : [];
 
         // Extract images from attachments
         const imageAttachments = msg.attachments
@@ -11029,15 +11088,15 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
                               content: null,
                               tool_calls: [toolCall],
                           });
-                          
+
                           // 🚀 PARALLEL TOOL EXECUTION (v6.5.0)
                           // Check if we have multiple tools to run in parallel based on auto selection
                           if (toolSelectionResult && 
                               toolSelectionResult.executionMode === 'PARALLEL' && 
                               toolSelectionResult.selectedTools.length > 1) {
-                              
+
                               console.log(`🚀 PARALLEL EXECUTION MODE: Running ${toolSelectionResult.selectedTools.length} tools concurrently`);
-                              
+
                               // Create tool calls for all selected tools
                               const parallelToolCalls = toolSelectionResult.selectedTools.map((toolName, idx) => ({
                                   id: `parallel_${Date.now()}_${idx}`,
@@ -11046,10 +11105,10 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
                                       arguments: JSON.stringify(toolSelectionResult.toolArguments?.[toolName] || { query: q })
                                   }
                               }));
-                              
+
                               // Execute all tools in parallel
                               const parallelResults = await executeToolsInParallel(parallelToolCalls, id, msg);
-                              
+
                               // Add results to messages
                               for (const result of parallelResults) {
                                   currentMessages.push({
@@ -11057,14 +11116,14 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
                                       content: result.result,
                                       tool_call_id: result.toolCallId
                                   });
-                                  
+
                                   // Track statistics
                                   await trackStatistic(id, 'tool_calls', 1);
                                   await trackStatistic(id, `tool_${result.toolName}`, 1);
                               }
-                              
+
                               console.log(`✅ Parallel execution complete: ${parallelResults.filter(r => r.success).length}/${parallelResults.length} succeeded`);
-                              
+
                               // Reset tool selection to prevent re-running
                               toolSelectionResult = null;
                           } else {
@@ -11119,41 +11178,17 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
                 answerText = String(finalAnswer);
               }
 
-              // 🔒 RESPONSE VALIDATION BEFORE SENDING (v6.5.0)
-              // Only validate non-trivial responses (skip simple confirmations)
-              let enhancedAnswer = answerText;
-              if (answerText.length > 100 && !answerText.includes('Image Generated')) {
-                console.log(`🔍 Running response validation (v6.5.0)...`);
-                const validation = await validateResponseBeforeSending(q, answerText);
-                
-                if (validation.verdict === 'NEEDS_FIX' && validation.fixedResponse) {
-                  console.log(`⚠️ Response corrected by validation layer`);
-                  enhancedAnswer = validation.fixedResponse;
-                } else if (validation.verdict === 'BLOCKED') {
-                  console.log(`🚫 Response blocked by validation - regenerating...`);
-                  enhancedAnswer = "I need to reconsider my response. Let me provide accurate information instead of potentially incorrect claims.";
-                } else {
-                  console.log(`✅ Response validation APPROVED (Score: ${validation.score}/100)`);
-                }
-                
-                if (validation.honestyViolations?.length > 0) {
-                  console.log(`⚠️ Honesty violations detected: ${validation.honestyViolations.join(', ')}`);
-                }
-              } else {
-                console.log(`⚡ Skipping validation for short/simple response`);
-              }
-
               // SAVE RESPONSE TO GLOBAL MEMORY
               await saveGlobalMemory(
                 'bot_response',
                 client.user.id,
                 id,
-                `Renzu replied: "${enhancedAnswer.substring(0, 200)}..."`,
+                `Renzu replied: "${answerText.substring(0, 200)}..."`,
                 { command: '?ask', responseTime, timestamp: new Date() }
               );
               console.log(`✅ SAVED TO GLOBAL MEMORY: Bot response to user ${id}`);
 
-              await saveMsg(id, "assistant", enhancedAnswer);
+              await saveMsg(id, "assistant", answerText);
 
               // TRACK STATISTICS - COMPREHENSIVE
               await trackStatistic(id, 'response_time_ms', responseTime);
@@ -11164,7 +11199,7 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
               }
               console.log(`✅ TRACKED STATISTICS: Response time ${responseTime}ms for user ${id}`);
 
-              await replyWithImages(msg, currentMessages, enhancedAnswer);
+              await replyWithImages(msg, currentMessages, answerText);
           }
       } catch (err) {
           console.error("❌ ?ask command error:", err.message);
