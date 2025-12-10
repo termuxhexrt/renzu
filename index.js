@@ -6842,23 +6842,6 @@ async function runTool(toolCall, id, msg = null) {
                 actualPrompt = parsedArgs.prompt || 'random image';
             }
 
-            // 🔒 NSFW CONTENT FILTER (Bypassed for Developer/Tester only)
-            const isDeveloper = id === DEVELOPER_ID;
-            if (!isDeveloper) {
-                const nsfwKeywords = /\b(nude|naked|nsfw|porn|xxx|hentai|sex|erotic|lewd|explicit|r18|r-18|18\+|adult.?only|uncensored|nipple|genital|boob|breast|ass|butt|penis|vagina|dick|cock|pussy|strip|undress|lingerie|bikini.?(off|remove)|topless|bottomless|orgasm|cum|semen|bdsm|fetish|kinky|slutty|whore|horny|seduc|provocative|sensual|intimate|foreplay|masturbat|onlyfans|playboy|playmate|centerfold)\b/i;
-                const promptLower = actualPrompt.toLowerCase();
-                
-                if (nsfwKeywords.test(promptLower)) {
-                    console.log(`🚫 [NSFW BLOCKED] User ${id} attempted: "${actualPrompt.substring(0, 50)}..."`);
-                    if (msg) {
-                        await msg.reply({ content: "🚫 **NSFW Content Blocked**\n\nYeh prompt allowed nahi hai. Please appropriate content request karo.\n\n*If you think this is a mistake, contact the developer.*" });
-                    }
-                    return "__IMAGE_BLOCKED_NSFW__";
-                }
-            } else {
-                console.log(`👑 [DEV MODE] NSFW filter bypassed for developer`);
-            }
-
             // 🧠 SMART PROMPT ENHANCEMENT - Developer in DM = no enhance, everyone else = enhance
             const isDM = msg?.channel?.type === 1;
             const enhanceResult = await enhanceImagePrompt(actualPrompt, id, isDM);
@@ -9302,23 +9285,6 @@ async function runTool(toolCall, id, msg = null) {
             // Preserve original prompt for transparency
             const originalPrompt = prompt;
             console.log(`🎨 [KONTEXT] USER PROMPT: "${originalPrompt}"`);
-
-            // 🔒 NSFW CONTENT FILTER (Bypassed for Developer/Tester only)
-            const isDeveloper = id === DEVELOPER_ID;
-            if (!isDeveloper) {
-                const nsfwKeywords = /\b(nude|naked|nsfw|porn|xxx|hentai|sex|erotic|lewd|explicit|r18|r-18|18\+|adult.?only|uncensored|nipple|genital|boob|breast|ass|butt|penis|vagina|dick|cock|pussy|strip|undress|lingerie|bikini.?(off|remove)|topless|bottomless|orgasm|cum|semen|bdsm|fetish|kinky|slutty|whore|horny|seduc|provocative|sensual|intimate|foreplay|masturbat|onlyfans|playboy|playmate|centerfold)\b/i;
-                const promptLower = prompt.toLowerCase();
-                
-                if (nsfwKeywords.test(promptLower)) {
-                    console.log(`🚫 [NSFW BLOCKED] User ${id} attempted: "${prompt.substring(0, 50)}..."`);
-                    if (msg) {
-                        await msg.reply({ content: "🚫 **NSFW Content Blocked**\n\nYeh prompt allowed nahi hai. Please appropriate content request karo.\n\n*If you think this is a mistake, contact the developer.*" });
-                    }
-                    return "__IMAGE_BLOCKED_NSFW__";
-                }
-            } else {
-                console.log(`👑 [DEV MODE] NSFW filter bypassed for developer`);
-            }
 
             // 🧠 SMART PROMPT ENHANCEMENT - Developer in DM = no enhance, everyone else = enhance
             const isDM = msg?.channel?.type === 1;
