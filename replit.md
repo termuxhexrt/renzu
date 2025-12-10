@@ -31,23 +31,17 @@ Preferred communication style: Simple, everyday language (Hinglish supported).
    - 5-step reasoning: Understanding → Knowledge Check → Uncertainty Check → Tool Check → Response Plan
    - Enforces honesty rules during thinking process
 
-2. **Response Validation Before Sending** - `validateResponseBeforeSending()`
-   - Validates all responses > 100 characters before sending
-   - Checks for honesty violations, accuracy, relevance, completeness
-   - Can auto-fix or block problematic responses
-   - Scoring system (0-100) for response quality
-
-3. **Parallel Tool Execution** - `executeToolsInParallel()`
+2. **Parallel Tool Execution** - `executeToolsInParallel()`
    - Uses Promise.all for concurrent tool execution
    - Tracks success/failure of each tool
    - Reports execution time and completion status
 
-4. **Auto Tool Selection with AI** - `selectBestToolsAutomatically()`
+3. **Auto Tool Selection with AI** - `selectBestToolsAutomatically()`
    - AI-powered tool selection with reasoning
    - Determines PARALLEL vs SEQUENTIAL execution mode
    - Returns tool arguments for optimal execution
 
-5. **Honesty System Enforcement** - Added to all system prompts
+4. **Honesty System Enforcement** - Added to all system prompts
    - 10-point ABSOLUTE HONESTY PROTOCOL in system prompts
    - Enforced in response validation layer
    - Flags and corrects honesty violations
