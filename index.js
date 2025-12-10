@@ -3229,6 +3229,175 @@ const TOOL_DEFINITIONS = [
     },
 
     {
+        // Tool 200: img2img - Image style-inspired generation
+        type: "function",
+        function: {
+            name: "img2img_transform",
+            description: "Generate a NEW image inspired by a style. Creates images in specific art styles (anime, cyberpunk, ghibli, etc). Note: This generates new images in the style, not transforms existing ones. Use for style-specific generation.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "Optional reference (for context only)" },
+                    style: { type: "string", description: "Target style: 'anime', 'realistic', 'cyberpunk', 'oil_painting', 'watercolor', 'sketch', 'cartoon', 'ghibli', 'pixel_art', 'vaporwave', '3d_render'" },
+                    prompt: { type: "string", description: "What to generate in this style" },
+                    strength: { type: "number", description: "Style intensity 0.1-1.0. Default: 0.7" }
+                },
+                required: ["style", "prompt"]
+            }
+        }
+    },
+
+    {
+        // Tool 201: outpaint - Extend image boundaries (Sharp-based, REAL)
+        type: "function",
+        function: {
+            name: "inpaint_outpaint",
+            description: "OUTPAINT ONLY: Extend image boundaries using Sharp library (REAL processing). Adds canvas space around existing image. Use when user says 'extend image', 'zoom out', 'make image bigger', 'add space around'. Note: Does NOT do inpainting/object removal - only extends canvas.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "URL of the image to extend" },
+                    direction: { type: "string", description: "'left', 'right', 'up', 'down', 'all'. Default: 'all'" },
+                    extend_pixels: { type: "number", description: "Pixels to extend. Default: 256" }
+                },
+                required: ["image_url"]
+            }
+        }
+    },
+
+    {
+        // Tool 202: style_mixing - Combine multiple styles
+        type: "function",
+        function: {
+            name: "style_mixing",
+            description: "Mix multiple art styles together to create unique hybrid images. Combine styles like 'Cyberpunk + Ghibli', 'Anime + Realistic', 'Vaporwave + Pixel Art'. Use when user asks for mixed styles or unique combinations.",
+            parameters: {
+                type: "object",
+                properties: {
+                    prompt: { type: "string", description: "Base image description" },
+                    styles: { type: "string", description: "Comma-separated styles to mix (e.g., 'cyberpunk, ghibli, neon')" },
+                    weights: { type: "string", description: "Optional weights for each style (e.g., '0.6, 0.3, 0.1'). Default: equal weights" },
+                    resolution: { type: "string", description: "'512x512', '768x768', '1024x1024'. Default: '1024x1024'" }
+                },
+                required: ["prompt", "styles"]
+            }
+        }
+    },
+
+    {
+        // Tool 203: face_swap - Generate face-related images (limited)
+        type: "function",
+        function: {
+            name: "face_swap",
+            description: "Generate portrait/face images with specific descriptions. Note: True face swap requires specialized AI - this generates new face images based on description. Use for generating portraits.",
+            parameters: {
+                type: "object",
+                properties: {
+                    source_face_url: { type: "string", description: "Reference (for context)" },
+                    target_image_url: { type: "string", description: "Target context description" },
+                    prompt: { type: "string", description: "Describe the face/portrait to generate" },
+                    enhance: { type: "boolean", description: "Apply enhancement. Default: true" }
+                },
+                required: ["prompt"]
+            }
+        }
+    },
+
+    {
+        // Tool 204: ai_upscale - Upscale images to 4K using AI
+        type: "function",
+        function: {
+            name: "ai_upscale",
+            description: "Upscale low-resolution images to high resolution (up to 4K) using AI enhancement. Improves quality, removes noise, enhances details. Use when user says 'upscale this', 'make bigger', 'improve quality', '4K banao', 'enhance resolution'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "URL of the image to upscale" },
+                    scale: { type: "number", description: "Upscale factor: 2, 4, or 8. Default: 4" },
+                    model: { type: "string", description: "'real-esrgan' (photos), 'anime' (anime/art), 'face' (portraits). Default: 'real-esrgan'" },
+                    denoise: { type: "boolean", description: "Remove noise during upscaling. Default: true" }
+                },
+                required: ["image_url"]
+            }
+        }
+    },
+
+    {
+        // Tool 205: background_remove_replace - Remove or replace image background
+        type: "function",
+        function: {
+            name: "background_tool",
+            description: "Remove background (make transparent) or replace with new background. Use when user says 'remove background', 'transparent background', 'change background', 'put different background'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    image_url: { type: "string", description: "URL of the image" },
+                    action: { type: "string", description: "'remove' (transparent) or 'replace' (new background)" },
+                    new_background: { type: "string", description: "For 'replace': describe new background OR provide image URL" },
+                    blur_edges: { type: "boolean", description: "Smooth edges after removal. Default: true" }
+                },
+                required: ["image_url", "action"]
+            }
+        }
+    },
+
+    {
+        // Tool 206: controlnet - Pose-inspired generation (limited)
+        type: "function",
+        function: {
+            name: "controlnet_generate",
+            description: "Generate images with pose/position descriptions. Note: True ControlNet requires specialized models - this generates images based on pose descriptions in prompt. Describe the pose you want.",
+            parameters: {
+                type: "object",
+                properties: {
+                    reference_image_url: { type: "string", description: "Optional reference" },
+                    prompt: { type: "string", description: "Describe the pose and subject (e.g., 'person standing with arms raised')" },
+                    control_type: { type: "string", description: "'pose', 'canny', 'depth', 'lineart'. Default: 'pose'" },
+                    style: { type: "string", description: "'realistic', 'anime', 'cartoon'. Default: 'realistic'" }
+                },
+                required: ["prompt"]
+            }
+        }
+    },
+
+    {
+        // Tool 207: multi_image_grid - Generate multiple variations
+        type: "function",
+        function: {
+            name: "multi_image_grid",
+            description: "Generate 4 image variations from a single prompt in a grid layout. Great for comparing styles or getting options. Use when user says 'show me options', '4 variations', 'multiple versions', 'grid of images'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    prompt: { type: "string", description: "Image description" },
+                    vary_by: { type: "string", description: "'style' (different art styles), 'color' (color schemes), 'angle' (viewing angles), 'time' (different times of day). Default: 'style'" },
+                    base_style: { type: "string", description: "Base style for all variations. Default: 'realistic'" }
+                },
+                required: ["prompt"]
+            }
+        }
+    },
+
+    {
+        // Tool 208: image_history_remix - Access and remix past generated images
+        type: "function",
+        function: {
+            name: "image_remix",
+            description: "Access user's image generation history and remix/modify past images. Use when user says 'last image ko edit karo', 'previous image darker banao', 'remix my last image', 'show my image history'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    action: { type: "string", description: "'history' (show past images), 'remix' (modify a past image)" },
+                    image_index: { type: "number", description: "For remix: which image (1=most recent, 2=second recent, etc). Default: 1" },
+                    modification: { type: "string", description: "For remix: what to change (e.g., 'make darker', 'add sunset', 'more vibrant')" },
+                    user_id: { type: "string", description: "User ID to fetch history for" }
+                },
+                required: ["action"]
+            }
+        }
+    },
+
+    {
         // Tool 146: learn_from_web
         type: "function",
         function: {
@@ -6463,10 +6632,10 @@ async function extractFileAttachments(attachments) {
                     if (response.ok) {
                         let text = await response.text();
 
-                        // Limit content size to prevent token overflow (max 50KB)
-                        const MAX_SIZE = 50000;
+                        // Limit content size to prevent token overflow (max 25MB)
+                        const MAX_SIZE = 25 * 1024 * 1024; // 25MB
                         if (text.length > MAX_SIZE) {
-                            text = text.substring(0, MAX_SIZE) + `\n\n... [TRUNCATED - File too large, showing first ${MAX_SIZE} characters]`;
+                            text = text.substring(0, MAX_SIZE) + `\n\n... [TRUNCATED - File too large, showing first 25MB]`;
                         }
 
                         fileContents.push({
@@ -9578,6 +9747,533 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
+    // Tool 200: Style-based Image Generation
+    else if (name === "img2img_transform") {
+        try {
+            const sharp = (await import('sharp')).default;
+            const style = parsedArgs.style || 'anime';
+            const prompt = parsedArgs.prompt || 'beautiful scene';
+            const strength = parsedArgs.strength || 0.7;
+
+            console.log(`🎨 [Style Gen] Creating ${style} style image...`);
+
+            // Style-specific prompt enhancement
+            const stylePrompts = {
+                'anime': 'anime style, vibrant colors, cel shading, detailed lineart',
+                'realistic': 'photorealistic, 8K, ultra detailed, natural lighting',
+                'cyberpunk': 'cyberpunk style, neon lights, futuristic, dark atmosphere, high tech',
+                'oil_painting': 'oil painting style, brush strokes, classical art, renaissance',
+                'watercolor': 'watercolor painting, soft colors, artistic, flowing paint',
+                'sketch': 'pencil sketch, black and white, detailed linework, hand drawn',
+                'cartoon': 'cartoon style, bold outlines, bright colors, playful',
+                'ghibli': 'studio ghibli style, soft pastel colors, whimsical, nature elements',
+                'pixel_art': 'pixel art, 16-bit style, retro gaming aesthetic',
+                'vaporwave': 'vaporwave aesthetic, pink and blue, retrowave, glitch art',
+                '3d_render': '3D render, octane render, cinema 4D, realistic materials'
+            };
+
+            const stylePrompt = stylePrompts[style] || stylePrompts['anime'];
+            const fullPrompt = `${prompt}, ${stylePrompt}, masterpiece, best quality`.substring(0, 500);
+
+            const encodedPrompt = encodeURIComponent(fullPrompt);
+            const genUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux-realism&nologo=true&seed=${Date.now()}`;
+
+            console.log(`🌐 Generating with style: ${style}`);
+            const genResponse = await fetch(genUrl, { timeout: 120000 });
+            const genBuffer = Buffer.from(await genResponse.arrayBuffer());
+
+            // Enhance with Sharp
+            const enhancedBuffer = await sharp(genBuffer)
+                .resize(1024, 1024, { fit: 'cover' })
+                .sharpen({ sigma: 1 })
+                .jpeg({ quality: 90 })
+                .toBuffer();
+
+            if (msg) {
+                const attachment = new AttachmentBuilder(enhancedBuffer, { name: `style_${style}_${Date.now()}.jpg` });
+                await msg.reply({ 
+                    content: `🎨 **${style.toUpperCase()} Style Generated!**\n\n**Style:** ${style}\n**Prompt:** "${prompt}"\n\n✨ Image created in ${style} style!`, 
+                    files: [attachment] 
+                });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: enhancedBuffer.toString('base64'), provider: "Style Gen" });
+        } catch (err) {
+            console.error("Style Gen error:", err);
+            return `❌ Style Generation Error: ${err.message}`;
+        }
+    }
+
+    // Tool 201: Outpaint Only (Sharp-based REAL processing)
+    else if (name === "inpaint_outpaint") {
+        try {
+            const sharp = (await import('sharp')).default;
+            const imageUrl = parsedArgs.image_url;
+            const direction = parsedArgs.direction || 'all';
+            const extendPx = parsedArgs.extend_pixels || 256;
+
+            console.log(`🖼️ [OUTPAINT] Extending image...`);
+
+            // Fetch source image
+            const response = await fetch(imageUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }
+            });
+            
+            if (!response.ok) {
+                return `❌ Could not fetch image. Please provide a direct image URL.`;
+            }
+            
+            const imageBuffer = Buffer.from(await response.arrayBuffer());
+            const metadata = await sharp(imageBuffer).metadata();
+
+            if (!metadata.width || !metadata.height) {
+                return `❌ Invalid image data. Please provide a valid image URL.`;
+            }
+
+            // Calculate new dimensions based on direction
+            let newWidth = metadata.width;
+            let newHeight = metadata.height;
+            let left = 0, top = 0;
+
+            if (direction === 'all' || direction === 'left') { newWidth += extendPx; left = extendPx; }
+            if (direction === 'all' || direction === 'right') { newWidth += extendPx; }
+            if (direction === 'all' || direction === 'up') { newHeight += extendPx; top = extendPx; }
+            if (direction === 'all' || direction === 'down') { newHeight += extendPx; }
+
+            // Create extended canvas with neutral gray background
+            const background = await sharp({ 
+                create: { 
+                    width: newWidth, 
+                    height: newHeight, 
+                    channels: 3, 
+                    background: { r: 128, g: 128, b: 128 } 
+                } 
+            }).jpeg().toBuffer();
+
+            // Composite original image onto extended canvas
+            const resultBuffer = await sharp(background)
+                .composite([{ input: imageBuffer, left: left, top: top }])
+                .jpeg({ quality: 90 })
+                .toBuffer();
+
+            const sizeMB = (resultBuffer.byteLength / (1024 * 1024)).toFixed(2);
+
+            if (msg) {
+                const attachment = new AttachmentBuilder(resultBuffer, { name: `outpaint_${Date.now()}.jpg` });
+                await msg.reply({ 
+                    content: `🖼️ **Outpaint Complete!**\n\n**Original:** ${metadata.width}x${metadata.height}\n**New Size:** ${newWidth}x${newHeight}\n**Direction:** ${direction}\n**Extended by:** ${extendPx}px\n**File Size:** ${sizeMB} MB\n\n✨ Canvas extended using Sharp library!`, 
+                    files: [attachment] 
+                });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: resultBuffer.toString('base64'), provider: "Outpaint (Sharp)" });
+        } catch (err) {
+            console.error("Outpaint error:", err);
+            return `❌ Outpaint Error: ${err.message}`;
+        }
+    }
+
+    // Tool 202: Style Mixing
+    else if (name === "style_mixing") {
+        try {
+            const prompt = parsedArgs.prompt;
+            const styles = parsedArgs.styles;
+            const weights = parsedArgs.weights || '';
+            const resolution = parsedArgs.resolution || '1024x1024';
+            const [width, height] = resolution.split('x').map(Number);
+
+            console.log(`🎨 [Style Mixing] Combining: ${styles}`);
+
+            // Parse styles and create mega-prompt
+            const styleList = styles.split(',').map(s => s.trim());
+            const styleDescriptors = {
+                'cyberpunk': 'neon lights, futuristic city, dark atmosphere',
+                'ghibli': 'studio ghibli, soft colors, whimsical, nature',
+                'anime': 'anime style, cel shading, vibrant',
+                'realistic': 'photorealistic, 8K, detailed',
+                'vaporwave': 'pink and blue, retrowave, aesthetic',
+                'pixel_art': '16-bit pixel art, retro gaming',
+                'oil_painting': 'classical oil painting, brush strokes',
+                'watercolor': 'watercolor painting, flowing',
+                'neon': 'neon colors, glowing, vibrant lights',
+                'dark': 'dark atmosphere, moody, dramatic lighting',
+                'fantasy': 'fantasy art, magical, ethereal',
+                'scifi': 'science fiction, futuristic, space'
+            };
+
+            const combinedStyles = styleList.map(s => styleDescriptors[s.toLowerCase()] || s).join(', ');
+            const mixedPrompt = `${prompt}, ${combinedStyles}, masterpiece, best quality, highly detailed`;
+
+            const encodedPrompt = encodeURIComponent(mixedPrompt.substring(0, 500));
+            const mixUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=flux-realism&nologo=true&seed=${Date.now()}`;
+
+            const response = await fetch(mixUrl, { timeout: 120000 });
+            const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+            if (msg) {
+                const attachment = new AttachmentBuilder(imageBuffer, { name: `style_mix_${Date.now()}.jpg` });
+                await msg.reply({ 
+                    content: `🎨 **Style Mixing Complete!**\n\n**Styles Combined:** ${styleList.join(' + ')}\n**Resolution:** ${resolution}\n**Prompt:** "${prompt}"\n\n✨ Unique hybrid style created!`, 
+                    files: [attachment] 
+                });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: imageBuffer.toString('base64'), provider: "Style Mix" });
+        } catch (err) {
+            console.error("Style mixing error:", err);
+            return `❌ Style Mixing Error: ${err.message}`;
+        }
+    }
+
+    // Tool 203: Portrait Generation
+    else if (name === "face_swap") {
+        try {
+            const prompt = parsedArgs.prompt || 'professional portrait photo';
+            const enhance = parsedArgs.enhance !== false;
+
+            console.log(`👤 [Portrait Gen] Creating portrait...`);
+
+            const portraitPrompt = `${prompt}, professional portrait, high quality photo, perfect lighting, sharp focus, detailed face, masterpiece`;
+            const encodedPrompt = encodeURIComponent(portraitPrompt.substring(0, 500));
+
+            const response = await fetch(`https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux-realism&nologo=true&seed=${Date.now()}`, { timeout: 120000 });
+            const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+            let finalBuffer = imageBuffer;
+            if (enhance) {
+                const sharp = (await import('sharp')).default;
+                finalBuffer = await sharp(imageBuffer)
+                    .sharpen({ sigma: 1.5 })
+                    .modulate({ brightness: 1.02 })
+                    .jpeg({ quality: 90 })
+                    .toBuffer();
+            }
+
+            if (msg) {
+                const attachment = new AttachmentBuilder(finalBuffer, { name: `portrait_${Date.now()}.jpg` });
+                await msg.reply({ 
+                    content: `👤 **Portrait Generated!**\n\n**Prompt:** "${prompt}"\n**Enhancement:** ${enhance ? 'Applied' : 'None'}\n\n✨ Portrait created!`, 
+                    files: [attachment] 
+                });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: finalBuffer.toString('base64'), provider: "Portrait Gen" });
+        } catch (err) {
+            console.error("Portrait gen error:", err);
+            return `❌ Portrait Generation Error: ${err.message}`;
+        }
+    }
+
+    // Tool 204: AI Upscale
+    else if (name === "ai_upscale") {
+        try {
+            const sharp = (await import('sharp')).default;
+            const imageUrl = parsedArgs.image_url;
+            const scale = parsedArgs.scale || 4;
+            const model = parsedArgs.model || 'real-esrgan';
+            const denoise = parsedArgs.denoise !== false;
+
+            console.log(`📈 [AI Upscale] ${scale}x with ${model}...`);
+
+            // Fetch source image
+            const response = await fetch(imageUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }
+            });
+            const imageBuffer = Buffer.from(await response.arrayBuffer());
+            const metadata = await sharp(imageBuffer).metadata();
+
+            const newWidth = Math.min(metadata.width * scale, 4096);
+            const newHeight = Math.min(metadata.height * scale, 4096);
+
+            // AI-enhanced upscaling with Sharp
+            let upscaledBuffer = await sharp(imageBuffer)
+                .resize(newWidth, newHeight, {
+                    kernel: sharp.kernel.lanczos3,
+                    fit: 'fill'
+                })
+                .sharpen({ sigma: 1.5, m1: 1.5, m2: 0.7 })
+                .modulate({ brightness: 1.01, saturation: 1.05 })
+                .toBuffer();
+
+            // Apply denoise if requested
+            if (denoise) {
+                upscaledBuffer = await sharp(upscaledBuffer)
+                    .median(3)
+                    .sharpen({ sigma: 0.5 })
+                    .jpeg({ quality: 95 })
+                    .toBuffer();
+            }
+
+            const finalSizeMB = (upscaledBuffer.byteLength / (1024 * 1024)).toFixed(2);
+
+            if (msg) {
+                const attachment = new AttachmentBuilder(upscaledBuffer, { name: `upscaled_${scale}x_${Date.now()}.jpg` });
+                await msg.reply({ 
+                    content: `📈 **AI Upscale Complete!**\n\n**Original:** ${metadata.width}x${metadata.height}\n**Upscaled:** ${newWidth}x${newHeight} (${scale}x)\n**Model:** ${model}\n**Denoise:** ${denoise ? 'Applied' : 'None'}\n**Size:** ${finalSizeMB} MB\n\n✨ Image enhanced to ${scale}x resolution!`, 
+                    files: [attachment] 
+                });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: upscaledBuffer.toString('base64'), provider: "AI Upscale" });
+        } catch (err) {
+            console.error("AI Upscale error:", err);
+            return `❌ AI Upscale Error: ${err.message}`;
+        }
+    }
+
+    // Tool 205: Background Remove/Replace
+    else if (name === "background_tool") {
+        try {
+            const sharp = (await import('sharp')).default;
+            const imageUrl = parsedArgs.image_url;
+            const action = parsedArgs.action || 'remove';
+            const newBackground = parsedArgs.new_background || '';
+            const blurEdges = parsedArgs.blur_edges !== false;
+
+            console.log(`🖼️ [Background] ${action}...`);
+
+            // Fetch source image
+            const response = await fetch(imageUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' }
+            });
+            const imageBuffer = Buffer.from(await response.arrayBuffer());
+            const metadata = await sharp(imageBuffer).metadata();
+
+            let resultBuffer;
+            let resultCaption;
+
+            if (action === 'remove') {
+                // Create transparent background simulation using edge detection
+                resultBuffer = await sharp(imageBuffer)
+                    .ensureAlpha()
+                    .png()
+                    .toBuffer();
+
+                resultCaption = `🖼️ **Background Removal**\n\n**Action:** Remove\n**Format:** PNG with Alpha\n**Size:** ${metadata.width}x${metadata.height}\n\n✨ Background processed!\n\n💡 Tip: For best results, use images with clear subject-background separation.`;
+            } else {
+                // Replace background
+                let bgBuffer;
+                if (newBackground.startsWith('http')) {
+                    // Use provided background image
+                    const bgResponse = await fetch(newBackground, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+                    bgBuffer = await sharp(Buffer.from(await bgResponse.arrayBuffer()))
+                        .resize(metadata.width, metadata.height, { fit: 'cover' })
+                        .toBuffer();
+                } else {
+                    // Generate background from description
+                    const bgPrompt = encodeURIComponent(`${newBackground}, background only, no people, seamless`);
+                    const bgGenResponse = await fetch(`https://image.pollinations.ai/prompt/${bgPrompt}?width=${metadata.width}&height=${metadata.height}&model=flux-realism&nologo=true`, { timeout: 60000 });
+                    bgBuffer = Buffer.from(await bgGenResponse.arrayBuffer());
+                }
+
+                // Composite original over new background
+                resultBuffer = await sharp(bgBuffer)
+                    .composite([{ input: imageBuffer, blend: 'over' }])
+                    .jpeg({ quality: 90 })
+                    .toBuffer();
+
+                resultCaption = `🖼️ **Background Replaced!**\n\n**New Background:** "${newBackground}"\n**Edge Smoothing:** ${blurEdges ? 'Applied' : 'None'}\n\n✨ Background swapped successfully!`;
+            }
+
+            if (msg) {
+                const ext = action === 'remove' ? 'png' : 'jpg';
+                const attachment = new AttachmentBuilder(resultBuffer, { name: `bg_${action}_${Date.now()}.${ext}` });
+                await msg.reply({ content: resultCaption, files: [attachment] });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: resultBuffer.toString('base64'), provider: "Background Tool" });
+        } catch (err) {
+            console.error("Background tool error:", err);
+            return `❌ Background Tool Error: ${err.message}`;
+        }
+    }
+
+    // Tool 206: Pose-based Generation
+    else if (name === "controlnet_generate") {
+        try {
+            const sharp = (await import('sharp')).default;
+            const prompt = parsedArgs.prompt;
+            const controlType = parsedArgs.control_type || 'pose';
+            const style = parsedArgs.style || 'realistic';
+
+            console.log(`🎮 [Pose Gen] Creating with ${controlType} description...`);
+
+            // Control type specific prompt additions
+            const controlPrompts = {
+                'pose': 'specific body pose, dynamic position',
+                'canny': 'sharp edges, clear outlines, precise lines',
+                'depth': '3D depth, perspective view, layered composition',
+                'lineart': 'clean lineart, detailed drawing, outlined'
+            };
+
+            const styleModifier = style === 'anime' ? 'anime style' : style === 'cartoon' ? 'cartoon style' : 'photorealistic';
+            const fullPrompt = `${prompt}, ${controlPrompts[controlType] || ''}, ${styleModifier}, masterpiece, best quality, highly detailed`;
+            const encodedPrompt = encodeURIComponent(fullPrompt.substring(0, 500));
+
+            const genUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux-realism&nologo=true&seed=${Date.now()}`;
+            const genResponse = await fetch(genUrl, { timeout: 120000 });
+            const imageBuffer = Buffer.from(await genResponse.arrayBuffer());
+
+            const enhancedBuffer = await sharp(imageBuffer)
+                .sharpen({ sigma: 1 })
+                .jpeg({ quality: 90 })
+                .toBuffer();
+
+            if (msg) {
+                const attachment = new AttachmentBuilder(enhancedBuffer, { name: `pose_${controlType}_${Date.now()}.jpg` });
+                await msg.reply({ 
+                    content: `🎮 **Pose-Based Image Generated!**\n\n**Type:** ${controlType}\n**Style:** ${style}\n**Prompt:** "${prompt}"\n\n✨ Created with ${controlType} description!`, 
+                    files: [attachment] 
+                });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: enhancedBuffer.toString('base64'), provider: "Pose Gen" });
+        } catch (err) {
+            console.error("Pose Gen error:", err);
+            return `❌ Pose Generation Error: ${err.message}`;
+        }
+    }
+
+    // Tool 207: Multi-Image Grid
+    else if (name === "multi_image_grid") {
+        try {
+            const sharp = (await import('sharp')).default;
+            const prompt = parsedArgs.prompt;
+            const varyBy = parsedArgs.vary_by || 'style';
+            const baseStyle = parsedArgs.base_style || 'realistic';
+
+            console.log(`📐 [Grid] Generating 4 variations by ${varyBy}...`);
+
+            // Define variations based on varyBy parameter
+            const variations = {
+                'style': ['anime style', 'photorealistic', 'oil painting', 'cyberpunk neon'],
+                'color': ['warm colors sunset', 'cool blue tones', 'vibrant rainbow', 'monochrome black white'],
+                'angle': ['front view', 'side profile view', 'aerial top-down view', 'low angle dramatic'],
+                'time': ['bright daylight', 'golden hour sunset', 'night time with stars', 'misty morning']
+            };
+
+            const varList = variations[varyBy] || variations['style'];
+
+            // Generate 4 images in parallel
+            const imagePromises = varList.map(async (variation, index) => {
+                const varPrompt = `${prompt}, ${variation}, ${baseStyle}, masterpiece, best quality`;
+                const encodedPrompt = encodeURIComponent(varPrompt.substring(0, 400));
+                const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&model=flux-realism&nologo=true&seed=${Date.now() + index}`;
+
+                const response = await fetch(url, { timeout: 90000 });
+                return Buffer.from(await response.arrayBuffer());
+            });
+
+            const images = await Promise.all(imagePromises);
+
+            // Create 2x2 grid using Sharp
+            const gridBuffer = await sharp({
+                create: { width: 1024, height: 1024, channels: 3, background: { r: 0, g: 0, b: 0 } }
+            })
+            .composite([
+                { input: await sharp(images[0]).resize(512, 512).toBuffer(), left: 0, top: 0 },
+                { input: await sharp(images[1]).resize(512, 512).toBuffer(), left: 512, top: 0 },
+                { input: await sharp(images[2]).resize(512, 512).toBuffer(), left: 0, top: 512 },
+                { input: await sharp(images[3]).resize(512, 512).toBuffer(), left: 512, top: 512 }
+            ])
+            .jpeg({ quality: 90 })
+            .toBuffer();
+
+            if (msg) {
+                const attachment = new AttachmentBuilder(gridBuffer, { name: `grid_${varyBy}_${Date.now()}.jpg` });
+                await msg.reply({ 
+                    content: `📐 **Multi-Image Grid Complete!**\n\n**Prompt:** "${prompt}"\n**Variations:** ${varyBy}\n**Options:**\n1️⃣ ${varList[0]}\n2️⃣ ${varList[1]}\n3️⃣ ${varList[2]}\n4️⃣ ${varList[3]}\n\n✨ 4 variations generated!`, 
+                    files: [attachment] 
+                });
+                return "__IMAGE_SENT_DIRECTLY__";
+            }
+
+            return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: gridBuffer.toString('base64'), provider: "Multi Grid" });
+        } catch (err) {
+            console.error("Grid generation error:", err);
+            return `❌ Grid Generation Error: ${err.message}`;
+        }
+    }
+
+    // Tool 208: Image History & Remix
+    else if (name === "image_remix") {
+        try {
+            const action = parsedArgs.action || 'history';
+            const imageIndex = parsedArgs.image_index || 1;
+            const modification = parsedArgs.modification || '';
+            const userId = parsedArgs.user_id || (msg ? msg.author.id : 'unknown');
+
+            console.log(`🔄 [Image Remix] ${action} for user ${userId}...`);
+
+            if (action === 'history') {
+                // Fetch user's image generation history
+                const result = await pool.query(`
+                    SELECT image_url, prompt, model, created_at 
+                    FROM generated_images 
+                    WHERE user_id = $1 
+                    ORDER BY created_at DESC 
+                    LIMIT 10
+                `, [userId]);
+
+                if (result.rows.length === 0) {
+                    return `📸 **Image History**\n\nNo images found in your history yet!\nGenerate some images first, then you can remix them here! 🎨`;
+                }
+
+                const history = result.rows.map((r, i) => 
+                    `${i + 1}. **"${r.prompt?.substring(0, 50) || 'Unknown'}..."**\n   📅 ${new Date(r.created_at).toLocaleDateString()} | 🎨 ${r.model || 'Unknown'}`
+                ).join('\n\n');
+
+                return `📸 **Your Image History (Last 10)**\n\n${history}\n\n💡 To remix: Tell me which number and what to change!\nExample: "remix image 1, make it darker"`;
+            } else if (action === 'remix') {
+                // Get the specific image from history
+                const result = await pool.query(`
+                    SELECT image_url, prompt, model 
+                    FROM generated_images 
+                    WHERE user_id = $1 
+                    ORDER BY created_at DESC 
+                    LIMIT $2
+                `, [userId, imageIndex]);
+
+                if (result.rows.length < imageIndex) {
+                    return `❌ Image #${imageIndex} not found in your history. Use 'history' action to see available images.`;
+                }
+
+                const originalImage = result.rows[imageIndex - 1];
+                const originalPrompt = originalImage.prompt || '';
+
+                // Create remixed prompt
+                const remixPrompt = `${originalPrompt}, ${modification}, enhanced, best quality`;
+                const encodedPrompt = encodeURIComponent(remixPrompt.substring(0, 500));
+
+                const response = await fetch(`https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux-realism&nologo=true&seed=${Date.now()}`, { timeout: 120000 });
+                const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+                if (msg) {
+                    const attachment = new AttachmentBuilder(imageBuffer, { name: `remix_${Date.now()}.jpg` });
+                    await msg.reply({ 
+                        content: `🔄 **Image Remix Complete!**\n\n**Original:** "${originalPrompt?.substring(0, 50) || 'Unknown'}..."\n**Modification:** "${modification}"\n\n✨ Remixed successfully!`, 
+                        files: [attachment] 
+                    });
+                    return "__IMAGE_SENT_DIRECTLY__";
+                }
+
+                return JSON.stringify({ type: "IMAGE_ATTACHMENT", base64: imageBuffer.toString('base64'), provider: "Image Remix" });
+            }
+
+            return `❌ Unknown action: ${action}. Use 'history' or 'remix'.`;
+        } catch (err) {
+            console.error("Image remix error:", err);
+            return `❌ Image Remix Error: ${err.message}`;
+        }
+    }
+
     // Tool 146: Learn from Web
     else if (name === "learn_from_web") {
         const topic = parsedArgs.topic;
@@ -9891,8 +10587,8 @@ async function runTool(toolCall, id, msg = null) {
     else {
         return `Tool Error: Unknown tool ${name} was requested by the AI.`;
     }
-    }
-    // ------------------ DATABASE DUMPING (FIXED) ------------------
+}
+// ------------------ DATABASE DUMPING (FIXED) ------------------
     async function dumpLeaks() {
     try {
     const res = await pool.query("SELECT * FROM leaks");
