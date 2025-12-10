@@ -18,12 +18,12 @@ import { search as ddgSearch } from "duck-duck-scrape";
 // ------------------ ROBUST JSON PARSER (v6.5.1) ------------------
 function robustJsonParse(rawResponse) {
   if (!rawResponse || typeof rawResponse !== 'string') return null;
-  
+
   // Method 1: Direct parse (cleanest response)
   try {
     return JSON.parse(rawResponse);
   } catch (e) {}
-  
+
   // Method 2: Extract from markdown code block ```json ... ```
   const codeBlockMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
@@ -31,7 +31,7 @@ function robustJsonParse(rawResponse) {
       return JSON.parse(codeBlockMatch[1].trim());
     } catch (e) {}
   }
-  
+
   // Method 3: Find first complete JSON object { ... }
   const jsonObjMatch = rawResponse.match(/\{[\s\S]*\}/);
   if (jsonObjMatch) {
@@ -39,7 +39,7 @@ function robustJsonParse(rawResponse) {
       return JSON.parse(jsonObjMatch[0]);
     } catch (e) {}
   }
-  
+
   // Method 4: Find JSON array [ ... ]
   const jsonArrMatch = rawResponse.match(/\[[\s\S]*\]/);
   if (jsonArrMatch) {
@@ -47,7 +47,7 @@ function robustJsonParse(rawResponse) {
       return JSON.parse(jsonArrMatch[0]);
     } catch (e) {}
   }
-  
+
   // Method 5: Clean common issues (trailing commas, unquoted keys)
   try {
     const cleaned = rawResponse
@@ -57,7 +57,7 @@ function robustJsonParse(rawResponse) {
     const match = cleaned.match(/\{[\s\S]*\}/);
     if (match) return JSON.parse(match[0]);
   } catch (e) {}
-  
+
   return null;
 }
 
@@ -6842,6 +6842,23 @@ async function runTool(toolCall, id, msg = null) {
                 actualPrompt = parsedArgs.prompt || 'random image';
             }
 
+            // 🔒 NSFW CONTENT FILTER (Bypassed for Developer/Tester only)
+            const isDeveloper = id === DEVELOPER_ID;
+            if (!isDeveloper) {
+                const nsfwKeywords = /\b(nude|naked|nsfw|porn|xxx|hentai|sex|erotic|lewd|explicit|r18|r-18|18\+|adult.?only|uncensored|nipple|genital|boob|breast|ass|butt|penis|vagina|dick|cock|pussy|strip|undress|lingerie|bikini.?(off|remove)|topless|bottomless|orgasm|cum|semen|bdsm|fetish|kinky|slutty|whore|horny|seduc|provocative|sensual|intimate|foreplay|masturbat|onlyfans|playboy|playmate|centerfold)\b/i;
+                const promptLower = actualPrompt.toLowerCase();
+                
+                if (nsfwKeywords.test(promptLower)) {
+                    console.log(`🚫 [NSFW BLOCKED] User ${id} attempted: "${actualPrompt.substring(0, 50)}..."`);
+                    if (msg) {
+                        await msg.reply({ content: "🚫 **NSFW Content Blocked**\n\nYeh prompt allowed nahi hai. Please appropriate content request karo.\n\n*If you think this is a mistake, contact the developer.*" });
+                    }
+                    return "__IMAGE_BLOCKED_NSFW__";
+                }
+            } else {
+                console.log(`👑 [DEV MODE] NSFW filter bypassed for developer`);
+            }
+
             // 🧠 SMART PROMPT ENHANCEMENT - Developer in DM = no enhance, everyone else = enhance
             const isDM = msg?.channel?.type === 1;
             const enhanceResult = await enhanceImagePrompt(actualPrompt, id, isDM);
@@ -9285,6 +9302,23 @@ async function runTool(toolCall, id, msg = null) {
             // Preserve original prompt for transparency
             const originalPrompt = prompt;
             console.log(`🎨 [KONTEXT] USER PROMPT: "${originalPrompt}"`);
+
+            // 🔒 NSFW CONTENT FILTER (Bypassed for Developer/Tester only)
+            const isDeveloper = id === DEVELOPER_ID;
+            if (!isDeveloper) {
+                const nsfwKeywords = /\b(nude|naked|nsfw|porn|xxx|hentai|sex|erotic|lewd|explicit|r18|r-18|18\+|adult.?only|uncensored|nipple|genital|boob|breast|ass|butt|penis|vagina|dick|cock|pussy|strip|undress|lingerie|bikini.?(off|remove)|topless|bottomless|orgasm|cum|semen|bdsm|fetish|kinky|slutty|whore|horny|seduc|provocative|sensual|intimate|foreplay|masturbat|onlyfans|playboy|playmate|centerfold)\b/i;
+                const promptLower = prompt.toLowerCase();
+                
+                if (nsfwKeywords.test(promptLower)) {
+                    console.log(`🚫 [NSFW BLOCKED] User ${id} attempted: "${prompt.substring(0, 50)}..."`);
+                    if (msg) {
+                        await msg.reply({ content: "🚫 **NSFW Content Blocked**\n\nYeh prompt allowed nahi hai. Please appropriate content request karo.\n\n*If you think this is a mistake, contact the developer.*" });
+                    }
+                    return "__IMAGE_BLOCKED_NSFW__";
+                }
+            } else {
+                console.log(`👑 [DEV MODE] NSFW filter bypassed for developer`);
+            }
 
             // 🧠 SMART PROMPT ENHANCEMENT - Developer in DM = no enhance, everyone else = enhance
             const isDM = msg?.channel?.type === 1;
