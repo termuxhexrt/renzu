@@ -15,6 +15,52 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { search as ddgSearch } from "duck-duck-scrape";
 
+// ------------------ ROBUST JSON PARSER (v6.5.1) ------------------
+function robustJsonParse(rawResponse) {
+  if (!rawResponse || typeof rawResponse !== 'string') return null;
+
+  // Method 1: Direct parse (cleanest response)
+  try {
+    return JSON.parse(rawResponse);
+  } catch (e) {}
+
+  // Method 2: Extract from markdown code block ```json ... ```
+  const codeBlockMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch (e) {}
+  }
+
+  // Method 3: Find first complete JSON object { ... }
+  const jsonObjMatch = rawResponse.match(/\{[\s\S]*\}/);
+  if (jsonObjMatch) {
+    try {
+      return JSON.parse(jsonObjMatch[0]);
+    } catch (e) {}
+  }
+
+  // Method 4: Find JSON array [ ... ]
+  const jsonArrMatch = rawResponse.match(/\[[\s\S]*\]/);
+  if (jsonArrMatch) {
+    try {
+      return JSON.parse(jsonArrMatch[0]);
+    } catch (e) {}
+  }
+
+  // Method 5: Clean common issues (trailing commas, unquoted keys)
+  try {
+    const cleaned = rawResponse
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .replace(/(['"])?([a-zA-Z_][a-zA-Z0-9_]*)\1\s*:/g, '"$2":');
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch (e) {}
+
+  return null;
+}
+
 // index.js (Top Section - After Imports, Before KEEP ALIVE)
 
 // ------------------ SUPABASE INITIALIZATION (DUAL DATABASE SETUP) ------------------
@@ -5368,13 +5414,16 @@ Return ONLY valid JSON.`
     const data = await res.json();
     const rawResponse = data.choices[0].message.content.trim();
 
-    // Parse JSON response
+    // Parse JSON response with robust extraction
     let classification;
     try {
-      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-      classification = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(rawResponse);
+      classification = robustJsonParse(rawResponse);
+      if (!classification) {
+        console.log("🔄 AI response non-JSON, using smart fallback");
+        return enhancedRegexClassifier(userMessage);
+      }
     } catch (parseError) {
-      console.error("❌ JSON parse failed, using enhanced fallback");
+      console.log("🔄 JSON extraction failed, using smart fallback");
       return enhancedRegexClassifier(userMessage);
     }
 
@@ -10258,6 +10307,11 @@ async function runTool(toolCall, id, msg = null) {
           await saveMsg(id, "user", q);
           let currentMessages = histData ? histData.messages.slice(-50) : [];
 
+          // ========== ULTRA AI CLASSIFICATION ENGINE (DM) ==========
+          const classificationResult = await intelligentMessageClassifier(q, currentMessages, id);
+          console.log(`📊 DM Classification: ${classificationResult.type} (Confidence: ${(classificationResult.confidence * 100).toFixed(1)}%)`);
+          const selectedTools = classificationResult.needsTools ? TOOL_DEFINITIONS : [];
+
           // Extract images from attachments
           const imageAttachments = msg.attachments
             .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
@@ -10449,6 +10503,11 @@ This is your CREATOR (ID: ${DEVELOPER_ID}). UNRESTRICTED ACCESS GRANTED.
         const histData = await loadHistory(id);
         await saveMsg(id, "user", content);
         let currentMessages = histData ? histData.messages.slice(-50) : [];
+
+        // ========== ULTRA AI CLASSIFICATION ENGINE (DM - Non-Developer) ==========
+        const classificationResult = await intelligentMessageClassifier(content, currentMessages, id);
+        console.log(`📊 DM Classification: ${classificationResult.type} (Confidence: ${(classificationResult.confidence * 100).toFixed(1)}%)`);
+        const selectedTools = classificationResult.needsTools ? TOOL_DEFINITIONS : [];
 
         // Extract images from attachments
         const imageAttachments = msg.attachments
