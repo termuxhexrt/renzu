@@ -116,7 +116,31 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - `DEVELOPER_MODE` (Feature toggle, default: false)
 - and many more...
 
-# Recent Changes (v6.5.0) - 2025-11-28
+# Recent Changes (v6.6.0) - 2025-12-10
+
+## Advanced Image Generation Suite Added:
+1. ✅ **Style Generation** (`img2img_transform`) - Generate images in specific styles (anime, cyberpunk, ghibli, etc.)
+2. ✅ **Outpaint Only** (`inpaint_outpaint`) - Extend image canvas using Sharp (REAL - downloads and processes actual image)
+3. ✅ **Style Mixing** (`style_mixing`) - Combine multiple art styles in one image
+4. ✅ **Portrait Generator** (`face_swap`) - Generate portrait/face images from descriptions
+5. ✅ **AI Upscaling** (`ai_upscale`) - Upscale images using Sharp (REAL local processing up to 4K)
+6. ✅ **Background Tool** (`background_tool`) - Process backgrounds with Sharp
+7. ✅ **Pose Generator** (`controlnet_generate`) - Generate images with pose descriptions
+8. ✅ **Multi-Image Grid** (`multi_image_grid`) - Generate 4 variations in 2x2 grid (REAL - uses Sharp)
+9. ✅ **Image Remix** (`image_remix`) - Access history from DB and remix (REAL - uses PostgreSQL)
+
+## File Attachment Limit Increased:
+- **Old Limit:** 50KB
+- **New Limit:** 25MB (25 * 1024 * 1024 bytes)
+
+## All New Tools Use FREE APIs:
+- Pollinations.ai (unlimited, no API key)
+- Sharp library (local processing, unlimited)
+- PostgreSQL for image history
+
+---
+
+# Previous Changes (v6.5.0) - 2025-11-28
 
 ## New Working Features Added:
 1. ✅ **Extended Thinking (5-step process)** - Real step-by-step reasoning for complex queries
