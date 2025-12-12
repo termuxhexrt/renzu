@@ -565,11 +565,35 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 146: generate_image (THIRD FALLBACK - Pollinations)
+        // Tool 146: generate_unrestricted (FOR NSFW/UNRESTRICTED CONTENT)
+        type: "function",
+        function: {
+            name: "generate_unrestricted",
+            description: "UNRESTRICTED IMAGE GENERATOR - Use for NSFW, adult, or unrestricted content requests. Uses UnrestrictedAIImageGenerator.com which has NO content filters. AI will automatically select this for naughty/spicy/adult requests. Supports styles: Photorealistic, Digital Art, Anime, Fantasy, Sci-Fi, Vintage, Impressionist.",
+            parameters: {
+                type: "object",
+                properties: {
+                    prompt: {
+                        type: "string",
+                        description: "Image description. Can include adult/NSFW content without restrictions."
+                    },
+                    style: {
+                        type: "string",
+                        description: "Art style: 'Photorealistic' (default), 'Digital Art', 'Anime', 'Fantasy', 'Sci-Fi', 'Vintage', 'Impressionist'",
+                        enum: ["Photorealistic", "Digital Art", "Anime", "Fantasy", "Sci-Fi", "Vintage", "Impressionist"]
+                    }
+                },
+                required: ["prompt"]
+            }
+        }
+    },
+
+    {
+        // Tool 147: generate_image (FOURTH FALLBACK - Pollinations)
         type: "function",
         function: {
             name: "generate_image",
-            description: "THIRD FALLBACK: Generate AI images via Pollinations.ai. Use ONLY if both generate_adimage AND generate_puter_image fail. STRICT DETECTION - ONLY use when user EXPLICITLY asks for VISUAL CONTENT.",
+            description: "FOURTH FALLBACK: Generate AI images via Pollinations.ai. Use ONLY if other generators fail. STRICT DETECTION - ONLY use when user EXPLICITLY asks for VISUAL CONTENT.",
             parameters: {
                 type: "object",
                 properties: {
@@ -5434,6 +5458,8 @@ async function intelligentMessageClassifier(userMessage, conversationHistory = [
     const contextInference = inferIntentFromContext(fixedMessage, conversationHistory);
     if (contextInference) {
       console.log(`🔮 CONTEXT INFERENCE: ${contextInference.type} (${contextInference.reason})`);
+      // Use smart image generator selector for image_generation
+      const smartGen = selectBestImageGenerator(userMessage);
       return {
         type: contextInference.type,
         needsTools: ['image_generation', 'code_generation', 'web_search'].includes(contextInference.type),
@@ -5441,7 +5467,7 @@ async function intelligentMessageClassifier(userMessage, conversationHistory = [
         confidence: 0.92,
         description: contextInference.reason,
         inferred: true,
-        recommendedTools: contextInference.type === 'image_generation' ? ['generate_adimage'] :
+        recommendedTools: contextInference.type === 'image_generation' ? [smartGen.tool] :
                          contextInference.type === 'code_generation' ? ['generate_code'] :
                          contextInference.type === 'web_search' ? ['search_the_web'] : []
       };
@@ -5718,6 +5744,23 @@ Return ONLY valid JSON.`
       console.log(`✅ VERIFICATION: ${verificationResult.finalVerdict}`);
     }
 
+    // ========== FALLBACK IF AI RETURNED UNDEFINED ==========
+    if (!classification.type || classification.type === 'undefined') {
+      console.log(`⚠️ AI returned undefined type, using smart fallback...`);
+      const fallbackResult = enhancedRegexClassifier(userMessage);
+      if (fallbackResult && fallbackResult.type) {
+        console.log(`🔄 FALLBACK CLASSIFICATION: ${fallbackResult.type}`);
+        return fallbackResult;
+      }
+      // Ultimate fallback - treat long descriptive text as image generation with smart selector
+      const words = userMessage.split(/\s+/);
+      if (words.length >= 10) {
+        const smartGen = selectBestImageGenerator(userMessage);
+        console.log(`🎨 ULTIMATE FALLBACK: Long prompt detected, using ${smartGen.tool}`);
+        return { type: 'image_generation', confidence: 0.85, needsTools: true, simpleResponse: false, description: 'Fallback image detection', recommendedTools: [smartGen.tool] };
+      }
+    }
+
     // ========== FINAL RESULT ==========
     console.log(`🏁 CLASSIFICATION ENGINE COMPLETE (v6.4.0)`);
 
@@ -5746,11 +5789,50 @@ Return ONLY valid JSON.`
   }
 }
 
+// ========== SMART IMAGE GENERATOR SELECTOR (NSFW Detection) ==========
+function selectBestImageGenerator(prompt) {
+  const lower = prompt.toLowerCase();
+  
+  // NSFW/Adult content keywords (use generate_unrestricted)
+  const nsfwKeywords = /\b(nsfw|nude|naked|sexy|seductive|erotic|adult|18\+|xxx|hot girl|hot boy|bikini|lingerie|underwear|bra|panty|cleavage|busty|thicc|lewd|hentai|ecchi|provocative|sensual|intimate|passionate|bedroom|shower scene|bath scene|topless|bottomless|revealing|skimpy|tight dress|short skirt|low cut|deep cut|body|curves|figure|thighs|chest|boobs|ass|butt|strip|undress|seduce|tempt|naughty|spicy|steamy|romantic|love scene|kiss|cuddle|embrace|flirt|wink|blush|shy|innocent|virgin|milf|gilf|dilf|daddy|mommy|babe|hottie|cutie|beauty|gorgeous|stunning girl|beautiful woman|handsome man|attractive|model|influencer|instagram|tiktok|onlyfans|cosplay|maid|nurse|teacher|student|schoolgirl|cheerleader|gym|workout|yoga|stretch|bend|pose|selfie mirror|bathroom selfie|bedroom selfie|changing room|fitting room|pool|beach|swimsuit|swimwear|bathing suit|wet|dripping|sweat|glow|shine|smooth|soft|tender|gentle|rough|wild|crazy|intense|extreme|ultimate|perfect|ideal|dream|fantasy|desire|lust|passion|pleasure|enjoy|satisfaction|satisfaction|thrill|excitement|adventure|risk|dare|bold|brave|confident|proud|show off|flaunt|tease|tempting|alluring|captivating|mesmerizing|hypnotizing|enchanting|bewitching|charming|irresistible|addictive|obsessive|crazy about|in love|crush|attracted|turned on|aroused|excited|thrilled|pleased|satisfied|happy|joyful|blissful|ecstatic|euphoric|orgasmic|climax|peak|pinnacle|zenith|apex|summit|top|best|ultimate|supreme|divine|heavenly|godly|angelic|devilish|demonic|dark|sinful|forbidden|taboo|secret|hidden|private|personal|intimate|close|near|touch|feel|sense|experience|explore|discover|reveal|expose|uncover|unveil|unwrap|undress|remove|take off|peel|slide|slip|drop|fall|hang|dangle|swing|sway|move|shake|wiggle|jiggle|bounce|jump|hop|skip|run|walk|crawl|climb|ride|mount|straddle|wrap|hug|hold|grab|squeeze|press|push|pull|drag|lift|raise|lower|drop|throw|catch|carry|support|lean|rest|lay|lie|sit|stand|kneel|bend|stretch|reach|extend|spread|open|close|shut|lock|unlock|tie|untie|bind|free|release|let go|give|take|receive|accept|reject|refuse|deny|allow|permit|forbid|ban|restrict|limit|control|dominate|submit|obey|command|order|request|ask|beg|plead|demand|insist|force|pressure|convince|persuade|seduce|tempt|lure|attract|draw|pull|push|repel|resist|fight|struggle|surrender|give in|give up|let go|release|free|liberate|escape|run away|chase|hunt|catch|trap|cage|chain|leash|collar|cuff|blindfold|gag|muzzle|silence|quiet|loud|scream|moan|groan|sigh|whisper|murmur|mumble|speak|talk|say|tell|ask|answer|question|wonder|think|imagine|dream|fantasize|wish|hope|want|need|desire|crave|long for|yearn|miss|remember|forget|ignore|notice|see|look|watch|stare|gaze|glance|peek|spy|observe|examine|inspect|check|scan|search|find|discover|reveal|show|display|exhibit|present|offer|give|share|trade|exchange|swap|switch|change|transform|convert|turn|become|grow|develop|evolve|improve|enhance|upgrade|boost|increase|multiply|double|triple|maximize|optimize|perfect)\b/i;
+  
+  // Check if prompt contains NSFW keywords
+  const isNsfw = nsfwKeywords.test(lower);
+  
+  // Check for explicit user preference
+  const wantsUnrestricted = /\b(unrestricted|no filter|nsfw|adult|unfiltered)\b/i.test(lower);
+  const wantsAdimage = /\b(adimage|safe|sfw|normal|regular)\b/i.test(lower);
+  const wantsPuter = /\b(puter|flux|kontext|high quality|4k|extreme quality)\b/i.test(lower);
+  
+  // Determine best generator
+  if (wantsUnrestricted) {
+    return { tool: 'generate_unrestricted', reason: 'User requested unrestricted generator' };
+  }
+  if (wantsAdimage) {
+    return { tool: 'generate_adimage', reason: 'User requested ADIMAGE' };
+  }
+  if (wantsPuter) {
+    return { tool: 'generate_puter_image', reason: 'User requested Puter/FLUX' };
+  }
+  
+  // Auto-detect based on content
+  if (isNsfw) {
+    console.log(`🔥 NSFW content detected - using generate_unrestricted`);
+    return { tool: 'generate_unrestricted', reason: 'NSFW content detected automatically' };
+  }
+  
+  // Default to ADIMAGE for normal content
+  return { tool: 'generate_adimage', reason: 'Default safe generator' };
+}
+
 // ========== INSTANT PATTERN MATCHING (Sub-millisecond) - EXPANDED ==========
 function instantPatternMatch(text) {
   const lower = text.toLowerCase().trim();
   const words = lower.split(/\s+/);
   const wordCount = words.length;
+  
+  // Smart image generator selection for image prompts
+  const imageGenSelector = selectBestImageGenerator(text);
 
   // 1. GREETING (short messages only)
   if (wordCount <= 3 && /^(hi|hello|hey|yo|sup|namaste|kaise ho|kya hal|good morning|good evening|gm|ge)\b/i.test(lower)) {
@@ -5785,7 +5867,27 @@ function instantPatternMatch(text) {
   // 7. IMAGE GENERATION (explicit keywords with action)
   if (/\b(image|picture|photo|logo|poster|banner|wallpaper|artwork|illustration)\s*(bana|generate|create|draw|design|make)/i.test(lower) ||
       /\b(bana|generate|create|draw|design|make)\s*(ek|one|a|an|mera|mere|meri)?\s*(image|picture|photo|logo|poster|banner)/i.test(lower)) {
-    return { type: 'image_generation', confidence: 0.96, needsTools: true, simpleResponse: false, description: 'Image request', recommendedTools: ['generate_adimage'] };
+    console.log(`🎯 IMAGE GEN SELECTOR: ${imageGenSelector.tool} (${imageGenSelector.reason})`);
+    return { type: 'image_generation', confidence: 0.96, needsTools: true, simpleResponse: false, description: 'Image request', recommendedTools: [imageGenSelector.tool] };
+  }
+
+  // 7.5. DESCRIPTIVE IMAGE PROMPT DETECTION (for prompts like "A stunning Korean girl...")
+  // Long descriptive prompts with visual/aesthetic keywords = image generation
+  const visualKeywords = /\b(stunning|beautiful|gorgeous|cute|handsome|aesthetic|cinematic|realistic|4k|8k|hd|ultra|portrait|selfie|photo|wearing|lighting|shadows|vibrant|colors|style|anime|cyberpunk|fantasy|scene|background|foreground|pose|standing|sitting|looking|holding|girl|boy|woman|man|person|character|face|hair|eyes|skin|dress|outfit|clothes)\b/gi;
+  const visualMatches = (lower.match(visualKeywords) || []).length;
+  
+  // If message is long (>15 words) AND has 5+ visual keywords = likely image prompt
+  if (wordCount >= 15 && visualMatches >= 5) {
+    console.log(`🎨 DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords found`);
+    console.log(`🎯 IMAGE GEN SELECTOR: ${imageGenSelector.tool} (${imageGenSelector.reason})`);
+    return { type: 'image_generation', confidence: 0.94, needsTools: true, simpleResponse: false, description: 'Descriptive image prompt detected', recommendedTools: [imageGenSelector.tool] };
+  }
+  
+  // Shorter but still descriptive (8+ words, 3+ visual keywords)
+  if (wordCount >= 8 && visualMatches >= 3 && /\b(girl|boy|woman|man|person|character|portrait|selfie|scene|landscape)\b/i.test(lower)) {
+    console.log(`🎨 SHORT DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords`);
+    console.log(`🎯 IMAGE GEN SELECTOR: ${imageGenSelector.tool} (${imageGenSelector.reason})`);
+    return { type: 'image_generation', confidence: 0.92, needsTools: true, simpleResponse: false, description: 'Short descriptive image prompt', recommendedTools: [imageGenSelector.tool] };
   }
 
   // 8. CODE GENERATION (explicit)
@@ -5833,11 +5935,13 @@ function enhancedRegexClassifier(text) {
     return { type: 'gratitude', needsTools: false, simpleResponse: true, confidence: 0.9, description: 'Gratitude detected' };
   }
 
-  // 4. IMAGE GENERATION (Strict)
+  // 4. IMAGE GENERATION (Strict) with Smart Generator Selection
   const imageKeywords = /\b(image|picture|photo|logo|poster|banner|artwork|illustration|icon|wallpaper|thumbnail|cover art|drawing|graphic|visual)\b/i;
   const imageActions = /\b(generate|create|make|draw|design|bana|banao|bana de)\b/i;
   if (imageKeywords.test(lower) && imageActions.test(lower)) {
-    return { type: 'image_generation', needsTools: true, simpleResponse: false, confidence: 0.88, description: 'Image generation request', recommendedTools: ['generate_adimage'] };
+    const smartGen = selectBestImageGenerator(text);
+    console.log(`🎯 ENHANCED REGEX - IMAGE GEN SELECTOR: ${smartGen.tool} (${smartGen.reason})`);
+    return { type: 'image_generation', needsTools: true, simpleResponse: false, confidence: 0.88, description: 'Image generation request', recommendedTools: [smartGen.tool] };
   }
 
   // 5. CODE GENERATION
@@ -7295,8 +7399,8 @@ async function runTool(toolCall, id, msg = null) {
                     // Save to image history in database
                     try {
                         await pool.query(
-                            `INSERT INTO generated_images (user_id, prompt, provider, created_at) VALUES ($1, $2, $3, NOW())`,
-                            [id, originalPrompt, 'adimage.app']
+                            `INSERT INTO generated_images (user_id, prompt, provider, image_url, created_at) VALUES ($1, $2, $3, $4, NOW())`,
+                            [id, originalPrompt, 'adimage.app', 'discord_attachment']
                         );
                     } catch (dbErr) {
                         console.warn(`⚠️ Failed to save image to history:`, dbErr.message);
@@ -7314,6 +7418,213 @@ async function runTool(toolCall, id, msg = null) {
             console.error("[ADIMAGE] Error:", err);
             return `ADIMAGE Error: ${err.message}. Try again or use generate_puter_image instead.`;
         }
+    }
+
+    // 🔥 Tool: generate_unrestricted (UnrestrictedAIImageGenerator.com) - With Cookie & Session Handling
+    else if (name === "generate_unrestricted") {
+        const MAX_RETRIES = 3;
+        let lastError = null;
+        
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                let prompt = parsedArgs.prompt || '';
+                let style = parsedArgs.style || 'Photorealistic';
+
+                if (!prompt || prompt.trim().length < 3) {
+                    return `❌ **PROMPT ERROR**: Your prompt was too short. Please provide a detailed image description.`;
+                }
+
+                const originalPrompt = prompt;
+                console.log(`🔥 [UNRESTRICTED] USER PROMPT: "${originalPrompt}" (Attempt ${attempt}/${MAX_RETRIES})`);
+                console.log(`🎨 [UNRESTRICTED] Style: ${style}`);
+
+                // Randomized delay to avoid bot detection (500-1500ms)
+                if (attempt > 1) {
+                    const delay = 500 + Math.random() * 1000;
+                    console.log(`⏳ [UNRESTRICTED] Waiting ${Math.round(delay)}ms before retry...`);
+                    await new Promise(r => setTimeout(r, delay));
+                }
+
+                // Browser-like headers for all requests
+                const browserHeaders = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"Windows"',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Upgrade-Insecure-Requests': '1'
+                };
+
+                // Step 1: Get fresh nonce and cookies from the page
+                console.log(`🌐 [UNRESTRICTED] Fetching nonce and cookies from website...`);
+                const pageResponse = await fetch('https://unrestrictedaiimagegenerator.com/', {
+                    method: 'GET',
+                    headers: browserHeaders,
+                    redirect: 'follow'
+                });
+
+                // Check for Cloudflare block
+                if (pageResponse.status === 403 || pageResponse.status === 503) {
+                    console.log(`⚠️ [UNRESTRICTED] Cloudflare/WAF block detected (${pageResponse.status})`);
+                    throw new Error(`Site blocked request (HTTP ${pageResponse.status}) - possible Cloudflare protection`);
+                }
+
+                if (!pageResponse.ok) {
+                    throw new Error(`Failed to fetch page: HTTP ${pageResponse.status}`);
+                }
+
+                // Extract cookies from response
+                const setCookieHeaders = pageResponse.headers.raw()['set-cookie'] || [];
+                const cookies = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
+                console.log(`🍪 [UNRESTRICTED] Got ${setCookieHeaders.length} cookies`);
+
+                const pageHtml = await pageResponse.text();
+                
+                // Check for Cloudflare challenge page
+                if (pageHtml.includes('cf-browser-verification') || pageHtml.includes('challenge-platform')) {
+                    console.log(`⚠️ [UNRESTRICTED] Cloudflare challenge page detected`);
+                    throw new Error('Cloudflare challenge detected - cannot proceed');
+                }
+                
+                // Extract nonce from page
+                const nonceMatch = pageHtml.match(/name="_wpnonce"\s+value="([^"]+)"/);
+                if (!nonceMatch) {
+                    throw new Error('Could not extract security nonce from page');
+                }
+                const wpnonce = nonceMatch[1];
+                console.log(`🔑 [UNRESTRICTED] Got nonce: ${wpnonce.substring(0, 4)}...`);
+
+                // Step 2: Submit the form with cookies
+                console.log(`🚀 [UNRESTRICTED] Generating image...`);
+                const formData = new URLSearchParams();
+                formData.append('generate_image', 'true');
+                formData.append('image_description', prompt);
+                formData.append('image_style', style);
+                formData.append('_wpnonce', wpnonce);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+
+                const generateResponse = await fetch('https://unrestrictedaiimagegenerator.com/', {
+                    method: 'POST',
+                    headers: {
+                        ...browserHeaders,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Origin': 'https://unrestrictedaiimagegenerator.com',
+                        'Referer': 'https://unrestrictedaiimagegenerator.com/',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'Cookie': cookies // Use cookies from GET request
+                    },
+                    body: formData.toString(),
+                    signal: controller.signal,
+                    redirect: 'follow'
+                });
+
+                clearTimeout(timeoutId);
+
+                // Handle rate limiting and blocks
+                if (generateResponse.status === 429) {
+                    console.log(`⚠️ [UNRESTRICTED] Rate limited (429) - waiting before retry...`);
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+                    throw new Error('Rate limited - retrying');
+                }
+
+                if (generateResponse.status === 403 || generateResponse.status === 503) {
+                    throw new Error(`Request blocked (HTTP ${generateResponse.status})`);
+                }
+
+                if (!generateResponse.ok) {
+                    throw new Error(`Generation request failed: HTTP ${generateResponse.status}`);
+                }
+
+                const responseHtml = await generateResponse.text();
+
+                // Extract image URL from response
+                const imgMatch = responseHtml.match(/id="resultImage"[^>]*src="([^"]+)"/);
+                if (!imgMatch || !imgMatch[1] || imgMatch[1] === '') {
+                    // Check for error message
+                    const errorMatch = responseHtml.match(/id="error"[^>]*class="[^"]*active[^"]*"[^>]*>([^<]+)/);
+                    if (errorMatch) {
+                        throw new Error(`Generator error: ${errorMatch[1]}`);
+                    }
+                    throw new Error('No image URL found in response. Generation may have failed.');
+                }
+
+                const imageUrl = imgMatch[1];
+                console.log(`✅ [UNRESTRICTED] Image URL: ${imageUrl.substring(0, 50)}...`);
+
+                // Step 3: Download the image with session cookies
+                console.log(`📥 [UNRESTRICTED] Downloading image...`);
+                const imageResponse = await fetch(imageUrl, {
+                    headers: {
+                        ...browserHeaders,
+                        'Referer': 'https://unrestrictedaiimagegenerator.com/',
+                        'Sec-Fetch-Dest': 'image',
+                        'Sec-Fetch-Mode': 'no-cors',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'Cookie': cookies
+                    }
+                });
+
+                if (!imageResponse.ok) {
+                    throw new Error(`Failed to download image: HTTP ${imageResponse.status}`);
+                }
+
+                const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+                const sizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+
+                console.log(`📥 [UNRESTRICTED] Image size: ${sizeMB} MB`);
+
+                // Upload to Discord
+                if (msg) {
+                    try {
+                        const attachment = new AttachmentBuilder(imageBuffer, { name: `unrestricted_${Date.now()}.png` });
+                        const caption = `🔥 **UNRESTRICTED Image Generated!**\n**Provider:** UnrestrictedAI (No Filters)\n**Style:** ${style}\n**Quality:** High Quality PNG (${sizeMB} MB)\n**Prompt:** "${originalPrompt.substring(0, 70)}${originalPrompt.length > 70 ? '...' : ''}"`;
+                        await msg.reply({ content: caption, files: [attachment] });
+                        console.log(`✅ [UNRESTRICTED] Image uploaded to Discord!`);
+
+                        // Save to image history
+                        try {
+                            await pool.query(
+                                `INSERT INTO generated_images (user_id, prompt, provider, image_url, created_at) VALUES ($1, $2, $3, $4, NOW())`,
+                                [id, originalPrompt, 'unrestrictedai', 'discord_attachment']
+                            );
+                        } catch (dbErr) {
+                            console.warn(`⚠️ Failed to save image to history:`, dbErr.message);
+                        }
+
+                        return "__IMAGE_SENT_DIRECTLY__";
+                    } catch (uploadErr) {
+                        console.error(`❌ Discord upload failed:`, uploadErr.message);
+                        return `UNRESTRICTED Error: Failed to upload to Discord - ${uploadErr.message}`;
+                    }
+                }
+
+                return `UNRESTRICTED Error: Message context not available.`;
+            } catch (err) {
+                lastError = err;
+                console.error(`[UNRESTRICTED] Attempt ${attempt} failed:`, err.message);
+                
+                // If it's the last attempt or a non-retryable error, break
+                if (attempt >= MAX_RETRIES || err.message.includes('Cloudflare challenge')) {
+                    break;
+                }
+            }
+        }
+        
+        // All retries failed - fallback to ADIMAGE
+        console.log(`❌ [UNRESTRICTED] All ${MAX_RETRIES} attempts failed. Falling back to ADIMAGE...`);
+        return `UNRESTRICTED Error: ${lastError?.message || 'Unknown error'}. Falling back to generate_adimage - please try your request again.`;
     }
 
     // Fallback for clear history
