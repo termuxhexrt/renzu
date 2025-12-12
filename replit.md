@@ -73,9 +73,10 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - Developer Recognition System
 - Conversation Flow with auto-compression
 
-## Image Generation System
-- **Primary**: Puter.js with KONTEXT Models (e.g., `FLUX.1-kontext-max`, `google/imagen-4.0-fast`, `dall-e-3`, `stable-diffusion-3-medium`) for high-quality, complex realistic images up to 1920x1080 resolution.
-- **Fallback**: Pollinations.ai for maximum 2048x2048 resolution with smart style detection, auto-enhancement prompts, negative prompts for defect removal, and fusion mode.
+## Image Generation System (v6.8.0 - Updated Priority)
+- **PRIMARY**: ADIMAGE.APP (Imagen 3.0) - Fast, FREE, unlimited generations. High quality PNG with direct Discord upload. NO API key required.
+- **SECONDARY**: Puter.js with KONTEXT Models (e.g., `FLUX.1-kontext-max`, `dall-e-3`) - Use if ADIMAGE fails or user specifically requests.
+- **THIRD FALLBACK**: Pollinations.ai - Last resort option.
 - **Safety Features**: Includes timeout handling, URL length safety (prompt truncation), graceful degradation, and `AbortController` for request cancellation.
 
 ## Data Persistence (DUAL DATABASE ARCHITECTURE + SKILL LEARNING)
@@ -98,9 +99,9 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - **Wikipedia**: Fallback for web search when DuckDuckGo is rate-limited or fails.
 
 ## Image Generation
-- **Puter.js (black-forest-labs/FLUX.1-kontext)**: Primary image generation API.
-- **ADIMAGE.APP (Imagen 3.0)**: Secondary image generation API - FREE, unlimited, high quality.
-- **Pollinations.ai**: Fallback image generation API.
+- **ADIMAGE.APP (Imagen 3.0)**: PRIMARY image generation API - FREE, unlimited, high quality.
+- **Puter.js (black-forest-labs/FLUX.1-kontext)**: Secondary image generation API.
+- **Pollinations.ai**: Third fallback image generation API.
 
 ## API Keys / Services (Conditional)
 - **SerpAPI**: For specific web search and CVE lookups.
@@ -117,7 +118,18 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - `DEVELOPER_MODE` (Feature toggle, default: false)
 - and many more...
 
-# Recent Changes (v6.7.0) - 2025-12-12
+# Recent Changes (v6.8.0) - 2025-12-12
+
+## Image Generation Priority Fixed:
+- ✅ **ADIMAGE is now PRIMARY** - No need to say "adimage se" anymore
+- ✅ **Tool Priority:** ADIMAGE → Puter.js → Pollinations
+- ✅ **Fixed fake text responses** - Bot now actually calls tools instead of just describing images
+- ✅ **CRITICAL TOOL USAGE RULES** added to ALL system prompts
+- ✅ **Direct tool call** for image_generation now uses generate_adimage
+
+---
+
+# Previous Changes (v6.7.0) - 2025-12-12
 
 ## ADIMAGE.APP Integration Added:
 - ✅ **New Tool:** `generate_adimage` - Uses ADIMAGE.APP API (Imagen 3.0)
