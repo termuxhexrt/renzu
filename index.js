@@ -564,6 +564,24 @@ const TOOL_DEFINITIONS = [
         }
     },
 
+    {
+        // Tool 145: generate_adimage (ADIMAGE.APP - SECONDARY OPTION)
+        type: "function",
+        function: {
+            name: "generate_adimage",
+            description: "Generate images using ADIMAGE.APP API (Imagen 3.0). Use as secondary option after generate_puter_image. Fast, free, unlimited generations. Returns high quality images. Use when user mentions 'adimage', 'imagen', or as alternative image generator.",
+            parameters: {
+                type: "object",
+                properties: {
+                    prompt: {
+                        type: "string",
+                        description: "Image description. Be descriptive for best results."
+                    }
+                },
+                required: ["prompt"]
+            }
+        }
+    },
 
     {
         // Tool 3: generate_code (ENHANCED AUTO-DETECTION)
@@ -4985,7 +5003,7 @@ async function intelligentToolOrchestrator(userMessage, classification) {
   const toolCategories = {
     image_generation: {
       triggers: /\b(image|picture|photo|logo|poster|banner|wallpaper|draw|artwork|generate.*image|bana.*image|photo.*bana)\b/i,
-      tools: ['generate_puter_image', 'generate_pollinations_image'],
+      tools: ['generate_puter_image', 'generate_adimage', 'generate_pollinations_image'],
       priority: 'high'
     },
     code_generation: {
@@ -7187,6 +7205,109 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
+    // 🎨 Tool 145: ADIMAGE.APP Image Generation (Imagen 3.0)
+    else if (name === "generate_adimage") {
+        try {
+            let prompt = parsedArgs.prompt || '';
+            
+            if (!prompt || prompt.trim().length < 3) {
+                return `❌ **PROMPT ERROR**: Your prompt was too short. Please provide a detailed image description.`;
+            }
+
+            const originalPrompt = prompt;
+            console.log(`🎨 [ADIMAGE] USER PROMPT: "${originalPrompt}"`);
+
+            // 🧠 SMART PROMPT ENHANCEMENT
+            const isDM = msg?.channel?.type === 1;
+            const enhanceResult = await enhanceImagePrompt(prompt, id, isDM);
+            if (enhanceResult.enhanced) {
+                prompt = enhanceResult.prompt;
+                console.log(`🧠 [ADIMAGE ENHANCED] Original: "${originalPrompt}" → Enhanced: "${prompt.substring(0, 80)}..."`);
+            }
+
+            console.log(`🌐 [ADIMAGE] Generating image via adimage.app API...`);
+
+            // Call ADIMAGE.APP API
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+
+            const response = await fetch('https://adimage.app/api/generate-image.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Origin': 'https://adimage.app',
+                    'Referer': 'https://adimage.app/',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"Windows"',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ prompt: prompt }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`ADIMAGE API responded with HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (!data.imageBase64) {
+                throw new Error('No image data received from ADIMAGE API');
+            }
+
+            console.log(`✅ [ADIMAGE] Image received! Processing...`);
+
+            // Convert base64 to buffer
+            const imageBuffer = Buffer.from(data.imageBase64, 'base64');
+            const sizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+
+            console.log(`📥 [ADIMAGE] Image size: ${sizeMB} MB`);
+
+            // Upload to Discord
+            if (msg) {
+                try {
+                    const attachment = new AttachmentBuilder(imageBuffer, { name: `adimage_${Date.now()}.png` });
+                    const caption = `🎨 **ADIMAGE Generated!**\n**Provider:** ADIMAGE.APP (Imagen 3.0)\n**Quality:** High Quality PNG (${sizeMB} MB)\n**Prompt:** "${originalPrompt.substring(0, 70)}${originalPrompt.length > 70 ? '...' : ''}"`;
+                    await msg.reply({ content: caption, files: [attachment] });
+                    console.log(`✅ [ADIMAGE] Image uploaded to Discord!`);
+                    
+                    // Save to image history in database
+                    try {
+                        await pool.query(
+                            `INSERT INTO generated_images (user_id, prompt, provider, created_at) VALUES ($1, $2, $3, NOW())`,
+                            [id, originalPrompt, 'adimage.app']
+                        );
+                    } catch (dbErr) {
+                        console.warn(`⚠️ Failed to save image to history:`, dbErr.message);
+                    }
+                    
+                    return "__IMAGE_SENT_DIRECTLY__";
+                } catch (uploadErr) {
+                    console.error(`❌ Discord upload failed:`, uploadErr.message);
+                    return `ADIMAGE Error: Failed to upload to Discord - ${uploadErr.message}`;
+                }
+            }
+
+            return `ADIMAGE Error: Message context not available.`;
+        } catch (err) {
+            console.error("[ADIMAGE] Error:", err);
+            return `ADIMAGE Error: ${err.message}. Try again or use generate_puter_image instead.`;
+        }
+    }
 
     // Fallback for clear history
     else if (name === "clear_user_history") {
