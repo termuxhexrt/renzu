@@ -99,6 +99,7 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 
 ## Image Generation
 - **Puter.js (black-forest-labs/FLUX.1-kontext)**: Primary image generation API.
+- **ADIMAGE.APP (Imagen 3.0)**: Secondary image generation API - FREE, unlimited, high quality.
 - **Pollinations.ai**: Fallback image generation API.
 
 ## API Keys / Services (Conditional)
@@ -116,7 +117,19 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - `DEVELOPER_MODE` (Feature toggle, default: false)
 - and many more...
 
-# Recent Changes (v6.6.0) - 2025-12-10
+# Recent Changes (v6.7.0) - 2025-12-12
+
+## ADIMAGE.APP Integration Added:
+- ✅ **New Tool:** `generate_adimage` - Uses ADIMAGE.APP API (Imagen 3.0)
+- ✅ **FREE & Unlimited** - No API key required
+- ✅ **High Quality PNG** - Direct Discord upload
+- ✅ **Smart Prompt Enhancement** - AI-powered prompt improvement
+- ✅ **Image History Tracking** - Saves to PostgreSQL database
+- ✅ **Fallback Support** - Can be used if Puter.js fails
+
+---
+
+# Previous Changes (v6.6.0) - 2025-12-10
 
 ## Advanced Image Generation Suite Added:
 1. ✅ **Style Generation** (`img2img_transform`) - Generate images in specific styles (anime, cyberpunk, ghibli, etc.)
