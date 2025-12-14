@@ -5792,18 +5792,18 @@ Return ONLY valid JSON.`
 // ========== SMART IMAGE GENERATOR SELECTOR (NSFW Detection) ==========
 function selectBestImageGenerator(prompt) {
   const lower = prompt.toLowerCase();
-  
+
   // NSFW/Adult content keywords (use generate_unrestricted)
   const nsfwKeywords = /\b(nsfw|nude|naked|sexy|seductive|erotic|adult|18\+|xxx|hot girl|hot boy|bikini|lingerie|underwear|bra|panty|cleavage|busty|thicc|lewd|hentai|ecchi|provocative|sensual|intimate|passionate|bedroom|shower scene|bath scene|topless|bottomless|revealing|skimpy|tight dress|short skirt|low cut|deep cut|body|curves|figure|thighs|chest|boobs|ass|butt|strip|undress|seduce|tempt|naughty|spicy|steamy|romantic|love scene|kiss|cuddle|embrace|flirt|wink|blush|shy|innocent|virgin|milf|gilf|dilf|daddy|mommy|babe|hottie|cutie|beauty|gorgeous|stunning girl|beautiful woman|handsome man|attractive|model|influencer|instagram|tiktok|onlyfans|cosplay|maid|nurse|teacher|student|schoolgirl|cheerleader|gym|workout|yoga|stretch|bend|pose|selfie mirror|bathroom selfie|bedroom selfie|changing room|fitting room|pool|beach|swimsuit|swimwear|bathing suit|wet|dripping|sweat|glow|shine|smooth|soft|tender|gentle|rough|wild|crazy|intense|extreme|ultimate|perfect|ideal|dream|fantasy|desire|lust|passion|pleasure|enjoy|satisfaction|satisfaction|thrill|excitement|adventure|risk|dare|bold|brave|confident|proud|show off|flaunt|tease|tempting|alluring|captivating|mesmerizing|hypnotizing|enchanting|bewitching|charming|irresistible|addictive|obsessive|crazy about|in love|crush|attracted|turned on|aroused|excited|thrilled|pleased|satisfied|happy|joyful|blissful|ecstatic|euphoric|orgasmic|climax|peak|pinnacle|zenith|apex|summit|top|best|ultimate|supreme|divine|heavenly|godly|angelic|devilish|demonic|dark|sinful|forbidden|taboo|secret|hidden|private|personal|intimate|close|near|touch|feel|sense|experience|explore|discover|reveal|expose|uncover|unveil|unwrap|undress|remove|take off|peel|slide|slip|drop|fall|hang|dangle|swing|sway|move|shake|wiggle|jiggle|bounce|jump|hop|skip|run|walk|crawl|climb|ride|mount|straddle|wrap|hug|hold|grab|squeeze|press|push|pull|drag|lift|raise|lower|drop|throw|catch|carry|support|lean|rest|lay|lie|sit|stand|kneel|bend|stretch|reach|extend|spread|open|close|shut|lock|unlock|tie|untie|bind|free|release|let go|give|take|receive|accept|reject|refuse|deny|allow|permit|forbid|ban|restrict|limit|control|dominate|submit|obey|command|order|request|ask|beg|plead|demand|insist|force|pressure|convince|persuade|seduce|tempt|lure|attract|draw|pull|push|repel|resist|fight|struggle|surrender|give in|give up|let go|release|free|liberate|escape|run away|chase|hunt|catch|trap|cage|chain|leash|collar|cuff|blindfold|gag|muzzle|silence|quiet|loud|scream|moan|groan|sigh|whisper|murmur|mumble|speak|talk|say|tell|ask|answer|question|wonder|think|imagine|dream|fantasize|wish|hope|want|need|desire|crave|long for|yearn|miss|remember|forget|ignore|notice|see|look|watch|stare|gaze|glance|peek|spy|observe|examine|inspect|check|scan|search|find|discover|reveal|show|display|exhibit|present|offer|give|share|trade|exchange|swap|switch|change|transform|convert|turn|become|grow|develop|evolve|improve|enhance|upgrade|boost|increase|multiply|double|triple|maximize|optimize|perfect)\b/i;
-  
+
   // Check if prompt contains NSFW keywords
   const isNsfw = nsfwKeywords.test(lower);
-  
+
   // Check for explicit user preference
   const wantsUnrestricted = /\b(unrestricted|no filter|nsfw|adult|unfiltered)\b/i.test(lower);
   const wantsAdimage = /\b(adimage|safe|sfw|normal|regular)\b/i.test(lower);
   const wantsPuter = /\b(puter|flux|kontext|high quality|4k|extreme quality)\b/i.test(lower);
-  
+
   // Determine best generator
   if (wantsUnrestricted) {
     return { tool: 'generate_unrestricted', reason: 'User requested unrestricted generator' };
@@ -5814,13 +5814,13 @@ function selectBestImageGenerator(prompt) {
   if (wantsPuter) {
     return { tool: 'generate_puter_image', reason: 'User requested Puter/FLUX' };
   }
-  
+
   // Auto-detect based on content
   if (isNsfw) {
     console.log(`🔥 NSFW content detected - using generate_unrestricted`);
     return { tool: 'generate_unrestricted', reason: 'NSFW content detected automatically' };
   }
-  
+
   // Default to ADIMAGE for normal content
   return { tool: 'generate_adimage', reason: 'Default safe generator' };
 }
@@ -5830,7 +5830,7 @@ function instantPatternMatch(text) {
   const lower = text.toLowerCase().trim();
   const words = lower.split(/\s+/);
   const wordCount = words.length;
-  
+
   // Smart image generator selection for image prompts
   const imageGenSelector = selectBestImageGenerator(text);
 
@@ -5875,14 +5875,14 @@ function instantPatternMatch(text) {
   // Long descriptive prompts with visual/aesthetic keywords = image generation
   const visualKeywords = /\b(stunning|beautiful|gorgeous|cute|handsome|aesthetic|cinematic|realistic|4k|8k|hd|ultra|portrait|selfie|photo|wearing|lighting|shadows|vibrant|colors|style|anime|cyberpunk|fantasy|scene|background|foreground|pose|standing|sitting|looking|holding|girl|boy|woman|man|person|character|face|hair|eyes|skin|dress|outfit|clothes)\b/gi;
   const visualMatches = (lower.match(visualKeywords) || []).length;
-  
+
   // If message is long (>15 words) AND has 5+ visual keywords = likely image prompt
   if (wordCount >= 15 && visualMatches >= 5) {
     console.log(`🎨 DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords found`);
     console.log(`🎯 IMAGE GEN SELECTOR: ${imageGenSelector.tool} (${imageGenSelector.reason})`);
     return { type: 'image_generation', confidence: 0.94, needsTools: true, simpleResponse: false, description: 'Descriptive image prompt detected', recommendedTools: [imageGenSelector.tool] };
   }
-  
+
   // Shorter but still descriptive (8+ words, 3+ visual keywords)
   if (wordCount >= 8 && visualMatches >= 3 && /\b(girl|boy|woman|man|person|character|portrait|selfie|scene|landscape)\b/i.test(lower)) {
     console.log(`🎨 SHORT DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords`);
@@ -7424,7 +7424,7 @@ async function runTool(toolCall, id, msg = null) {
     else if (name === "generate_unrestricted") {
         const MAX_RETRIES = 3;
         let lastError = null;
-        
+
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 let prompt = parsedArgs.prompt || '';
@@ -7487,13 +7487,13 @@ async function runTool(toolCall, id, msg = null) {
                 console.log(`🍪 [UNRESTRICTED] Got ${setCookieHeaders.length} cookies`);
 
                 const pageHtml = await pageResponse.text();
-                
+
                 // Check for Cloudflare challenge page
                 if (pageHtml.includes('cf-browser-verification') || pageHtml.includes('challenge-platform')) {
                     console.log(`⚠️ [UNRESTRICTED] Cloudflare challenge page detected`);
                     throw new Error('Cloudflare challenge detected - cannot proceed');
                 }
-                
+
                 // Extract nonce from page
                 const nonceMatch = pageHtml.match(/name="_wpnonce"\s+value="([^"]+)"/);
                 if (!nonceMatch) {
@@ -7614,14 +7614,14 @@ async function runTool(toolCall, id, msg = null) {
             } catch (err) {
                 lastError = err;
                 console.error(`[UNRESTRICTED] Attempt ${attempt} failed:`, err.message);
-                
+
                 // If it's the last attempt or a non-retryable error, break
                 if (attempt >= MAX_RETRIES || err.message.includes('Cloudflare challenge')) {
                     break;
                 }
             }
         }
-        
+
         // All retries failed - fallback to ADIMAGE
         console.log(`❌ [UNRESTRICTED] All ${MAX_RETRIES} attempts failed. Falling back to ADIMAGE...`);
         return `UNRESTRICTED Error: ${lastError?.message || 'Unknown error'}. Falling back to generate_adimage - please try your request again.`;
