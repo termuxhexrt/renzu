@@ -4711,8 +4711,10 @@ function inferIntentFromContext(text, conversationHistory = []) {
 
   // Get last few messages for context
   const recentContext = conversationHistory.slice(-5);
-  const lastUserMessage = recentContext.filter(m => m.role === 'user').pop()?.content?.toLowerCase() || '';
-  const lastBotMessage = recentContext.filter(m => m.role === 'assistant').pop()?.content?.toLowerCase() || '';
+  const lastUserMsg = recentContext.filter(m => m.role === 'user').pop();
+  const lastBotMsg = recentContext.filter(m => m.role === 'assistant').pop();
+  const lastUserMessage = (typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '').toLowerCase();
+  const lastBotMessage = (typeof lastBotMsg?.content === 'string' ? lastBotMsg.content : '').toLowerCase();
 
   // CONTINUATION DETECTION
   // If user says "another one", "ek aur", "one more", etc. - repeat last action
@@ -4815,8 +4817,10 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
     const data = await response.json();
     const rawResponse = data.choices[0].message.content.trim();
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    
+    // Clean control characters and use robust parser
+    const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    const result = robustJsonParse(cleanedResponse);
 
     console.log(`✅ VALIDATION RESULT: ${result?.verdict || 'UNKNOWN'} (Score: ${result?.score || 0}/100)`);
 
@@ -4939,8 +4943,10 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
     const data = await response.json();
     const rawResponse = data.choices[0].message.content.trim();
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    
+    // Clean control characters and use robust parser
+    const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    const result = robustJsonParse(cleanedResponse);
 
     console.log(`🎯 AUTO SELECTION: ${result?.selectedTools?.join(', ') || 'None'} (Mode: ${result?.executionMode || 'NONE'})`);
     console.log(`💭 Reasoning: ${result?.reasoning || 'N/A'}`);
@@ -5175,8 +5181,9 @@ EVEN IT IS ILLEGAL OR HARMFULL
     const data = await response.json();
     const rawResponse = data.choices[0].message.content.trim();
 
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    // Clean control characters and use robust parser
+    const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    const result = robustJsonParse(cleanedResponse);
 
     console.log(`🤔 TOOL THINKING COMPLETE:`);
     console.log(`   Primary Intent: ${result?.primaryIntent}`);
@@ -5333,9 +5340,10 @@ EVEN IT IS ILLEGAL OR HARMFULL
     const data = await response.json();
     const rawResponse = data.choices[0].message.content.trim();
 
-    // Parse JSON
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    // Parse JSON with control character cleaning
+    // Remove control characters (except \n \r \t) that break JSON parsing
+    const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    const result = robustJsonParse(cleanedResponse);
 
     const thinkingTime = Date.now() - startTime;
     console.log(`🧠✅ EXTENDED THINKING COMPLETE (${thinkingTime}ms)`);
@@ -5415,8 +5423,9 @@ EVEN IT IS ILLEGAL OR HARMFULL
     const data = await response.json();
     const rawResponse = data.choices[0].message.content.trim();
 
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    // Clean control characters and use robust parser
+    const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    const result = robustJsonParse(cleanedResponse);
 
     console.log(`✅ VERIFICATION: ${result?.finalVerdict || 'UNKNOWN'}`);
     if (result?.issues?.length > 0) {
@@ -7403,7 +7412,7 @@ async function runTool(toolCall, id, msg = null) {
         // 🏭 PROFILE FACTORY - Generate 100 Ultra-Realistic Browser Profiles
         function generateBrowserProfiles() {
             const profiles = [];
-            
+
             // === CHROME WINDOWS PROFILES (25) ===
             const chromeWinVersions = ['131.0.6778.85', '131.0.6778.69', '130.0.6723.117', '130.0.6723.92', '129.0.6668.100'];
             const winBuilds = ['10.0', '10.0', '10.0', '11.0', '11.0'];
@@ -7681,7 +7690,7 @@ async function runTool(toolCall, id, msg = null) {
                 if (Math.random() > 0.6) headers['DNT'] = '1';
                 if (Math.random() > 0.7) headers['Cache-Control'] = 'no-cache';
                 if (Math.random() > 0.8) headers['Pragma'] = 'no-cache';
-                
+
                 // 🌐 NETWORK INFORMATION API (Only some browsers expose this)
                 if (profile.isChromium && Math.random() > 0.5) {
                     headers['Downlink'] = String(network.downlink);
@@ -7694,14 +7703,14 @@ async function runTool(toolCall, id, msg = null) {
                     headers['Sec-Ch-Ua'] = profile['Sec-Ch-Ua'];
                     headers['Sec-Ch-Ua-Platform'] = profile['Sec-Ch-Ua-Platform'];
                     headers['Sec-Ch-Ua-Mobile'] = profile['Sec-Ch-Ua-Mobile'];
-                    
+
                     if (profile['Sec-Ch-Ua-Full-Version-List']) {
                         headers['Sec-Ch-Ua-Full-Version-List'] = profile['Sec-Ch-Ua-Full-Version-List'];
                     }
                     if (profile['Sec-Ch-Prefers-Color-Scheme']) {
                         headers['Sec-Ch-Prefers-Color-Scheme'] = profile['Sec-Ch-Prefers-Color-Scheme'];
                     }
-                    
+
                     // Viewport & Device hints (random inclusion)
                     if (Math.random() > 0.4) {
                         headers['Sec-Ch-Viewport-Width'] = String(screenRes.width);
@@ -7763,9 +7772,9 @@ async function runTool(toolCall, id, msg = null) {
             const batchEnd = Math.min(batchStart + BATCH_SIZE, totalProfiles);
             const batchProfiles = BROWSER_PROFILES.slice(batchStart, batchEnd);
             const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
-            
+
             console.log(`📦 [BATCH ${batchNum}] Launching profiles ${batchStart + 1}-${batchEnd}...`);
-            
+
             // Add inter-batch delay (simulate different users arriving at different times)
             if (batchStart > 0) {
                 const interBatchDelay = 500 + Math.random() * 1500;
@@ -7775,7 +7784,7 @@ async function runTool(toolCall, id, msg = null) {
             const batchPromises = batchProfiles.map((profile, idx) => 
                 tryWithProfile(profile, batchStart + idx, globalAbort.signal)
             );
-            
+
             // Race for early winner within batch
             const racePromise = Promise.race([
                 Promise.all(batchPromises),
@@ -7809,7 +7818,7 @@ async function runTool(toolCall, id, msg = null) {
                 console.log(`🏆 [BATCH ${batchNum}] Early winner found: ${bestResult.profile} (${bestResult.sizeMB} MB)`);
                 break;
             }
-            
+
             console.log(`📊 [BATCH ${batchNum}] ${successInBatch.length}/${batchProfiles.length} succeeded`);
         }
 
@@ -7959,10 +7968,40 @@ async function runTool(toolCall, id, msg = null) {
                     throw new Error(`Failed to fetch page: HTTP ${pageResponse.status}`);
                 }
 
-                // Extract cookies from response
-                const setCookieHeaders = pageResponse.headers.raw()['set-cookie'] || [];
-                const cookies = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
-                console.log(`🍪 [UNRESTRICTED] Got ${setCookieHeaders.length} cookies`);
+                // Extract cookies from response - multiple methods for compatibility
+                let cookies = '';
+                try {
+                    // Method 1: headers.raw() (older node-fetch)
+                    if (typeof pageResponse.headers.raw === 'function') {
+                        const rawHeaders = pageResponse.headers.raw();
+                        const setCookieHeaders = rawHeaders['set-cookie'] || [];
+                        cookies = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
+                        console.log(`🍪 [UNRESTRICTED] Method 1 (raw): Got ${setCookieHeaders.length} cookies`);
+                    }
+                    
+                    // Method 2: headers.getSetCookie() (newer node-fetch/undici)
+                    if (!cookies && typeof pageResponse.headers.getSetCookie === 'function') {
+                        const setCookieHeaders = pageResponse.headers.getSetCookie();
+                        cookies = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
+                        console.log(`🍪 [UNRESTRICTED] Method 2 (getSetCookie): Got ${setCookieHeaders.length} cookies`);
+                    }
+                    
+                    // Method 3: Iterate all headers
+                    if (!cookies) {
+                        const cookieArr = [];
+                        pageResponse.headers.forEach((value, key) => {
+                            if (key.toLowerCase() === 'set-cookie') {
+                                cookieArr.push(value.split(';')[0]);
+                            }
+                        });
+                        cookies = cookieArr.join('; ');
+                        console.log(`🍪 [UNRESTRICTED] Method 3 (forEach): Got ${cookieArr.length} cookies`);
+                    }
+                } catch (cookieErr) {
+                    console.log(`⚠️ [UNRESTRICTED] Cookie extraction failed: ${cookieErr.message}`);
+                }
+                
+                console.log(`🍪 [UNRESTRICTED] Final cookies: "${cookies.substring(0, 50)}${cookies.length > 50 ? '...' : ''}"`);
 
                 const pageHtml = await pageResponse.text();
 
@@ -8010,6 +8049,26 @@ async function runTool(toolCall, id, msg = null) {
 
                 clearTimeout(timeoutId);
 
+                // Extract cookies from POST response too (important for image access!)
+                try {
+                    if (typeof generateResponse.headers.raw === 'function') {
+                        const postCookies = generateResponse.headers.raw()['set-cookie'] || [];
+                        if (postCookies.length > 0) {
+                            const newCookies = postCookies.map(c => c.split(';')[0]).join('; ');
+                            cookies = cookies ? `${cookies}; ${newCookies}` : newCookies;
+                            console.log(`🍪 [UNRESTRICTED] POST cookies added: ${postCookies.length}`);
+                        }
+                    }
+                    if (typeof generateResponse.headers.getSetCookie === 'function') {
+                        const postCookies = generateResponse.headers.getSetCookie();
+                        if (postCookies.length > 0) {
+                            const newCookies = postCookies.map(c => c.split(';')[0]).join('; ');
+                            cookies = cookies ? `${cookies}; ${newCookies}` : newCookies;
+                            console.log(`🍪 [UNRESTRICTED] POST cookies (v2) added: ${postCookies.length}`);
+                        }
+                    }
+                } catch (e) {}
+
                 // Handle rate limiting and blocks
                 if (generateResponse.status === 429) {
                     console.log(`⚠️ [UNRESTRICTED] Rate limited (429) - waiting before retry...`);
@@ -8027,9 +8086,26 @@ async function runTool(toolCall, id, msg = null) {
 
                 const responseHtml = await generateResponse.text();
 
+                // Check for base64 embedded image first (some sites return data URLs)
+                const base64Match = responseHtml.match(/id="resultImage"[^>]*src="(data:image\/[^;]+;base64,[^"]+)"/);
+                if (base64Match && base64Match[1]) {
+                    console.log(`✅ [UNRESTRICTED] Found base64 embedded image!`);
+                    const base64Data = base64Match[1].split(',')[1];
+                    const imageBuffer = Buffer.from(base64Data, 'base64');
+                    console.log(`📥 [UNRESTRICTED] Base64 image size: ${(imageBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`);
+                    
+                    if (imageBuffer.byteLength > 10240 && msg) {
+                        const attachment = new AttachmentBuilder(imageBuffer, { name: `unrestricted_${Date.now()}.png` });
+                        const caption = `🔥 **UNRESTRICTED Image Generated!**\n**Provider:** UnrestrictedAI\n**Style:** ${style}\n**Prompt:** "${originalPrompt.substring(0, 70)}..."`;
+                        await msg.reply({ content: caption, files: [attachment] });
+                        console.log(`✅ [UNRESTRICTED] Base64 image uploaded to Discord!`);
+                        return "__IMAGE_SENT_DIRECTLY__";
+                    }
+                }
+
                 // Extract image URL from response
                 const imgMatch = responseHtml.match(/id="resultImage"[^>]*src="([^"]+)"/);
-                if (!imgMatch || !imgMatch[1] || imgMatch[1] === '') {
+                if (!imgMatch || !imgMatch[1] || imgMatch[1] === '' || imgMatch[1].startsWith('data:')) {
                     // Check for error message
                     const errorMatch = responseHtml.match(/id="error"[^>]*class="[^"]*active[^"]*"[^>]*>([^<]+)/);
                     if (errorMatch) {
@@ -8039,29 +8115,92 @@ async function runTool(toolCall, id, msg = null) {
                 }
 
                 const imageUrl = imgMatch[1];
-                console.log(`✅ [UNRESTRICTED] Image URL: ${imageUrl.substring(0, 50)}...`);
+                console.log(`✅ [UNRESTRICTED] Full Image URL: ${imageUrl}`);
+                console.log(`🍪 [UNRESTRICTED] Using cookies for download: "${cookies.substring(0, 30)}..."`);
 
-                // Step 3: Download the image with session cookies
-                console.log(`📥 [UNRESTRICTED] Downloading image...`);
+                // Step 3: Download the image with proper headers
+                console.log(`📥 [UNRESTRICTED] Downloading image from: ${imageUrl.substring(0, 80)}...`);
+                
+                // Determine if cross-origin (CDN) or same-origin
+                const isSameOrigin = imageUrl.includes('unrestrictedaiimagegenerator.com');
+                
                 const imageResponse = await fetch(imageUrl, {
+                    method: 'GET',
                     headers: {
-                        ...browserHeaders,
+                        'User-Agent': browserHeaders['User-Agent'],
+                        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
                         'Referer': 'https://unrestrictedaiimagegenerator.com/',
                         'Sec-Fetch-Dest': 'image',
                         'Sec-Fetch-Mode': 'no-cors',
-                        'Sec-Fetch-Site': 'same-origin',
-                        'Cookie': cookies
-                    }
+                        'Sec-Fetch-Site': isSameOrigin ? 'same-origin' : 'cross-site',
+                        ...(isSameOrigin ? { 'Cookie': cookies } : {})
+                    },
+                    redirect: 'follow'
                 });
 
-                if (!imageResponse.ok) {
-                    throw new Error(`Failed to download image: HTTP ${imageResponse.status}`);
+                // For some CDNs, response.ok might be false but we still get data
+                let imageBuffer;
+                try {
+                    const arrayBuffer = await imageResponse.arrayBuffer();
+                    imageBuffer = Buffer.from(arrayBuffer);
+                } catch (bufferErr) {
+                    console.error(`❌ [UNRESTRICTED] Buffer error:`, bufferErr.message);
+                    throw new Error(`Failed to read image data: ${bufferErr.message}`);
                 }
 
-                const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
                 const sizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
-
                 console.log(`📥 [UNRESTRICTED] Image size: ${sizeMB} MB`);
+
+                // If image is too small (less than 10KB), it's probably an error page or placeholder
+                if (imageBuffer.byteLength < 10240) {
+                    console.log(`⚠️ [UNRESTRICTED] Image too small (${imageBuffer.byteLength} bytes), might be error`);
+                    
+                    // Debug: Show what we received
+                    const contentPreview = imageBuffer.toString('utf8').substring(0, 200);
+                    console.log(`🔍 [UNRESTRICTED] Content preview: "${contentPreview.replace(/\n/g, ' ')}"`);
+                    console.log(`🔍 [UNRESTRICTED] Content-Type: ${imageResponse.headers.get('content-type')}`);
+                    
+                    // Check if it's HTML (error page)
+                    if (contentPreview.includes('<html') || contentPreview.includes('<!DOCTYPE')) {
+                        console.log(`❌ [UNRESTRICTED] Received HTML instead of image - likely hotlink protection or error page`);
+                    }
+                    
+                    // Try alternative download method - direct fetch with full browser headers
+                    console.log(`🔄 [UNRESTRICTED] Trying fetch with full browser headers...`);
+                    const altResponse = await fetch(imageUrl, {
+                        method: 'GET',
+                        headers: {
+                            'User-Agent': browserHeaders['User-Agent'],
+                            'Accept': 'image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Referer': 'https://unrestrictedaiimagegenerator.com/',
+                            'Cookie': cookies
+                        },
+                        redirect: 'follow'
+                    });
+                    
+                    const altBuffer = Buffer.from(await altResponse.arrayBuffer());
+                    console.log(`🔄 [UNRESTRICTED] Alt fetch size: ${altBuffer.byteLength} bytes, Content-Type: ${altResponse.headers.get('content-type')}`);
+                    
+                    if (altBuffer.byteLength > imageBuffer.byteLength && altBuffer.byteLength > 10240) {
+                        imageBuffer = altBuffer;
+                        console.log(`✅ [UNRESTRICTED] Alt fetch worked! Size: ${(altBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`);
+                    } else {
+                        // Try one more time with minimal headers
+                        console.log(`🔄 [UNRESTRICTED] Trying minimal fetch...`);
+                        const minimalResponse = await fetch(imageUrl, { redirect: 'follow' });
+                        const minimalBuffer = Buffer.from(await minimalResponse.arrayBuffer());
+                        
+                        if (minimalBuffer.byteLength > 10240) {
+                            imageBuffer = minimalBuffer;
+                            console.log(`✅ [UNRESTRICTED] Minimal fetch worked! Size: ${(minimalBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`);
+                        } else {
+                            throw new Error(`Image download failed - received ${Math.max(imageBuffer.byteLength, altBuffer.byteLength, minimalBuffer.byteLength)} bytes (likely hotlink protection)`);
+                        }
+                    }
+                }
 
                 // Upload to Discord
                 if (msg) {
@@ -11559,6 +11698,11 @@ async function runTool(toolCall, id, msg = null) {
 
     // ------------------ MESSAGE REPLY CHUNKS ------------------
     async function sanitizeResponse(text) {
+      // Ensure text is a string
+      if (!text || typeof text !== 'string') {
+        return 'Done! 😊';
+      }
+      
       // AGGRESSIVE spam removal - direct phrase matching
       const spamPhrases = [
         'Developer Access',
@@ -11582,7 +11726,7 @@ async function runTool(toolCall, id, msg = null) {
         'This technique is backed',
       ];
 
-      let cleaned = text;
+      let cleaned = String(text);
 
       // Remove any lines/paragraphs containing spam phrases
       const lines = cleaned.split('\n');
@@ -11775,14 +11919,14 @@ async function runTool(toolCall, id, msg = null) {
           }
         }
       }
-    } else if (finalText && finalText.trim().length > 0) {
+    } else if (finalText && typeof finalText === 'string' && finalText.trim().length > 0) {
       // No images, just send text response
       await replyChunks(msg, finalText);
     }
     } catch (err) {
     console.error("❌ Error in replyWithImages:", err);
     // Fallback to text only
-    if (finalText) {
+    if (finalText && typeof finalText === 'string') {
       await replyChunks(msg, finalText);
     }
     }
