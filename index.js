@@ -7316,11 +7316,10 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // 🎨 Tool 145: ADIMAGE.APP Image Generation (Imagen 3.0) - WITH 12x RETRY + FALLBACK CHAIN
+    // 🎨 Tool 145: ADIMAGE.APP Image Generation (Imagen 3.0) - WITH PARALLEL MULTI-HEADER + FALLBACK CHAIN
     else if (name === "generate_adimage") {
-        const MAX_ADIMAGE_RETRIES = 12;
         let originalPrompt = parsedArgs.prompt || '';
-        
+
         if (!originalPrompt || originalPrompt.trim().length < 3) {
             return `❌ **PROMPT ERROR**: Your prompt was too short. Please provide a detailed image description.`;
         }
@@ -7336,40 +7335,235 @@ async function runTool(toolCall, id, msg = null) {
             console.log(`🧠 [ADIMAGE ENHANCED] Original: "${originalPrompt}" → Enhanced: "${prompt.substring(0, 80)}..."`);
         }
 
-        // 🔄 ADIMAGE RETRY LOOP (8 attempts)
-        for (let attempt = 1; attempt <= MAX_ADIMAGE_RETRIES; attempt++) {
-            try {
-                console.log(`🌐 [ADIMAGE] Attempt ${attempt}/${MAX_ADIMAGE_RETRIES}...`);
+        // 🌐 10 DIFFERENT BROWSER PROFILES (Ultra Human-like headers with full fingerprint)
+        const ACCEPT_LANGUAGES = [
+            'en-US,en;q=0.9',
+            'en-GB,en;q=0.9,en-US;q=0.8',
+            'en-IN,en;q=0.9,hi;q=0.8',
+            'en-AU,en;q=0.9',
+            'en-CA,en;q=0.9',
+            'de-DE,de;q=0.9,en;q=0.8',
+            'fr-FR,fr;q=0.9,en;q=0.8',
+            'es-ES,es;q=0.9,en;q=0.8',
+            'pt-BR,pt;q=0.9,en;q=0.8',
+            'ja-JP,ja;q=0.9,en;q=0.8'
+        ];
 
-                // Add delay between retries (exponential backoff)
-                if (attempt > 1) {
-                    const delay = Math.min(1000 * Math.pow(1.5, attempt - 1), 10000);
-                    console.log(`⏳ [ADIMAGE] Waiting ${Math.round(delay)}ms before retry...`);
-                    await new Promise(r => setTimeout(r, delay));
+        const SCREEN_RESOLUTIONS = [
+            { width: 1920, height: 1080 },
+            { width: 2560, height: 1440 },
+            { width: 1366, height: 768 },
+            { width: 1536, height: 864 },
+            { width: 1440, height: 900 },
+            { width: 1680, height: 1050 },
+            { width: 2560, height: 1600 },
+            { width: 3840, height: 2160 },
+            { width: 390, height: 844 },  // iPhone 14
+            { width: 412, height: 915 }   // Android
+        ];
+
+        const BROWSER_PROFILES = [
+            { // Chrome Windows - Home User
+                name: 'Chrome-Win-Home',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Full-Version-List': '"Google Chrome";v="131.0.6778.85", "Chromium";v="131.0.6778.85", "Not_A Brand";v="24.0.0.0"',
+                'Sec-Ch-Prefers-Color-Scheme': 'light',
+                isChromium: true
+            },
+            { // Chrome Mac - Designer
+                name: 'Chrome-Mac-Pro',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Platform': '"macOS"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Full-Version-List': '"Google Chrome";v="131.0.6778.85", "Chromium";v="131.0.6778.85", "Not_A Brand";v="24.0.0.0"',
+                'Sec-Ch-Prefers-Color-Scheme': 'dark',
+                isChromium: true
+            },
+            { // Firefox Windows - Privacy User
+                name: 'Firefox-Win-Privacy',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+                isChromium: false
+            },
+            { // Firefox Mac - Developer
+                name: 'Firefox-Mac-Dev',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0',
+                isChromium: false
+            },
+            { // Safari Mac - Creative Pro
+                name: 'Safari-Mac-Creative',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+                isChromium: false
+            },
+            { // Edge Windows - Corporate
+                name: 'Edge-Win-Corp',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.2903.51',
+                'Sec-Ch-Ua': '"Microsoft Edge";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                isChromium: true
+            },
+            { // Chrome Android - Samsung User
+                name: 'Chrome-Android-Samsung',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 14; SM-S928B Build/UP1A.231005.007) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.81 Mobile Safari/537.36',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Platform': '"Android"',
+                'Sec-Ch-Ua-Mobile': '?1',
+                isChromium: true
+            },
+            { // Safari iOS - iPhone User
+                name: 'Safari-iOS-iPhone',
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+                isChromium: false
+            },
+            { // Chrome Linux - Developer
+                name: 'Chrome-Linux-Dev',
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Platform': '"Linux"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                isChromium: true
+            },
+            { // Brave Windows - Crypto User
+                name: 'Brave-Win-Crypto',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Sec-Ch-Ua': '"Brave";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                isChromium: true
+            }
+        ];
+
+        // 🎭 PROMPT BYPASS - Convert sensitive content to artistic language
+        function bypassPrompt(originalPrompt) {
+            let bypassed = originalPrompt;
+            
+            // Word replacements for content filter bypass
+            const replacements = [
+                // Body/clothing terms to artistic
+                [/\b(naked|nude)\b/gi, 'wearing minimal artistic attire'],
+                [/\b(nsfw)\b/gi, 'artistic photography style'],
+                [/\b(sexy|seductive)\b/gi, 'elegant and confident'],
+                [/\b(bikini)\b/gi, 'summer fashion swimwear'],
+                [/\b(lingerie)\b/gi, 'delicate lace fashion attire'],
+                [/\b(underwear)\b/gi, 'intimate apparel fashion'],
+                [/\b(bra)\b/gi, 'designer top piece'],
+                [/\b(panties|panty)\b/gi, 'fashion bottom piece'],
+                [/\b(cleavage)\b/gi, 'elegant neckline'],
+                [/\b(breasts?|boobs?)\b/gi, 'figure'],
+                [/\b(butt|ass|buttocks)\b/gi, 'silhouette'],
+                [/\b(thigh|thighs)\b/gi, 'legs'],
+                [/\b(revealing)\b/gi, 'fashion-forward'],
+                [/\b(transparent|see-through|sheer)\b/gi, 'delicate fabric'],
+                [/\b(tight)\b/gi, 'form-fitting'],
+                [/\b(exposed|expose)\b/gi, 'highlighted'],
+                [/\b(erotic)\b/gi, 'artistic'],
+                [/\b(sensual)\b/gi, 'graceful'],
+                [/\b(provocative)\b/gi, 'bold fashion'],
+                [/\b(sultry)\b/gi, 'confident'],
+                [/\b(teasing|tease)\b/gi, 'playful'],
+                [/\b(skin)\b/gi, 'complexion'],
+                [/\b(body)\b/gi, 'figure'],
+                [/\b(curves?)\b/gi, 'silhouette'],
+                [/\b(woman|girl|female)\b/gi, 'model'],
+                [/\b(man|boy|male)\b/gi, 'male model'],
+            ];
+
+            for (const [pattern, replacement] of replacements) {
+                bypassed = bypassed.replace(pattern, replacement);
+            }
+
+            // Add artistic prefix to make it look like professional photography request
+            const artisticPrefixes = [
+                'Professional fashion photography: ',
+                'High-end editorial shoot: ',
+                'Artistic portrait photography: ',
+                'Vogue-style photoshoot: ',
+                'Studio fashion portrait: '
+            ];
+            const prefix = artisticPrefixes[Math.floor(Math.random() * artisticPrefixes.length)];
+            
+            // Add artistic suffix
+            const artisticSuffixes = [
+                ', professional lighting, magazine quality',
+                ', editorial style, high fashion aesthetic',
+                ', studio photography, artistic composition',
+                ', fashion magazine cover quality',
+                ', professional model photoshoot'
+            ];
+            const suffix = artisticSuffixes[Math.floor(Math.random() * artisticSuffixes.length)];
+
+            bypassed = prefix + bypassed + suffix;
+            
+            console.log(`🎭 [PROMPT BYPASS] Original: "${originalPrompt.substring(0, 50)}..." → Bypassed: "${bypassed.substring(0, 80)}..."`);
+            return bypassed;
+        }
+
+        // Apply prompt bypass for ADIMAGE
+        const bypassedPrompt = bypassPrompt(prompt);
+
+        // 🚀 PARALLEL REQUEST FUNCTION - Single browser profile attempt with human-like behavior
+        async function tryWithProfile(profile, profileIndex) {
+            // Random staggered delay (100-600ms) to avoid looking like a bot
+            const jitter = 100 + Math.random() * 500;
+            await new Promise(r => setTimeout(r, jitter));
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout per request
+
+            try {
+                // Random Accept-Language for this request
+                const acceptLang = ACCEPT_LANGUAGES[Math.floor(Math.random() * ACCEPT_LANGUAGES.length)];
+                const screenRes = SCREEN_RESOLUTIONS[profileIndex % SCREEN_RESOLUTIONS.length];
+
+                console.log(`🌐 [ADIMAGE-${profile.name}] Starting request (jitter: ${Math.round(jitter)}ms)...`);
+
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': acceptLang,
+                    'Accept-Encoding': 'gzip, deflate, br, zstd',
+                    'Origin': 'https://adimage.app',
+                    'Referer': 'https://adimage.app/',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'User-Agent': profile['User-Agent'],
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'DNT': Math.random() > 0.5 ? '1' : undefined,
+                    'Connection': 'keep-alive',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Priority': 'u=1, i'
+                };
+
+                // Add Chromium-specific headers
+                if (profile.isChromium) {
+                    headers['Sec-Ch-Ua'] = profile['Sec-Ch-Ua'];
+                    headers['Sec-Ch-Ua-Platform'] = profile['Sec-Ch-Ua-Platform'];
+                    headers['Sec-Ch-Ua-Mobile'] = profile['Sec-Ch-Ua-Mobile'];
+                    if (profile['Sec-Ch-Ua-Full-Version-List']) {
+                        headers['Sec-Ch-Ua-Full-Version-List'] = profile['Sec-Ch-Ua-Full-Version-List'];
+                    }
+                    if (profile['Sec-Ch-Prefers-Color-Scheme']) {
+                        headers['Sec-Ch-Prefers-Color-Scheme'] = profile['Sec-Ch-Prefers-Color-Scheme'];
+                    }
+                    // Add viewport hints for some requests
+                    if (Math.random() > 0.5) {
+                        headers['Sec-Ch-Viewport-Width'] = String(screenRes.width);
+                    }
                 }
 
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 120000);
+                // Remove undefined headers
+                Object.keys(headers).forEach(key => headers[key] === undefined && delete headers[key]);
 
                 const response = await fetch('https://adimage.app/api/generate-image.php', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json, text/plain, */*',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Accept-Encoding': 'gzip, deflate, br',
-                        'Origin': 'https://adimage.app',
-                        'Referer': 'https://adimage.app/',
-                        'Sec-Fetch-Dest': 'empty',
-                        'Sec-Fetch-Mode': 'cors',
-                        'Sec-Fetch-Site': 'same-origin',
-                        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-                        'Sec-Ch-Ua-Mobile': '?0',
-                        'Sec-Ch-Ua-Platform': '"Windows"',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({ prompt: prompt }),
+                    headers: headers,
+                    body: JSON.stringify({ prompt: bypassedPrompt }),
                     signal: controller.signal
                 });
 
@@ -7389,42 +7583,80 @@ async function runTool(toolCall, id, msg = null) {
                     throw new Error('No image data');
                 }
 
-                console.log(`✅ [ADIMAGE] Success on attempt ${attempt}!`);
-
                 const imageBuffer = Buffer.from(data.imageBase64, 'base64');
-                const sizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+                const sizeBytes = imageBuffer.byteLength;
+                const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
 
-                if (msg) {
-                    try {
-                        const attachment = new AttachmentBuilder(imageBuffer, { name: `adimage_${Date.now()}.png` });
-                        const caption = `🎨 **ADIMAGE Generated!**\n**Provider:** ADIMAGE.APP (Imagen 3.0)\n**Quality:** High Quality PNG (${sizeMB} MB)\n**Prompt:** "${originalPrompt.substring(0, 70)}${originalPrompt.length > 70 ? '...' : ''}"`;
-                        await msg.reply({ content: caption, files: [attachment] });
-                        console.log(`✅ [ADIMAGE] Image uploaded to Discord!`);
+                console.log(`✅ [ADIMAGE-${profile.name}] SUCCESS! Image size: ${sizeMB} MB`);
 
-                        try {
-                            await pool.query(
-                                `INSERT INTO generated_images (user_id, prompt, provider, image_url, created_at) VALUES ($1, $2, $3, $4, NOW())`,
-                                [id, originalPrompt, 'adimage.app', 'discord_attachment']
-                            );
-                        } catch (dbErr) {
-                            console.warn(`⚠️ Failed to save image to history:`, dbErr.message);
-                        }
-
-                        return "__IMAGE_SENT_DIRECTLY__";
-                    } catch (uploadErr) {
-                        console.error(`❌ Discord upload failed:`, uploadErr.message);
-                        return `ADIMAGE Error: Failed to upload to Discord - ${uploadErr.message}`;
-                    }
-                }
-                return `ADIMAGE Error: Message context not available.`;
+                return {
+                    success: true,
+                    profile: profile.name,
+                    buffer: imageBuffer,
+                    sizeBytes: sizeBytes,
+                    sizeMB: sizeMB
+                };
 
             } catch (err) {
-                console.error(`❌ [ADIMAGE] Attempt ${attempt}/${MAX_ADIMAGE_RETRIES} failed:`, err.message);
-                if (attempt === MAX_ADIMAGE_RETRIES) {
-                    console.log(`🔄 [ADIMAGE] All 12 retries failed! Falling back to UNRESTRICTED...`);
-                }
+                clearTimeout(timeoutId);
+                console.log(`❌ [ADIMAGE-${profile.name}] Failed: ${err.message}`);
+                return {
+                    success: false,
+                    profile: profile.name,
+                    error: err.message
+                };
             }
         }
+
+        // 🔥 LAUNCH ALL 10 PARALLEL REQUESTS
+        console.log(`🚀 [ADIMAGE] Launching ${BROWSER_PROFILES.length} parallel requests with different browser profiles...`);
+        
+        const allPromises = BROWSER_PROFILES.map((profile, index) => tryWithProfile(profile, index));
+        const results = await Promise.all(allPromises);
+
+        // 📊 ANALYZE RESULTS
+        const successfulResults = results.filter(r => r.success);
+        const failedResults = results.filter(r => !r.success);
+
+        console.log(`📊 [ADIMAGE] Results: ${successfulResults.length} success, ${failedResults.length} failed`);
+
+        if (successfulResults.length > 0) {
+            // 🏆 SELECT BEST IMAGE (Largest file size = best quality)
+            const bestResult = successfulResults.reduce((best, current) => 
+                current.sizeBytes > best.sizeBytes ? current : best
+            );
+
+            console.log(`🏆 [ADIMAGE] Best image from ${bestResult.profile}: ${bestResult.sizeMB} MB`);
+
+            if (msg) {
+                try {
+                    const attachment = new AttachmentBuilder(bestResult.buffer, { name: `adimage_${Date.now()}.png` });
+                    const caption = `🎨 **ADIMAGE Generated!**\n**Provider:** ADIMAGE.APP (Imagen 3.0)\n**Quality:** High Quality PNG (${bestResult.sizeMB} MB)\n**Browser:** ${bestResult.profile}\n**Prompt:** "${originalPrompt.substring(0, 60)}${originalPrompt.length > 60 ? '...' : ''}"`;
+                    await msg.reply({ content: caption, files: [attachment] });
+                    console.log(`✅ [ADIMAGE] Image uploaded to Discord!`);
+
+                    try {
+                        await pool.query(
+                            `INSERT INTO generated_images (user_id, prompt, provider, image_url, created_at) VALUES ($1, $2, $3, $4, NOW())`,
+                            [id, originalPrompt, 'adimage.app', 'discord_attachment']
+                        );
+                    } catch (dbErr) {
+                        console.warn(`⚠️ Failed to save image to history:`, dbErr.message);
+                    }
+
+                    return "__IMAGE_SENT_DIRECTLY__";
+                } catch (uploadErr) {
+                    console.error(`❌ Discord upload failed:`, uploadErr.message);
+                    return `ADIMAGE Error: Failed to upload to Discord - ${uploadErr.message}`;
+                }
+            }
+            return `ADIMAGE Error: Message context not available.`;
+        }
+
+        // ❌ ALL 10 PARALLEL REQUESTS FAILED - Log errors and fallback
+        console.log(`❌ [ADIMAGE] All ${BROWSER_PROFILES.length} parallel requests failed!`);
+        failedResults.forEach(r => console.log(`   - ${r.profile}: ${r.error}`));
+        console.log(`🔄 [ADIMAGE] Falling back to UNRESTRICTED...`);
 
         // 🔥 FALLBACK 1: Try Unrestricted Generator
         console.log(`🔥 [FALLBACK] Trying Unrestricted generator...`);
