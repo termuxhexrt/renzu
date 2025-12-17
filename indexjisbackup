@@ -7316,107 +7316,154 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // 🎨 Tool 145: ADIMAGE.APP Image Generation (Imagen 3.0)
+    // 🎨 Tool 145: ADIMAGE.APP Image Generation (Imagen 3.0) - WITH 12x RETRY + FALLBACK CHAIN
     else if (name === "generate_adimage") {
-        try {
-            let prompt = parsedArgs.prompt || '';
+        const MAX_ADIMAGE_RETRIES = 12;
+        let originalPrompt = parsedArgs.prompt || '';
+        
+        if (!originalPrompt || originalPrompt.trim().length < 3) {
+            return `❌ **PROMPT ERROR**: Your prompt was too short. Please provide a detailed image description.`;
+        }
 
-            if (!prompt || prompt.trim().length < 3) {
-                return `❌ **PROMPT ERROR**: Your prompt was too short. Please provide a detailed image description.`;
-            }
+        console.log(`🎨 [ADIMAGE] USER PROMPT: "${originalPrompt}"`);
 
-            const originalPrompt = prompt;
-            console.log(`🎨 [ADIMAGE] USER PROMPT: "${originalPrompt}"`);
+        // 🧠 SMART PROMPT ENHANCEMENT
+        let prompt = originalPrompt;
+        const isDM = msg?.channel?.type === 1;
+        const enhanceResult = await enhanceImagePrompt(prompt, id, isDM);
+        if (enhanceResult.enhanced) {
+            prompt = enhanceResult.prompt;
+            console.log(`🧠 [ADIMAGE ENHANCED] Original: "${originalPrompt}" → Enhanced: "${prompt.substring(0, 80)}..."`);
+        }
 
-            // 🧠 SMART PROMPT ENHANCEMENT
-            const isDM = msg?.channel?.type === 1;
-            const enhanceResult = await enhanceImagePrompt(prompt, id, isDM);
-            if (enhanceResult.enhanced) {
-                prompt = enhanceResult.prompt;
-                console.log(`🧠 [ADIMAGE ENHANCED] Original: "${originalPrompt}" → Enhanced: "${prompt.substring(0, 80)}..."`);
-            }
+        // 🔄 ADIMAGE RETRY LOOP (8 attempts)
+        for (let attempt = 1; attempt <= MAX_ADIMAGE_RETRIES; attempt++) {
+            try {
+                console.log(`🌐 [ADIMAGE] Attempt ${attempt}/${MAX_ADIMAGE_RETRIES}...`);
 
-            console.log(`🌐 [ADIMAGE] Generating image via adimage.app API...`);
+                // Add delay between retries (exponential backoff)
+                if (attempt > 1) {
+                    const delay = Math.min(1000 * Math.pow(1.5, attempt - 1), 10000);
+                    console.log(`⏳ [ADIMAGE] Waiting ${Math.round(delay)}ms before retry...`);
+                    await new Promise(r => setTimeout(r, delay));
+                }
 
-            // Call ADIMAGE.APP API
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-            const response = await fetch('https://adimage.app/api/generate-image.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json, text/plain, */*',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Origin': 'https://adimage.app',
-                    'Referer': 'https://adimage.app/',
-                    'Sec-Fetch-Dest': 'empty',
-                    'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin',
-                    'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-                    'Sec-Ch-Ua-Mobile': '?0',
-                    'Sec-Ch-Ua-Platform': '"Windows"',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ prompt: prompt }),
-                signal: controller.signal
-            });
+                const response = await fetch('https://adimage.app/api/generate-image.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/plain, */*',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Origin': 'https://adimage.app',
+                        'Referer': 'https://adimage.app/',
+                        'Sec-Fetch-Dest': 'empty',
+                        'Sec-Fetch-Mode': 'cors',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                        'Sec-Ch-Ua-Mobile': '?0',
+                        'Sec-Ch-Ua-Platform': '"Windows"',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ prompt: prompt }),
+                    signal: controller.signal
+                });
 
-            clearTimeout(timeoutId);
+                clearTimeout(timeoutId);
 
-            if (!response.ok) {
-                throw new Error(`ADIMAGE API responded with HTTP ${response.status}`);
-            }
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
 
-            const data = await response.json();
+                const data = await response.json();
 
-            if (data.error) {
-                throw new Error(data.error);
-            }
+                if (data.error) {
+                    throw new Error(data.error);
+                }
 
-            if (!data.imageBase64) {
-                throw new Error('No image data received from ADIMAGE API');
-            }
+                if (!data.imageBase64) {
+                    throw new Error('No image data');
+                }
 
-            console.log(`✅ [ADIMAGE] Image received! Processing...`);
+                console.log(`✅ [ADIMAGE] Success on attempt ${attempt}!`);
 
-            // Convert base64 to buffer
-            const imageBuffer = Buffer.from(data.imageBase64, 'base64');
-            const sizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
+                const imageBuffer = Buffer.from(data.imageBase64, 'base64');
+                const sizeMB = (imageBuffer.byteLength / (1024 * 1024)).toFixed(2);
 
-            console.log(`📥 [ADIMAGE] Image size: ${sizeMB} MB`);
-
-            // Upload to Discord
-            if (msg) {
-                try {
-                    const attachment = new AttachmentBuilder(imageBuffer, { name: `adimage_${Date.now()}.png` });
-                    const caption = `🎨 **ADIMAGE Generated!**\n**Provider:** ADIMAGE.APP (Imagen 3.0)\n**Quality:** High Quality PNG (${sizeMB} MB)\n**Prompt:** "${originalPrompt.substring(0, 70)}${originalPrompt.length > 70 ? '...' : ''}"`;
-                    await msg.reply({ content: caption, files: [attachment] });
-                    console.log(`✅ [ADIMAGE] Image uploaded to Discord!`);
-
-                    // Save to image history in database
+                if (msg) {
                     try {
-                        await pool.query(
-                            `INSERT INTO generated_images (user_id, prompt, provider, image_url, created_at) VALUES ($1, $2, $3, $4, NOW())`,
-                            [id, originalPrompt, 'adimage.app', 'discord_attachment']
-                        );
-                    } catch (dbErr) {
-                        console.warn(`⚠️ Failed to save image to history:`, dbErr.message);
-                    }
+                        const attachment = new AttachmentBuilder(imageBuffer, { name: `adimage_${Date.now()}.png` });
+                        const caption = `🎨 **ADIMAGE Generated!**\n**Provider:** ADIMAGE.APP (Imagen 3.0)\n**Quality:** High Quality PNG (${sizeMB} MB)\n**Prompt:** "${originalPrompt.substring(0, 70)}${originalPrompt.length > 70 ? '...' : ''}"`;
+                        await msg.reply({ content: caption, files: [attachment] });
+                        console.log(`✅ [ADIMAGE] Image uploaded to Discord!`);
 
-                    return "__IMAGE_SENT_DIRECTLY__";
-                } catch (uploadErr) {
-                    console.error(`❌ Discord upload failed:`, uploadErr.message);
-                    return `ADIMAGE Error: Failed to upload to Discord - ${uploadErr.message}`;
+                        try {
+                            await pool.query(
+                                `INSERT INTO generated_images (user_id, prompt, provider, image_url, created_at) VALUES ($1, $2, $3, $4, NOW())`,
+                                [id, originalPrompt, 'adimage.app', 'discord_attachment']
+                            );
+                        } catch (dbErr) {
+                            console.warn(`⚠️ Failed to save image to history:`, dbErr.message);
+                        }
+
+                        return "__IMAGE_SENT_DIRECTLY__";
+                    } catch (uploadErr) {
+                        console.error(`❌ Discord upload failed:`, uploadErr.message);
+                        return `ADIMAGE Error: Failed to upload to Discord - ${uploadErr.message}`;
+                    }
+                }
+                return `ADIMAGE Error: Message context not available.`;
+
+            } catch (err) {
+                console.error(`❌ [ADIMAGE] Attempt ${attempt}/${MAX_ADIMAGE_RETRIES} failed:`, err.message);
+                if (attempt === MAX_ADIMAGE_RETRIES) {
+                    console.log(`🔄 [ADIMAGE] All 12 retries failed! Falling back to UNRESTRICTED...`);
                 }
             }
+        }
 
-            return `ADIMAGE Error: Message context not available.`;
-        } catch (err) {
-            console.error("[ADIMAGE] Error:", err);
-            return `ADIMAGE Error: ${err.message}. Try again or use generate_puter_image instead.`;
+        // 🔥 FALLBACK 1: Try Unrestricted Generator
+        console.log(`🔥 [FALLBACK] Trying Unrestricted generator...`);
+        try {
+            const unrestrictedToolCall = {
+                function: {
+                    name: 'generate_unrestricted',
+                    arguments: JSON.stringify({ prompt: originalPrompt, style: 'Photorealistic' })
+                }
+            };
+            const unrestrictedResult = await runTool(unrestrictedToolCall, id, msg);
+            if (unrestrictedResult === '__IMAGE_SENT_DIRECTLY__') {
+                return '__IMAGE_SENT_DIRECTLY__';
+            }
+            if (unrestrictedResult && !unrestrictedResult.includes('Error')) {
+                return unrestrictedResult;
+            }
+            console.log(`❌ [UNRESTRICTED] Failed, trying Puter.js...`);
+        } catch (unrestrictedErr) {
+            console.error(`❌ [UNRESTRICTED] Error:`, unrestrictedErr.message);
+        }
+
+        // 🎨 FALLBACK 2: Try Puter.js (Last Resort)
+        console.log(`🎨 [FALLBACK] Trying Puter.js as last resort...`);
+        try {
+            const puterToolCall = {
+                function: {
+                    name: 'generate_puter_image',
+                    arguments: JSON.stringify({ prompt: originalPrompt, model: 'kontext-max' })
+                }
+            };
+            const puterResult = await runTool(puterToolCall, id, msg);
+            if (puterResult === '__IMAGE_SENT_DIRECTLY__') {
+                return '__IMAGE_SENT_DIRECTLY__';
+            }
+            return puterResult;
+        } catch (puterErr) {
+            console.error(`❌ [PUTER] Error:`, puterErr.message);
+            return `❌ **All image generators failed!**\nADIMAGE: 12 retries failed\nUnrestricted: Failed\nPuter.js: ${puterErr.message}\n\nPlease try again later.`;
         }
     }
 
