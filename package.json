@@ -1,16 +1,17 @@
 {
-  "name": "nodejs",
-  "version": "1.0.0",
-  "description": "",
+  "name": "renzu-discord-bot",
+  "version": "6.9.0",
+  "description": "Renzu - Ultra AI Discord Bot with Mistral AI, Redis Caching, Dual Database (Neon + Supabase), 141+ Tools",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
+    "dev": "node --watch index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["discord-bot", "ai", "mistral", "redis", "nodejs"],
+  "author": "Satya",
+  "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
     "@heyputer/puter.js": "^2.1.6",
@@ -24,6 +25,7 @@
     "node-fetch": "^3.3.2",
     "pg": "^8.16.3",
     "puter": "^1.0.0",
+    "redis": "^5.10.0",
     "sharp": "^0.34.5"
   }
 }
