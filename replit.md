@@ -118,7 +118,34 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - `DEVELOPER_MODE` (Feature toggle, default: false)
 - and many more...
 
+
+# NEW FEATURES ADDED 6.8.0 2025/12/17
+- 1. Prompt Bypass System:
+
+Sensitive words → Artistic language convert
+- "bikini" → "summer fashion swimwear"
+- "sexy" → "elegant and confident"
+- "nsfw" → "artistic photography style"
+- Random artistic prefix/suffix add karta hai
+- 2. Human-like Headers:
+
+- Random Accept-Language (10 different locales)
+- Random jitter delays (100-600ms staggered)
+- DNT header randomly
+- Viewport hints for Chromium browsers
+- Full Sec-Ch-Ua headers
+- Randomized delays - staggered start taaki ek saath na lage
+  More realistic headers - DNT, Connection, Priority, Cache-Control
+  Random Accept-Language variations - different locales
+  Random screen resolutions in viewport hint
+- ✅ 10 Browser Profiles - Chrome, Firefox, Safari, Edge, Opera (Win/Mac/Linux/Android/iOS)
+- ✅ Parallel Requests - Saare 10 ek saath try karte hain
+- ✅ Best Quality Selection - Jo sabse badi file size, wo select hoti hai
+- ✅ Fallback Chain - Agar sab fail → UNRESTRICTED → Puter.js
 # Recent Changes (v6.8.0) - 2025-12-12
+- Parallel requests - 10 alag alag browser headers se SAATH MEIN try karo (Promise.all/race)
+Jisko pehle mile - jo bhi header se pehle image aaye, wo use karo
+Agar multiple ko mile - toh jo sabse badi file size ho (best quality), wo lo
 
 ## Image Generation Priority Fixed:
 - ✅ **ADIMAGE is now PRIMARY** - No need to say "adimage se" anymore
