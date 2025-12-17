@@ -19,11 +19,11 @@ Preferred communication style: Simple, everyday language (Hinglish supported).
 - **AI Provider**: Mistral AI SDK v1.10.0
 - **Primary Database**: Neon PostgreSQL
 - **Cloud Database**: Supabase (file storage, real-time features, backup)
-- **Image Generation**: Puter.js with KONTEXT Models (primary), Pollinations.ai (fallback)
+- **Image Generation**: ADIMAGE.APP (PRIMARY - 100 Browser Profiles), Puter.js (fallback), Pollinations.ai (last resort)
 - **HTTP Client**: node-fetch
 - **Environment Management**: dotenv
 
-## Bot Architecture (v6.5.0 - FULLY WORKING FEATURES)
+## Bot Architecture (v6.9.0 - FULLY WORKING FEATURES)
 
 ### Working Features (v6.5.0) ✅
 1. **Extended Thinking (5-step process)** - `generateResponseWithThinking()` 
@@ -119,33 +119,48 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - and many more...
 
 
-# NEW FEATURES ADDED 6.8.0 2025/12/17
-- 1. Prompt Bypass System:
+# NEW FEATURES ADDED 6.9.0 2025/12/17
+## 🔥 100 ULTRA HUMAN-LIKE BROWSER PROFILES (v6.9.0)
+- **100 unique browser profiles** for ADIMAGE.APP image generation
+- **Batched parallel execution** - 25 profiles per wave (4 batches total)
+- **Early winner detection** - Stops when first successful image found
+- **999% Human-like behavior** - Undetectable bot requests
 
-Sensitive words → Artistic language convert
-- "bikini" → "summer fashion swimwear"
-- "sexy" → "elegant and confident"
-- "nsfw" → "artistic photography style"
-- Random artistic prefix/suffix add karta hai
-- 2. Human-like Headers:
+### Browser Profile Distribution (100 Total):
+| Browser | Count | Variants |
+|---------|-------|----------|
+| Chrome Windows | 25 | Gamer, Student, Office, Designer, Developer, etc. |
+| Chrome Mac | 15 | Designer, Creative, Producer, Editor, etc. |
+| Firefox | 12 | Privacy, Developer, Researcher, Journalist, etc. |
+| Safari Mac | 10 | Creative, Executive, Premium, Professional, etc. |
+| Edge Windows | 10 | Corporate, Enterprise, Business, IT, etc. |
+| Chrome Android | 12 | S24Ultra, Pixel8Pro, OnePlus12, Mi14Pro, etc. |
+| Safari iOS | 8 | iPhone Power, iPad Pro, Business, etc. |
+| Chrome Linux | 4 | Developer, SysAdmin, DevOps, etc. |
+| Brave | 4 | Crypto, Privacy, Rewards, Minimalist |
 
-- Random Accept-Language (10 different locales)
-- Random jitter delays (100-600ms staggered)
-- DNT header randomly
-- Viewport hints for Chromium browsers
-- Full Sec-Ch-Ua headers
-- Randomized delays - staggered start taaki ek saath na lage
-  More realistic headers - DNT, Connection, Priority, Cache-Control
-  Random Accept-Language variations - different locales
-  Random screen resolutions in viewport hint
-- ✅ 10 Browser Profiles - Chrome, Firefox, Safari, Edge, Opera (Win/Mac/Linux/Android/iOS)
-- ✅ Parallel Requests - Saare 10 ek saath try karte hain
-- ✅ Best Quality Selection - Jo sabse badi file size, wo select hoti hai
-- ✅ Fallback Chain - Agar sab fail → UNRESTRICTED → Puter.js
-# Recent Changes (v6.8.0) - 2025-12-12
-- Parallel requests - 10 alag alag browser headers se SAATH MEIN try karo (Promise.all/race)
-Jisko pehle mile - jo bhi header se pehle image aaye, wo use karo
-Agar multiple ko mile - toh jo sabse badi file size ho (best quality), wo lo
+### Ultra Human-Like Features (Verified):
+- **43 Accept-Language locales** (en-US, de-DE, ja-JP, hi-IN, ar-SA, zh-CN, etc.)
+- **24 screen resolutions** with DPR (1920x1080, 2560x1440, 4K, mobile 390x844, etc.)
+- **10 network conditions** (downlink 1.5-100 Mbps, RTT 5-300ms, ECT 3g/4g)
+- **30 timezones** (America/New_York to Pacific/Auckland)
+- **10 device memory values** (2GB to 32GB simulation)
+- **10 hardware concurrency values** (2 to 16 cores)
+- **Human timing jitter** (8 human actions: 1.33s min - 6.28s max per request)
+  - Page load perception, mouse movement, input focus, typing, reading, button hover, click
+- **Random optional headers** (DNT 40%, Cache-Control 30%, Pragma 20%, X-Requested-With 70%)
+- **Chromium Client Hints** (Sec-Ch-Ua-*, viewport width/height, DPR, device memory)
+
+### Execution Strategy:
+1. **Batch 1**: Profiles 1-25 launch with human-like staggered delays
+2. **Early Winner Check**: If good image found (>50KB), abort remaining
+3. **Batch 2-4**: Only run if needed, with inter-batch delays (500-2000ms)
+4. **Best Quality Selection**: Largest file size = best quality
+5. **Fallback Chain**: If all 100 fail → UNRESTRICTED → Puter.js
+
+### Previous v6.8.0 Features:
+- Prompt Bypass System (sensitive words → artistic language)
+- ✅ Fallback Chain - ADIMAGE → UNRESTRICTED → Puter.js
 
 ## Image Generation Priority Fixed:
 - ✅ **ADIMAGE is now PRIMARY** - No need to say "adimage se" anymore
