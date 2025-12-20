@@ -1,3 +1,43 @@
+# 🆕 Multi-Database Auto-Scaling System (v6.9.2)
+
+## Features
+- **Support for up to 5 databases** - Automatic rotation when one fills up
+- **Auto-rotation at 90% capacity** - Seamless switching to next database
+- **Read-only mode** - Old databases preserved and accessible
+- **Graceful degradation** - Bot continues reading when all DBs are full
+- **Health monitoring** - Automatic checks every 5 minutes
+- **Zero downtime** - No service interruption during rotation
+
+## Environment Variables for Multi-Database
+```bash
+# Primary database (required)
+DATABASE_URL_1="postgresql://..."
+
+# Additional databases (optional, add as needed)
+DATABASE_URL_2="postgresql://..."
+DATABASE_URL_3="postgresql://..."
+DATABASE_URL_4="postgresql://..."
+DATABASE_URL_5="postgresql://..."
+
+# Active database index (auto-updated by bot)
+ACTIVE_DATABASE_INDEX="1"
+
+# Database size limit in MB (default: 1000MB = 1GB)
+DATABASE_SIZE_LIMIT_MB="1000"
+```
+
+## Expected Startup Logs
+```
+🔄 Initializing Multi-Database System...
+✅ Database 1: Connected
+🔥 Active Database for Writes: DB1
+📚 Total Databases Available: 1
+💾 Multi-Database Auto-Scaling: ENABLED
+✅ Database health monitoring started (checks every 5 minutes)
+```
+
+---
+
 # Overview
 
 This Discord bot, built with Node.js, integrates with Mistral AI to provide an advanced AI conversational interface. It features optional autonomous learning, an intelligent skill learning system, and a dual-database architecture using Neon PostgreSQL and Supabase. The bot aims to deliver natural, engaging, and honest responses, including support for Hinglish and appropriate emojis, without manipulative psychology tactics. A key ambition is to evolve into a highly accurate and transparent AI, capable of complex reasoning and multi-tool orchestration, always admitting limitations and never fabricating information.
