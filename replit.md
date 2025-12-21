@@ -159,6 +159,21 @@ Utilizes DuckDuckGo with exponential backoff to prevent rate limiting, falling b
 - and many more...
 
 
+# NEW FEATURES: ULTRA UPGRADE (v5.0 & v5.1) - 2025/12/21
+## 🌀 Self-Evolving Code Mechanism (v5.0)
+- **Tool**: `self_evolve` - Renzu can now write its own JavaScript tools and inject them directly into `index.js`.
+- **Logic**: AI generates tool definitions and handler code, then uses `fs` to hot-patch the bot's own source file.
+- **Hot-Reload Ready**: Designed for environments like Railway where file changes can trigger a restart.
+
+## 💾 Persistent Tool Storage & Anti-Loss (v5.1)
+- **Problem**: Deployments from GitHub/Railway overwrite code, losing self-evolved features.
+- **Solution**:
+    - **`dynamic_tools` Table**: All self-evolved tools are automatically backed up to the PostgreSQL database.
+    - **Startup Auto-Loader**: On boot (`client.ready`), Renzu fetches all dynamic tools from the DB and re-injects them into memory.
+    - **999% Permanent**: Your bot's custom tools now survive code wipes, backups, and new deployments.
+
+---
+
 # NEW FEATURES ADDED 6.9.0 2025/12/17
 ## 🔥 100 ULTRA HUMAN-LIKE BROWSER PROFILES (v6.9.0)
 - **100 unique browser profiles** for ADIMAGE.APP image generation
