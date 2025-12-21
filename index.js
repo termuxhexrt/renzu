@@ -3953,50 +3953,65 @@ if (dbPools.length === 0) {
     process.exit(1);
 }
 
-// ------------------ DYNAMIC TOOL LOADER (v5.1) ------------------
-// This system ensures self-evolved tools persist across deployments
+// ------------------ DYNAMIC TOOL LOADER (v5.2) ------------------
 async function initDynamicTools() {
-    console.log("🌀 Loading Dynamic Tools from ALL Databases...");
+    console.log(`🌀 System Restore: Scanning ${dbPools.length} Database(s)...`);
     let totalTools = 0;
 
     for (const db of dbPools) {
-        try {
-            // Create table if it doesn't exist in this DB
-            await db.pool.query(`
-                CREATE TABLE IF NOT EXISTS dynamic_tools (
-                    id SERIAL PRIMARY KEY,
-                    feature_name TEXT UNIQUE NOT NULL,
-                    tool_json TEXT NOT NULL,
-                    implementation_code TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                // Connection test + Table sync
+                await db.pool.query(`
+                    CREATE TABLE IF NOT EXISTS dynamic_tools (
+                        id SERIAL PRIMARY KEY,
+                        feature_name TEXT UNIQUE NOT NULL,
+                        tool_json TEXT NOT NULL,
+                        implementation_code TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
 
-            // Fetch tools from this DB
-            const { rows } = await db.pool.query("SELECT * FROM dynamic_tools");
-
-            for (const tool of rows) {
-                try {
-                    const parsedTool = JSON.parse(tool.tool_json);
-                    // Avoid duplicates if tool is in multiple DBs
-                    if (!TOOL_DEFINITIONS.some(t => t.function.name === parsedTool.name)) {
-                        TOOL_DEFINITIONS.push({ type: "function", function: parsedTool });
-                        console.log(`✅ Loaded Tool [DB${db.index}]: ${tool.feature_name}`);
-                        totalTools++;
-                    }
-                } catch (e) {
-                    // Silently fail for individual tool parsing
+                const { rows } = await db.pool.query("SELECT * FROM dynamic_tools");
+                for (const tool of rows) {
+                    try {
+                        const parsedTool = JSON.parse(tool.tool_json);
+                        if (!TOOL_DEFINITIONS.some(t => t.function.name === parsedTool.name)) {
+                            TOOL_DEFINITIONS.push({ type: "function", function: parsedTool });
+                            console.log(`✅ [DB${db.index}] Loaded: ${tool.feature_name}`);
+                            totalTools++;
+                        }
+                    } catch (pe) { }
+                }
+                break; // Success, exit retry loop
+            } catch (err) {
+                retries--;
+                if (retries === 0) {
+                    console.warn(`⚠️ DB${db.index} Failed: ${err.message || "Unknown Block"}`);
+                } else {
+                    await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
                 }
             }
-        } catch (err) {
-            console.warn(`⚠️ DB${db.index} Tool Loader: ${err.message || "Connection blocked"}`);
         }
     }
-    console.log(`📦 System Restore: ${totalTools} dynamic tools active.`);
+    console.log(`📦 System Status: ${totalTools} dynamic tools restored.`);
 }
 
 // 🔥 SMART DATABASE DETECTION - Find first writable database
 console.log("🔍 Detecting writable database...");
+
+// Initialize ALL databases with schema
+for (const db of dbPools) {
+    try {
+        // We use a separate local init per DB to ensure schemas are ready everywhere
+        await db.pool.query(`CREATE TABLE IF NOT EXISTS conversations (id SERIAL PRIMARY KEY, user_id TEXT, role TEXT, content TEXT, created_at TIMESTAMP DEFAULT NOW())`);
+        await db.pool.query(`CREATE TABLE IF NOT EXISTS user_profiles (user_id TEXT PRIMARY KEY, gender TEXT DEFAULT 'unknown')`);
+        console.log(`📡 DB${db.index} Schema: Synced`);
+    } catch (e) {
+        console.log(`📡 DB${db.index} Schema: Read-Only or Offline`);
+    }
+}
 
 // First, try to use ACTIVE_DATABASE_INDEX from .env
 let foundWritableDb = false;
