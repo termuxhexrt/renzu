@@ -3868,7 +3868,7 @@ const TOOL_DEFINITIONS = [
         type: "function",
         function: {
             name: "get_media_link",
-            description: "Extracts high-quality direct download links for videos/audio from social media (YouTube, Instagram, TikTok, Twitter, etc.). Provides links, NOT files.",
+            description: "🔥 MANDATORY: Use this tool whenever a user asks to download a video, audio, or media from YouTube, Instagram, TikTok, Twitter, or any social media. Do NOT give text instructions unless this tool fails. Provide direct high-quality links.",
             parameters: {
                 type: "object",
                 properties: {
