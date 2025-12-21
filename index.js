@@ -3861,6 +3861,39 @@ const TOOL_DEFINITIONS = [
                 required: ["feature_name", "tool_json", "implementation_code"]
             }
         }
+    },
+
+    {
+        // Tool 163: get_media_link - Social Media Video/Audio Downloader
+        type: "function",
+        function: {
+            name: "get_media_link",
+            description: "Extracts high-quality direct download links for videos/audio from social media (YouTube, Instagram, TikTok, Twitter, etc.). Provides links, NOT files.",
+            parameters: {
+                type: "object",
+                properties: {
+                    url: { type: "string", description: "The social media post/video URL." },
+                    format: { type: "string", enum: ["mp4", "mp3", "gif"], description: "Desired output format (default: mp4)." }
+                },
+                required: ["url"]
+            }
+        }
+    },
+
+    {
+        // Tool 164: investigate_user - Digital Detective (OSINT)
+        type: "function",
+        function: {
+            name: "investigate_user",
+            description: "Performs a digital footprint search for a username or email across multiple platforms (Twitter, Instagram, Reddit, GitHub, etc.) to find matching profiles.",
+            parameters: {
+                type: "object",
+                properties: {
+                    target: { type: "string", description: "The username or email to investigate." }
+                },
+                required: ["target"]
+            }
+        }
     }
 ];
 // ... (Rest of your original code follows) ...
@@ -7585,6 +7618,82 @@ async function runTool(toolCall, id, msg = null) {
     }
 
     // --- TOOL HANDLING LOGIC STARTS HERE ---
+
+    // 🔥 NEW TOOL: get_media_link (Social Media Downloader)
+    if (name === "get_media_link") {
+        const targetUrl = parsedArgs.url;
+        const format = parsedArgs.format || 'mp4';
+        console.log(`📥 MEDIA DOWNLOADER: Fetching links for ${targetUrl} (${format})`);
+
+        try {
+            // Using Cobalt API (Public Instance)
+            const cobaltApi = "https://api.cobalt.tools/api/json";
+            const response = await fetch(cobaltApi, {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    url: targetUrl,
+                    videoQuality: "1080", // Max quality request
+                    downloadMode: format === 'mp3' ? 'audio' : 'auto'
+                })
+            });
+
+            const data = await response.json();
+            if (data.status === "error") {
+                return `❌ Downloader Error: ${data.text || "Failed to fetch link."}`;
+            }
+
+            if (data.url) {
+                return `📥 **Direct Download Link Generated!**\n\n🔗 **Link:** [Click here to download](${data.url})\n📦 **Format:** ${format.toUpperCase()}\n✅ **Quality:** Maximum (up to 1080p)\n\n> Note: This link might expire in a few hours.`;
+            } else if (data.picker) {
+                const links = data.picker.map(p => `• [${p.type || 'Download'}](${p.url})`).join('\n');
+                return `📥 **Multiple Links Available:**\n${links}`;
+            }
+
+            return "❌ Could not find a direct download link in the response.";
+        } catch (err) {
+            console.error("❌ Downloader API Error:", err);
+            return `❌ Downloader Error: ${err.message}`;
+        }
+    }
+
+    // 🕵️‍♂️ NEW TOOL: investigate_user (OSINT Detective)
+    else if (name === "investigate_user") {
+        const target = parsedArgs.target;
+        console.log(`🕵️‍♂️ OSINT INVESTIGATION: ${target}`);
+
+        try {
+            // Pattern-based scouting across major platforms using smartWebSearch
+            const platforms = [
+                { name: 'Instagram', search: `site:instagram.com "${target}"` },
+                { name: 'Twitter/X', search: `site:twitter.com "${target}"` },
+                { name: 'GitHub', search: `site:github.com "${target}"` },
+                { name: 'Reddit', search: `site:reddit.com/user/${target}` },
+                { name: 'LinkedIn', search: `site:linkedin.com/in "${target}"` },
+                { name: 'Steam', search: `site:steamcommunity.com/id "${target}"` }
+            ];
+
+            let findings = [];
+            for (const p of platforms) {
+                const res = await smartWebSearch(p.search);
+                if (res.response && !res.response.toLowerCase().includes("no results")) {
+                    findings.push(`✅ **${p.name}:** Profile detected or mentioned.`);
+                }
+            }
+
+            if (findings.length === 0) {
+                return `🕵️‍♂️ **OSINT Report for ${target}:**\nNo public profiles found on major platforms. This user has a very small digital footprint.`;
+            }
+
+            return `🕵️‍♂️ **Digital Footprint Report for: ${target}**\n\n${findings.join('\n')}\n\n> Summary: Detected activity on ${findings.length} major platforms. Use with care.`;
+        } catch (err) {
+            console.error("❌ OSINT Tool Error:", err);
+            return `❌ OSINT Error: ${err.message}`;
+        }
+    }
 
     if (name === "search_the_web") {
         const query = parsedArgs.query;
