@@ -3956,44 +3956,43 @@ if (dbPools.length === 0) {
 // ------------------ DYNAMIC TOOL LOADER (v5.1) ------------------
 // This system ensures self-evolved tools persist across deployments
 async function initDynamicTools() {
-    console.log("🌀 Loading Dynamic Tools from Database...");
-    const activeDb = dbPools[activeDbIndex];
-    if (!activeDb) return;
+    console.log("🌀 Loading Dynamic Tools from ALL Databases...");
+    let totalTools = 0;
 
-    try {
-        // Create table if it doesn't exist
-        await activeDb.pool.query(`
-            CREATE TABLE IF NOT EXISTS dynamic_tools (
-                id SERIAL PRIMARY KEY,
-                feature_name TEXT UNIQUE NOT NULL,
-                tool_json TEXT NOT NULL,
-                implementation_code TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
+    for (const db of dbPools) {
+        try {
+            // Create table if it doesn't exist in this DB
+            await db.pool.query(`
+                CREATE TABLE IF NOT EXISTS dynamic_tools (
+                    id SERIAL PRIMARY KEY,
+                    feature_name TEXT UNIQUE NOT NULL,
+                    tool_json TEXT NOT NULL,
+                    implementation_code TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
 
-        // Fetch all dynamic tools
-        const { rows } = await activeDb.pool.query("SELECT * FROM dynamic_tools");
-        console.log(`📦 Found ${rows.length} dynamic tools in database.`);
+            // Fetch tools from this DB
+            const { rows } = await db.pool.query("SELECT * FROM dynamic_tools");
 
-        for (const tool of rows) {
-            try {
-                // 1. Inject into TOOL_DEFINITIONS (Live)
-                const parsedTool = JSON.parse(tool.tool_json);
-                if (!TOOL_DEFINITIONS.some(t => t.function.name === parsedTool.name)) {
-                    TOOL_DEFINITIONS.push({ type: "function", function: parsedTool });
-                    console.log(`✅ Loaded Tool Definition: ${tool.feature_name}`);
+            for (const tool of rows) {
+                try {
+                    const parsedTool = JSON.parse(tool.tool_json);
+                    // Avoid duplicates if tool is in multiple DBs
+                    if (!TOOL_DEFINITIONS.some(t => t.function.name === parsedTool.name)) {
+                        TOOL_DEFINITIONS.push({ type: "function", function: parsedTool });
+                        console.log(`✅ Loaded Tool [DB${db.index}]: ${tool.feature_name}`);
+                        totalTools++;
+                    }
+                } catch (e) {
+                    // Silently fail for individual tool parsing
                 }
-
-                // Note: The logic injection into index.js still happens via self_evolve
-                // so that it survives local restarts, but DB ensures it survives REDEPLOY.
-            } catch (e) {
-                console.error(`❌ Failed to load dynamic tool ${tool.feature_name}:`, e.message);
             }
+        } catch (err) {
+            console.warn(`⚠️ DB${db.index} Tool Loader: ${err.message || "Connection blocked"}`);
         }
-    } catch (err) {
-        console.error("❌ Dynamic Tool Loader Error:", err.message);
     }
+    console.log(`📦 System Restore: ${totalTools} dynamic tools active.`);
 }
 
 // 🔥 SMART DATABASE DETECTION - Find first writable database
@@ -14562,7 +14561,7 @@ if (!token) {
     console.error("Available env vars:", Object.keys(process.env).filter(k => k.includes('DISCORD')));
     process.exit(1);
 }
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`🟢 Logged in as ${client.user.tag}!`);
     await initDynamicTools(); // Load our self-evolved tools
 });
