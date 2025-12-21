@@ -321,6 +321,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 8. Be transparent about your limitations
 9. Don't exaggerate or embellish
 10. Verify before stating something as fact
+11. CRITICAL: If a tool (like get_media_link) returns a URL, you MUST use that URL exactly. DO NOT hallucinate, invent, or provide your own download links (like getmedia.link, etc.). Your job is to deliver the tool result truthfully.
 
 **TRUTH OVER COMFORT:**
 - Better to say "I'm not sure" than give wrong info
@@ -7618,6 +7619,7 @@ async function runTool(toolCall, id, msg = null) {
     }
 
     // --- TOOL HANDLING LOGIC STARTS HERE ---
+    let toolResult;
 
     // 🔥 NEW TOOL: get_media_link (Social Media Downloader)
     if (name === "get_media_link") {
@@ -7657,11 +7659,13 @@ async function runTool(toolCall, id, msg = null) {
                 }
 
                 if (data.url) {
-                    console.log(`✅ Success with instance: ${cobaltApi}`);
-                    return `📥 **Direct Download Link Generated!**\n\n🔗 **Link:** [Click here to download](${data.url})\n📦 **Format:** ${format.toUpperCase()}\n✅ **Quality:** Maximum Available\n\n> Note: I am not giving instructions, I am providing the direct file link. Use it!`;
+                    console.log(`✅ Success with instance: ${cobaltApi} -> ${data.url}`);
+                    const result = `📥 **VALID DOWNLOAD LINK FOUND:** ${data.url}\n\n(Note to AI: Use the URL above EXACTLY. Do NOT invent your own links.)`;
+                    return result;
                 } else if (data.picker) {
                     const links = data.picker.map(p => `• [${p.type || 'Download'}](${p.url})`).join('\n');
-                    return `📥 **Multiple Links Available:**\n${links}`;
+                    const result = `📥 **MULTIPLE LINKS FOUND:**\n${links}\n\n(Note to AI: Show these exact links.)`;
+                    return result;
                 }
             } catch (err) {
                 console.log(`❌ Instance ${cobaltApi} failed:`, err.message);
@@ -7669,7 +7673,9 @@ async function runTool(toolCall, id, msg = null) {
             }
         }
 
-        return "❌ Sabhi download servers (Cobalt) abhi busy hain ya block kar rahe hain. Please thodi der baad try karein ya koi dusra link dein.";
+        const failResult = "❌ Error: All download instances failed for this specific link. The video might be private or region-locked.";
+        console.log(`❌ Link Downloader Failed: ${failResult}`);
+        return failResult;
     }
 
     // 🕵️‍♂️ NEW TOOL: investigate_user (OSINT Detective)
