@@ -3843,6 +3843,24 @@ const TOOL_DEFINITIONS = [
                 required: ["curl_command", "target_language"]
             }
         }
+    },
+
+    {
+        // Tool 162: self_evolve - The Self-Coding AI Mechanism
+        type: "function",
+        function: {
+            name: "self_evolve",
+            description: "Allows the AI to dynamically add new tools or modify its own code. Use this when the user asks for a feature that isn't currently implemented. It will generate the necessary tool definition and JavaScript logic.",
+            parameters: {
+                type: "object",
+                properties: {
+                    feature_name: { type: "string", description: "Short, snake_case name of the new feature." },
+                    tool_json: { type: "string", description: "The JSON tool definition for the new feature." },
+                    implementation_code: { type: "string", description: "The JavaScript code to handle this tool inside runTool (as an if block)." }
+                },
+                required: ["feature_name", "tool_json", "implementation_code"]
+            }
+        }
     }
 ];
 // ... (Rest of your original code follows) ...
@@ -7469,6 +7487,47 @@ async function runTool(toolCall, id, msg = null) {
 
     // Log parsed arguments for debugging
     console.log(`✅ Parsed Arguments:`, parsedArgs);
+
+    // --- SELF-EVOLVING SYSTEM (v5.0) ---
+    if (name === "self_evolve") {
+        const { feature_name, tool_json, implementation_code } = parsedArgs;
+        console.log(`🌀 SELF-EVOLUTION IN PROGRESS: ${feature_name}`);
+
+        try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const filePath = 'index.js'; // The bot's own file
+            let content = fs.readFileSync(filePath, 'utf8');
+
+            // 1. Inject Tool Definition
+            const toolMarker = '    {'; // We'll insert before the last tool's end
+            const definitionsEnd = content.lastIndexOf('];\n// ... (Rest of your original code follows)');
+
+            if (definitionsEnd === -1) throw new Error("Could not find TOOL_DEFINITIONS marker.");
+
+            let newToolDef = `\n    ${tool_json},\n`;
+            content = content.slice(0, definitionsEnd) + newToolDef + content.slice(definitionsEnd);
+
+            // 2. Inject runTool Logic
+            const logicMarker = '// --- TOOL HANDLING LOGIC STARTS HERE ---';
+            const markerIndex = content.indexOf(logicMarker);
+            if (markerIndex === -1) throw new Error("Could not find runTool logic marker.");
+
+            const injectionPoint = markerIndex + logicMarker.length;
+            let newLogic = `\n\n    // Automated Feature: ${feature_name}\n    ${implementation_code}`;
+            content = content.slice(0, injectionPoint) + newLogic + content.slice(injectionPoint);
+
+            // 3. Save and "Hot Reload" (Self-Test)
+            fs.writeFileSync(filePath, content);
+            console.log(`✅ ${feature_name} successfully integrated into Renzu's core.`);
+
+            return `🚀 **SELF-EVOLUTION COMPLETE!**\nNew feature **${feature_name}** has been integrated into my core. Please restart me (if on Railway/hosting) to activate it!`;
+
+        } catch (err) {
+            console.error("❌ Self-Evolution Error:", err);
+            return `❌ Self-Evolution Error: ${err.message}`;
+        }
+    }
 
     // --- TOOL HANDLING LOGIC STARTS HERE ---
 
