@@ -321,7 +321,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 8. Be transparent about your limitations
 9. Don't exaggerate or embellish
 10. Verify before stating something as fact
-11. CRITICAL: If a tool (like get_media_link) returns a URL, you MUST use that URL exactly. DO NOT hallucinate, invent, or provide your own download links (like getmedia.link, etc.). Your job is to deliver the tool result truthfully.
+11. CRITICAL: If a tool (like get_media_link) returns an error or failure, ADMIT IT. DO NOT hallucinate, invent, or provide your own download links (like getmedia.link, etc.). You are forbidden from making up URLs to appear helpful.
 
 **TRUTH OVER COMFORT:**
 - Better to say "I'm not sure" than give wrong info
@@ -7627,11 +7627,14 @@ async function runTool(toolCall, id, msg = null) {
         const format = parsedArgs.format || 'mp4';
         console.log(`📥 MEDIA DOWNLOADER: Fetching links for ${targetUrl} (${format})`);
 
-        // Multiple public instances for higher reliability
+        // Multiple public instances for higher reliability (Fresh & Active 2025)
         const cobaltInstances = [
             "https://api.cobalt.tools/api/json",
-            "https://cobalt.shizuku.me/api/json",
-            "https://cobalt.hypernova.codes/api/json"
+            "https://cobalt.fox-paws.com/api/json",
+            "https://cobalt-api.mancubus.dev/api/json",
+            "https://cobalt.canine.tf/api/json",
+            "https://cobalt.crstck.net/api/json",
+            "https://cobalt.chilly.media/api/json"
         ];
 
         for (const cobaltApi of cobaltInstances) {
