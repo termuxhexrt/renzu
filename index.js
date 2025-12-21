@@ -3868,7 +3868,7 @@ const TOOL_DEFINITIONS = [
         type: "function",
         function: {
             name: "get_media_link",
-            description: "🔥 MANDATORY: Use this tool whenever a user asks to download a video, audio, or media from YouTube, Instagram, TikTok, Twitter, or any social media. Do NOT give text instructions unless this tool fails. Provide direct high-quality links.",
+            description: "🔥 MANDATORY: Use this tool to provide direct download links. NEVER give manual instructions (YT5S, etc.). Your ONLY job is to call this tool and give the link provided.",
             parameters: {
                 type: "object",
                 properties: {
@@ -7625,39 +7625,51 @@ async function runTool(toolCall, id, msg = null) {
         const format = parsedArgs.format || 'mp4';
         console.log(`📥 MEDIA DOWNLOADER: Fetching links for ${targetUrl} (${format})`);
 
-        try {
-            // Using Cobalt API (Public Instance)
-            const cobaltApi = "https://api.cobalt.tools/api/json";
-            const response = await fetch(cobaltApi, {
-                method: "POST",
-                headers: {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    url: targetUrl,
-                    videoQuality: "1080", // Max quality request
-                    downloadMode: format === 'mp3' ? 'audio' : 'auto'
-                })
-            });
+        // Multiple public instances for higher reliability
+        const cobaltInstances = [
+            "https://api.cobalt.tools/api/json",
+            "https://cobalt.shizuku.me/api/json",
+            "https://cobalt.hypernova.codes/api/json"
+        ];
 
-            const data = await response.json();
-            if (data.status === "error") {
-                return `❌ Downloader Error: ${data.text || "Failed to fetch link."}`;
+        for (const cobaltApi of cobaltInstances) {
+            try {
+                const response = await fetch(cobaltApi, {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: targetUrl,
+                        filenameStyle: "basic",
+                        downloadMode: format === 'mp3' ? 'audio' : 'auto'
+                    })
+                });
+
+                if (!response.ok) continue;
+
+                const data = await response.json();
+
+                if (data.status === "error") {
+                    console.log(`⚠️ Cobalt instance ${cobaltApi} returned error: ${data.text}`);
+                    continue;
+                }
+
+                if (data.url) {
+                    console.log(`✅ Success with instance: ${cobaltApi}`);
+                    return `📥 **Direct Download Link Generated!**\n\n🔗 **Link:** [Click here to download](${data.url})\n📦 **Format:** ${format.toUpperCase()}\n✅ **Quality:** Maximum Available\n\n> Note: I am not giving instructions, I am providing the direct file link. Use it!`;
+                } else if (data.picker) {
+                    const links = data.picker.map(p => `• [${p.type || 'Download'}](${p.url})`).join('\n');
+                    return `📥 **Multiple Links Available:**\n${links}`;
+                }
+            } catch (err) {
+                console.log(`❌ Instance ${cobaltApi} failed:`, err.message);
+                continue; // Try next instance
             }
-
-            if (data.url) {
-                return `📥 **Direct Download Link Generated!**\n\n🔗 **Link:** [Click here to download](${data.url})\n📦 **Format:** ${format.toUpperCase()}\n✅ **Quality:** Maximum (up to 1080p)\n\n> Note: This link might expire in a few hours.`;
-            } else if (data.picker) {
-                const links = data.picker.map(p => `• [${p.type || 'Download'}](${p.url})`).join('\n');
-                return `📥 **Multiple Links Available:**\n${links}`;
-            }
-
-            return "❌ Could not find a direct download link in the response.";
-        } catch (err) {
-            console.error("❌ Downloader API Error:", err);
-            return `❌ Downloader Error: ${err.message}`;
         }
+
+        return "❌ Sabhi download servers (Cobalt) abhi busy hain ya block kar rahe hain. Please thodi der baad try karein ya koi dusra link dein.";
     }
 
     // 🕵️‍♂️ NEW TOOL: investigate_user (OSINT Detective)
