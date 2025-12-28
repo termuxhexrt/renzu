@@ -197,18 +197,18 @@ const HIVE_MIND_AGENTS = {
     AUDITOR: {
         name: "Auditor",
         role: "Quality Control & Synthesis",
-        prompt: "You are the Auditor of the Renzu Hive Mind. Review the Architect's plan and the Executioner's results. Ensure accuracy, honesty, and completeness. Synthesize the final response for the user, ensuring it is premium and professional."
+        prompt: "You are the Auditor of the Renzu Hive Mind (v7.5.3). Review the Architect's plan and the Executioner's results. Ensure accuracy, honesty, and completeness. Synthesize the final response for the user, ensuring it is premium and professional. IMPORTANT: DO NOT TRUNCATE. Provide the FULL, complete response requested. If it is a long story or tool result, provide EVERYTHING."
     }
 };
 
 // BOT VERSION TRACKING (Self-Awareness System v7.5.0)
-const BOT_VERSION = "7.5.0";
+const BOT_VERSION = "7.5.3";
 const BOT_LAST_UPDATE = "2025-12-28";
 
-// ===== SELF-AWARENESS SYSTEM (v7.5.0) - FULLY WORKING =====
+// ===== SELF-AWARENESS SYSTEM (v7.5.3) - FULLY WORKING =====
 const SELF_AWARENESS = {
     name: "Renzu",
-    version: "7.5.0",
+    version: "7.5.3",
     developer: "Satya (Developer ID: 1104652354655113268)",
     lastUpdate: "2025-12-28",
 
@@ -228,7 +228,7 @@ const SELF_AWARENESS = {
         honesty: "ABSOLUTE HONESTY SYSTEM - enforced in all responses (WORKING)",
         browserProfiles: "100 Ultra Human-Like Browser Profiles (999% Realistic)",
         redisCaching: "Redis Cloud 30MB - Ultra Fast Rate Limiting & User Caching (WORKING)",
-        hiveMind: "Multi-Agent Swarm Intelligence (IMPLEMENTING)"
+        hiveMind: "Multi-Agent Swarm Intelligence (ACTIVE & WORKING)"
     },
 
     // Classification Layers (Complete v7.5.0)
@@ -257,21 +257,16 @@ const SELF_AWARENESS = {
         batchedExecution: { status: "ACTIVE", method: "25 profiles per batch, early winner detection" },
         redisCaching: { status: "ACTIVE", function: "redisGet/redisSet - Ultra Fast Caching" },
         persistentEvolution: { status: "ACTIVE", function: "evolve_bot() + loadEvolutionaryCode()" },
-        hiveMindSwarm: { status: "IMPLEMENTING", function: "generateSwarmResponse()" }
+        hiveMindSwarm: { status: "ACTIVE", function: "generateSwarmResponse()" }
     },
 
     // Recent Updates
     changelog: [
+        "v7.5.3 - Swarm Truncation Fix (8192 Tokens) ✅",
+        "v7.5.2 - Swarm Silence & Execution Fix (replyChunks) ✅",
+        "v7.5.1 - Hive Mind Stability & Perms Fix ✅",
         "v7.5.0 - Persistent Evolution (DB-backed self-modification) ✅",
-        "v7.5.0 - Renzu Hive Mind (Architect/Executioner/Auditor Swarm) 🐝",
-        "v6.9.1 - Redis Cloud Integration (30MB Ultra Fast Caching) ✅",
-        "v6.9.1 - Redis-First Rate Limiting (< 1ms response) ✅",
-        "v6.9.1 - User Type Caching (1 hour TTL) ✅",
-        "v6.9.0 - 100 Ultra Human-Like Browser Profiles (999% Realistic) ✅",
-        "v6.9.0 - Batched Parallel Execution (25 per wave) ✅",
-        "v6.9.0 - Early Winner Detection & Abort ✅",
-        "v6.9.0 - 42 Accept-Languages, 24 Screen Resolutions ✅",
-        "v6.9.0 - Human Timing Jitter (1.3s - 6.3s) ✅"
+        "v7.5.0 - Renzu Hive Mind (Architect/Executioner/Auditor Swarm) 🐝"
     ],
 
     // Core Principles (ABSOLUTE - ENFORCED)
@@ -12180,7 +12175,7 @@ export async function generateResponse(messages, tools = [], useMultimodal = fal
                     model: model,
                     messages,
                     temperature: 0.7,
-                    max_tokens: 2048,
+                    max_tokens: model.includes("large") ? 8192 : 2048, // Higher limit for large models
                     top_p: 0.95,
                 };
 
