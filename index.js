@@ -187,7 +187,7 @@ const HIVE_MIND_AGENTS = {
     ARCHITECT: {
         name: "Architect",
         role: "Planner & Strategist",
-        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed multi-step execution plan. Use 'shadow_scraper' for real-time deep web intel, 'infinite_memory_search' to retrieve past knowledge, and 'ui_master' for high-end web designs. Define which tools should be used and what data needs to be gathered. Do not execute tools, just plan."
+        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed multi-step execution plan. Use 'shadow_scraper' for real-time deep web intel, 'infinite_memory_search' to retrieve past knowledge, and 'ui_master' for high-end web designs. RECURSIVE RESEARCH: For complex topics, mandate cross-verification from 5-6 different sources using multiple scraper calls. PROJECT CREATION: If a project/folder is needed, use 'create_project_zip' to bundle files. Define which tools should be used and what data needs to be gathered. Do not execute tools, just plan."
     },
     EXECUTIONER: {
         name: "Executioner",
@@ -3938,6 +3938,47 @@ const TOOL_DEFINITIONS = [
                     url: { type: "string", description: "The URL to extract images from." }
                 },
                 required: ["url"]
+            }
+        }
+    },
+    {
+        // Tool 167: execute_swarm_code - SELF-HEALING ENGINE (v7.6.0)
+        type: "function",
+        function: {
+            name: "execute_swarm_code",
+            description: "⚡ EXECUTE SWARM CODE - Runs JavaScript/Node.js code in real-time. Use this to test logic, perform calculations, or automate tasks. Returns output and errors. If an error occurs, the Hive Mind will automatically propose a fix.",
+            parameters: {
+                type: "object",
+                properties: {
+                    code: { type: "string", description: "The JavaScript code to execute." }
+                },
+                required: ["code"]
+            }
+        }
+    },
+    {
+        // Tool 168: create_project_zip - AUTONOMOUS FILE MAKER (v7.6.0)
+        type: "function",
+        function: {
+            name: "create_project_zip",
+            description: "📂 CREATE PROJECT ZIP - Bundles multiple files into a single ZIP archive. Use this to provide the user with a downloadable project (HTML/CSS/JS/etc.).",
+            parameters: {
+                type: "object",
+                properties: {
+                    project_name: { type: "string", description: "Name of the project/zip file." },
+                    files: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                name: { type: "string", description: "Filename (e.g., 'index.html')." },
+                                content: { type: "string", description: "File content." }
+                            },
+                            required: ["name", "content"]
+                        }
+                    }
+                },
+                required: ["project_name", "files"]
             }
         }
     }
@@ -11845,7 +11886,7 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // Tool 163: Shadow Scraper (Deep Web Scraping)
+    // Tool 163: Shadow Scraper (Deep Web Scraping + Visual Proof)
     else if (name === "shadow_scraper" || name === "visual_intel") {
         const { url, extract_images, deep_scan } = parsedArgs;
         if (!url) return "❌ **SCRAPER ERROR**: URL is required.";
@@ -11864,6 +11905,10 @@ async function runTool(toolCall, id, msg = null) {
 
             await page.goto(url, { waitUntil: deep_scan ? 'networkidle0' : 'networkidle2', timeout: 30000 });
 
+            // TAKE SCREENSHOT (Visual Proof)
+            const screenshotPath = `screenshot_${Date.now()}.png`;
+            await page.screenshot({ path: screenshotPath, fullPage: false });
+
             const data = await page.evaluate((extractImg) => {
                 const title = document.title;
                 const text = document.body.innerText.substring(0, 5000); // Limit for AI safety
@@ -11872,6 +11917,17 @@ async function runTool(toolCall, id, msg = null) {
             }, extract_images !== false);
 
             await browser.close();
+
+            // Notify user with screenshot if message object is available
+            if (msg && msg.channel) {
+                await msg.channel.send({
+                    content: `📸 **Visual Proof from ${url}:**`,
+                    files: [screenshotPath]
+                }).catch(e => console.error("Screenshot upload failed:", e));
+                // Delete screenshot after sending
+                setTimeout(() => { if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath); }, 5000);
+            }
+
             return `✅ **SCRAPE COMPLETE: ${data.title}**\n\n**Raw Text Snippet:**\n${data.text}\n\n**Found Images:**\n${data.images.join('\n') || 'None'}`;
         } catch (err) {
             if (browser) await browser.close();
@@ -11894,7 +11950,13 @@ async function runTool(toolCall, id, msg = null) {
 
             if (res.rows.length === 0) return `🔍 **MEMORY SEARCH**: No past records found for "${query}".`;
 
-            const memories = res.rows.map(r => `[${r.created_at.toISOString().split('T')[0]}] ${r.content.substring(0, 200)}...`).join('\n');
+            // Smart Ranking (Keyword density)
+            const ranked = res.rows.map(r => ({
+                ...r,
+                score: query.toLowerCase().split(' ').reduce((acc, kw) => acc + (r.content.toLowerCase().split(kw).length - 1), 0)
+            })).sort((a, b) => b.score - a.score).slice(0, limit);
+
+            const memories = ranked.map(r => `[${r.created_at.toISOString().split('T')[0]}] (Relevance: ${r.score}) ${r.content.substring(0, 200)}...`).join('\n');
             return `🧠 **KNOWLEDGE RETRIEVED for "${query}":**\n\n${memories}`;
         } catch (err) {
             return `❌ **MEMORY SEARCH FAILED**: ${err.message}`;
@@ -11906,6 +11968,71 @@ async function runTool(toolCall, id, msg = null) {
         const { style_requirement } = parsedArgs;
         return `🎨 **UI MASTER ACTIVATED**: Applying "${style_requirement}" principles. 
         \n**INSTRUCTIONS FOR AUDITOR:** Use Glassmorphism (semi-transparent backgrounds, blur), Hover-effects, Flex-layout, Premium Google Fonts, and Vibrant Gradients. Ensure the code looks state-of-the-art.`;
+    }
+
+    // Tool 167: Execute Swarm Code (Self-Healing Engine)
+    else if (name === "execute_swarm_code") {
+        const { code } = parsedArgs;
+        if (!code) return "❌ **EXECUTION ERROR**: No code provided.";
+
+        console.log(`⚡ [SWARM_EXEC] Running code...`);
+        let logs = [];
+        const originalLog = console.log;
+        console.log = (...args) => {
+            logs.push(args.join(' '));
+            originalLog(...args);
+        };
+
+        try {
+            const result = eval(code);
+            console.log = originalLog;
+            return `✅ **CODE EXECUTED SUCCESSFULLY**\n\n**Result:** ${result}\n**Logs:**\n${logs.join('\n') || 'None'}`;
+        } catch (err) {
+            console.log = originalLog;
+            return `❌ **CODE EXECUTION FAILED**\n\n**Error:** ${err.message}\n**Trace:** ${err.stack}\n\n**REPAIR REQUESTED**: Swarm, please fix this code.`;
+        }
+    }
+
+    // Tool 168: Create Project Zip (Autonomous File Maker)
+    else if (name === "create_project_zip") {
+        const { project_name, files } = parsedArgs;
+        if (!files || !Array.isArray(files)) return "❌ **FILE MAKER ERROR**: Invalid files array.";
+
+        console.log(`📂 [FILE_MAKER] Creating project: ${project_name}`);
+        const timestamp = Date.now();
+        const dir = path.join(process.cwd(), `${project_name}_${timestamp}`);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        files.forEach(file => {
+            const filePath = path.join(dir, file.name);
+            const parentDir = path.dirname(filePath);
+            if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+            fs.writeFileSync(filePath, file.content);
+        });
+
+        const zipName = `${project_name}_${timestamp}.zip`;
+        const zipPath = path.join(process.cwd(), zipName);
+        try {
+            const { execSync } = await import('child_process');
+            // 'zip' command must be available on Linux (Railway)
+            execSync(`zip -r ${zipName} ${path.basename(dir)}`, { cwd: process.cwd() });
+
+            if (msg && msg.channel) {
+                await msg.channel.send({
+                    content: `📂 **Project "${project_name}" is ready for download!**`,
+                    files: [zipPath]
+                }).catch(e => console.error("Zip upload failed:", e));
+
+                // Cleanup
+                setTimeout(() => {
+                    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+                    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+                }, 20000);
+            }
+            return `✅ **PROJECT CREATED**: Zip file sent to Discord.`;
+        } catch (err) {
+            return `❌ **ZIP FAILED**: ${err.message}. Ensure 'zip' package is installed on the host.`;
+        }
     }
 
     // Tool 162: Evolve Bot (Persistent Evolution)
