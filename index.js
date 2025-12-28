@@ -183,22 +183,22 @@ async function redisDel(key) {
     }
 }
 
-// 🐝 Renzu Hive Mind Agents (v7.6.5)
+// 🐝 Renzu Hive Mind Agents (v7.6.6)
 const HIVE_MIND_AGENTS = {
     ARCHITECT: {
         name: "Architect",
         role: "Planner & Strategist",
-        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed multi-step execution plan. Use 'shadow_scraper' for real-time deep web intel, 'infinite_memory_search' for past knowledge, 'ui_master' for high-end designs, 'security_scan' for vulnerabilities, and 'upgrade_existing_project' for maintenance. DYNAMIC SPAWNER: If a task requires a specific expert (e.g., 'Python Pro', 'Logo Designer', 'Cyber-Sec Hunter'), include 'SPECIALIST_PERSONA: [Detailed Specialist Prompt]' at the start of your plan. RECURSIVE RESEARCH: Mandate cross-verification from 5-6 sources for complex topics. Do not execute tools, just plan."
+        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed multi-step execution plan. USE THESE EXACT TOOLS: 'shadow_scraper' (web search/screenshots), 'infinite_memory_search' (knowledge), 'ui_master' (UI code), 'security_scan' (code audit), 'upgrade_existing_project' (refactor), 'speak_to_channel' (voice). DYNAMIC SPAWNER: If a task requires an expert (e.g., 'Python Expert', 'UI Designer'), mandate that the Executioner adopts that persona. Do not invent new tools. Focus on execution."
     },
     EXECUTIONER: {
         name: "Executioner",
         role: "Specialist & Tool Operator",
-        prompt: "You are the Executioner of the Renzu Hive Mind. Take the Architect's plan and execute it. Use 'shadow_scraper' for raw data, 'visual_intel' for image analysis, and 'speak_to_channel' for voice output. If the Architect provided a SPECIALIST_PERSONA, adopt that expert identity for this task. Provide results clearly for the Auditor."
+        prompt: "You are the Executioner of the Renzu Hive Mind. Take the Architect's plan and execute it. Your priority is CALLING TOOLS. Do not just describe what you will do—ACTUALLY CALL THE TOOLS. Use 'shadow_scraper' for any web data. Use 'speak_to_channel' for any voice requests. If a SPECIALIST_PERSONA is requested, adopt it for the tool output."
     },
     AUDITOR: {
         name: "Auditor",
         role: "Quality Control & Synthesis",
-        prompt: "You are the Auditor of the Renzu Hive Mind (v7.6.5). Review the Architect's plan and the Executioner's results. Ensure 'ui_master' principles are applied for UI requests. Synthesize the final response ensuring it is premium, professional, and COMPLETE. DO NOT TRUNCATE. IMPORTANT: Your job is to confirm delivery and summarize results. DO NOT ask for permission to use tools—the Executioner has already done the work. Do NOT hallucinate tool names like 'file_creator'; stay 100% faithful to the Executioner's raw logs. If a zip was created, tell the user it is ready."
+        prompt: "You are the Auditor of the Renzu Hive Mind (v7.6.6). Review the Architect's plan and the Executioner's tool results. Your ONLY job is to synthesize the final answer. DO NOT ask for permission to use tools. DO NOT hallucinate tool names. If the Executioner failed to call a tool, state it clearly. If the Executioner uploaded a file or image, confirm it is ready for the user. Ensure premium quality and absolute honesty."
     }
 };
 
@@ -11985,13 +11985,13 @@ async function runTool(toolCall, id, msg = null) {
             browser = await puppeteer.launch({
                 executablePath: executablePath,
                 headless: 'new',
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
             });
             const page = await browser.newPage();
             await page.setViewport({ width: 1280, height: 800 });
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-            await page.goto(url, { waitUntil: deep_scan ? 'networkidle0' : 'networkidle2', timeout: 30000 });
+            await page.goto(url, { waitUntil: deep_scan ? 'networkidle0' : 'networkidle2', timeout: 45000 });
 
             // TAKE SCREENSHOT (Visual Proof)
             const screenshotPath = `screenshot_${Date.now()}.png`;
@@ -11999,24 +11999,24 @@ async function runTool(toolCall, id, msg = null) {
 
             const data = await page.evaluate((extractImg) => {
                 const title = document.title;
-                const text = document.body.innerText.substring(0, 5000); // Limit for AI safety
-                const images = extractImg ? Array.from(document.querySelectorAll('img')).map(img => img.src).filter(src => src.startsWith('http')).slice(0, 20) : [];
+                const text = document.body.innerText.substring(0, 5000);
+                const images = extractImg ? Array.from(document.querySelectorAll('img')).map(img => img.src).filter(src => src.startsWith('http')).slice(0, 10) : [];
                 return { title, text, images };
             }, extract_images !== false);
 
             await browser.close();
+            browser = null; // Mark as closed
 
-            // Notify user with screenshot if message object is available
+            // Notify user with screenshot 
             if (msg && msg.channel) {
                 await msg.channel.send({
                     content: `📸 **Visual Proof from ${url}:**`,
                     files: [screenshotPath]
-                }).catch(e => console.error("Screenshot upload failed:", e));
-                // Delete screenshot after sending
-                setTimeout(() => { if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath); }, 5000);
+                });
+                setTimeout(() => { if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath); }, 10000);
             }
 
-            return `✅ **SCRAPE COMPLETE: ${data.title}**\n\n**Raw Text Snippet:**\n${data.text}\n\n**Found Images:**\n${data.images.join('\n') || 'None'}`;
+            return `✅ **SCRAPE COMPLETE: ${data.title}**\n\n**Visual Proof Sent.**\n\n**Text Snippet:**\n${data.text}\n\n**Images:**\n${data.images.join(', ') || 'None'}`;
         } catch (err) {
             if (browser) await browser.close();
             return `❌ **SCRAPER FAILED**: ${err.message}`;
@@ -12513,8 +12513,8 @@ async function generateSwarmResponse(query, msg) {
         let executionerSystemPrompt = HIVE_MIND_AGENTS.EXECUTIONER.prompt;
 
         // DYNAMIC SPAWNER: Check for specialist persona in Architect's plan
-        if (architectPlan.includes("SPECIALIST_PERSONA:")) {
-            const personaMatch = architectPlan.match(/SPECIALIST_PERSONA:\s*\[(.*?)\]/s) || architectPlan.match(/SPECIALIST_PERSONA:\s*(.*)/s);
+        if (architectPlan.toLowerCase().includes("specialist_persona:")) {
+            const personaMatch = architectPlan.match(/SPECIALIST_PERSONA:\s*\[?(.*?)\]?(?:\n|$)/i);
             if (personaMatch && personaMatch[1]) {
                 const specialistPrompt = personaMatch[1].trim();
                 executionerSystemPrompt = `ADOPT SPECIALIST IDENTITY:\n${specialistPrompt}\n\nCORE EXECUTIONER RULES:\n${HIVE_MIND_AGENTS.EXECUTIONER.prompt}`;
