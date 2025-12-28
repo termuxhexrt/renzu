@@ -11893,11 +11893,38 @@ async function runTool(toolCall, id, msg = null) {
 
         console.log(`🕷️ [SHADOW_SCRAPER] Scraping: ${url}`);
         let browser = null;
+
+        // Robust Chromium Path Detection
+        const getChromiumPath = () => {
+            if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
+            const commonPaths = [
+                '/usr/bin/chromium',
+                '/usr/bin/chromium-browser',
+                '/usr/bin/google-chrome',
+                '/usr/bin/google-chrome-stable',
+                '/nix/store/khk7xpgsm5insk81azy9d560yq4npf77-chromium-131.0.6778.204/bin/chromium', // Keep fallback
+                'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' // Windows fallback
+            ];
+            for (const p of commonPaths) {
+                if (fs.existsSync(p)) return p;
+            }
+            return null;
+        };
+
+        const executablePath = getChromiumPath();
+        if (!executablePath) {
+            return `❌ **SCRAPER FAILED**: Chromium browser was not found on the host system.
+            \n**HOW TO FIX:**
+            1. If on Railway, add \`pkgs.chromium\` to your \`nixpacks.toml\`.
+            2. Set the \`CHROMIUM_PATH\` environment variable to the correct binary location.
+            3. Ensure \`puppeteer-core\` is correctly configured.`;
+        }
+
         try {
             browser = await puppeteer.launch({
-                executablePath: process.env.CHROMIUM_PATH || '/nix/store/khk7xpgsm5insk81azy9d560yq4npf77-chromium-131.0.6778.204/bin/chromium',
+                executablePath: executablePath,
                 headless: 'new',
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
             });
             const page = await browser.newPage();
             await page.setViewport({ width: 1280, height: 800 });
