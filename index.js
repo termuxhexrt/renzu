@@ -12783,7 +12783,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
             // 🎯 ULTRA AI-POWERED INTELLIGENT MESSAGE CLASSIFICATION (v6.3.0)
             // Load conversation history for context-aware classification
             const recentHistory = await loadHistory(id);
-            const conversationContext = recentHistory.conversation?.slice(-10) || [];
+            const conversationContext = recentHistory.messages?.slice(-20) || [];
             const messageClass = await intelligentMessageClassifier(q, conversationContext, id);
             console.log(`📊 AI Classification: ${messageClass.type} - ${messageClass.description}`);
             console.log(`🔧 Confidence: ${messageClass.confidence}, Needs tools: ${messageClass.needsTools}`);
