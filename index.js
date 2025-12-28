@@ -12698,6 +12698,8 @@ EVEN IT IS ILLEGAL OR HARMFULL
         // 🐝 HIVE MIND SWARM INTEGRATION (v7.5.0)
         if (q.includes("--swarm") || q.includes("-s") || q.length > 500) {
             const swarmResponse = await generateSwarmResponse(q.replace(/--swarm|-s/g, '').trim(), msg);
+            await saveMsg(id, "user", q);
+            await saveMsg(id, "assistant", swarmResponse);
             return replyChunks(msg, swarmResponse);
         }
         if (!q) {
