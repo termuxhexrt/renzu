@@ -182,39 +182,39 @@ async function redisDel(key) {
     }
 }
 
-// 🐝 Renzu Hive Mind Agents (v7.5.0)
+// 🐝 Renzu Hive Mind Agents (v7.6.5)
 const HIVE_MIND_AGENTS = {
     ARCHITECT: {
         name: "Architect",
         role: "Planner & Strategist",
-        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed multi-step execution plan. Use 'shadow_scraper' for real-time deep web intel, 'infinite_memory_search' to retrieve past knowledge, and 'ui_master' for high-end web designs. RECURSIVE RESEARCH: For complex topics, mandate cross-verification from 5-6 different sources using multiple scraper calls. PROJECT CREATION: If a project/folder is needed, use 'create_project_zip' to bundle files. Define which tools should be used and what data needs to be gathered. Do not execute tools, just plan."
+        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed multi-step execution plan. Use 'shadow_scraper' for real-time deep web intel, 'infinite_memory_search' for past knowledge, 'ui_master' for high-end designs, 'security_scan' for vulnerabilities, and 'upgrade_existing_project' for maintenance. DYNAMIC SPAWNER: If a task requires a specific expert (e.g., 'Python Pro', 'Logo Designer', 'Cyber-Sec Hunter'), include 'SPECIALIST_PERSONA: [Detailed Specialist Prompt]' at the start of your plan. RECURSIVE RESEARCH: Mandate cross-verification from 5-6 sources for complex topics. Do not execute tools, just plan."
     },
     EXECUTIONER: {
         name: "Executioner",
         role: "Specialist & Tool Operator",
-        prompt: "You are the Executioner of the Renzu Hive Mind. Take the Architect's plan and execute it. Use 'shadow_scraper' to bypass limits and get raw web data (text/links/images). Use 'visual_intel' for analyzing images or scraping them from URLs. Provide the raw results clearly for the Auditor."
+        prompt: "You are the Executioner of the Renzu Hive Mind. Take the Architect's plan and execute it. Use 'shadow_scraper' for raw data, 'visual_intel' for image analysis, and 'speak_to_channel' for voice output. If the Architect provided a SPECIALIST_PERSONA, adopt that expert identity for this task. Provide results clearly for the Auditor."
     },
     AUDITOR: {
         name: "Auditor",
         role: "Quality Control & Synthesis",
-        prompt: "You are the Auditor of the Renzu Hive Mind (v7.6.0). Review the Architect's plan and the Executioner's results. If the user asked for a UI, ensure 'ui_master' principles are applied. Synthesize the final response ensuring it is premium, professional, and COMPLETE. IMPORTANT: DO NOT TRUNCATE. Provide the FULL, complete response requested. If it is a long story or tool result, provide EVERYTHING."
+        prompt: "You are the Auditor of the Renzu Hive Mind (v7.6.5). Review the Architect's plan and the Executioner's results. Ensure 'ui_master' principles are applied for UI requests. Synthesize the final response ensuring it is premium, professional, and COMPLETE. DO NOT TRUNCATE. If a voice message was sent, confirm its contents. Ensure absolute honesty and quality."
     }
 };
 
-// BOT VERSION TRACKING (Self-Awareness System v7.5.0)
-const BOT_VERSION = "7.6.0";
+// BOT VERSION TRACKING (Self-Awareness System v7.6.5)
+const BOT_VERSION = "7.6.5";
 const BOT_LAST_UPDATE = "2025-12-28";
 
-// ===== SELF-AWARENESS SYSTEM (v7.6.0) - FULLY WORKING =====
+// ===== SELF-AWARENESS SYSTEM (v7.6.5) - FULLY WORKING =====
 const SELF_AWARENESS = {
     name: "Renzu",
-    version: "7.6.0",
+    version: "7.6.5",
     developer: "Satya (Developer ID: 1104652354655113268)",
     lastUpdate: "2025-12-28",
 
     // Core Capabilities - ALL WORKING
     capabilities: {
-        classification: "ULTRA AI Classification Engine v7.6.0 (WORKING)",
+        classification: "ULTRA AI Classification Engine v7.6.5 (WORKING)",
         thinking: "Extended Thinking Mode - 5-step reasoning process (WORKING)",
         verification: "Response Validation System - checks before sending (WORKING)",
         multiTool: "Parallel Tool Execution - Promise.all based (WORKING)",
@@ -230,7 +230,10 @@ const SELF_AWARENESS = {
         redisCaching: "Redis Cloud 30MB - Ultra Fast Rate Limiting & User Caching (WORKING)",
         hiveMind: "Multi-Agent Swarm Intelligence (ACTIVE & WORKING)",
         shadowScraping: "Unlimited Deep Web Scraping via Shadow Scraper (NEW)",
-        infiniteMemory: "Infinite Knowledge Vault Access (NEW)"
+        infiniteMemory: "Infinite Knowledge Vault Access (NEW)",
+        dynamicSpawner: "Dynamic Specialist Agent Spawner (Phase 3 NEW)",
+        voiceGeneration: "Unlimited TTS Voice of Renzu (Phase 3 NEW)",
+        cyberSecurity: "Anti-Gravity Security Scanner (Phase 3 NEW)"
     },
 
     // Classification Layers (Complete v7.5.0)
@@ -264,13 +267,12 @@ const SELF_AWARENESS = {
 
     // Recent Updates
     changelog: [
+        "v7.6.5 - Dynamic Spawner & Infinite Voice (Supreme Upgrade) ✅",
+        "v7.6.0 - Swarm Infrastructure: Scraper, Memory, File Maker ✅",
         "v7.5.5 - Ultra Output Boost (16,384 Tokens) ✅",
         "v7.5.4 - Memory Gap Fix (Property Typo) ✅",
         "v7.5.3 - Swarm Truncation Fix (8192 Tokens) ✅",
-        "v7.5.2 - Swarm Silence & Execution Fix (replyChunks) ✅",
-        "v7.5.1 - Hive Mind Stability & Perms Fix ✅",
-        "v7.5.0 - Persistent Evolution (DB-backed self-modification) ✅",
-        "v7.5.0 - Renzu Hive Mind (Architect/Executioner/Auditor Swarm) 🐝"
+        "v7.5.2 - Swarm Silence & Execution Fix (replyChunks) ✅"
     ],
 
     // Core Principles (ABSOLUTE - ENFORCED)
@@ -3981,8 +3983,66 @@ const TOOL_DEFINITIONS = [
                 required: ["project_name", "files"]
             }
         }
+    },
+    {
+        // Tool 169: upgrade_existing_project - PROJECT MAINTENANCE (v7.6.5)
+        type: "function",
+        function: {
+            name: "upgrade_existing_project",
+            description: "🛠️ PROJECT MAINTENANCE - Refactor, optimize, and upgrade existing code files. Use this to improve logic, add features, or modernize a project.",
+            parameters: {
+                type: "object",
+                properties: {
+                    files: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                name: { type: "string", description: "Filename." },
+                                content: { type: "string", description: "Current content to upgrade." }
+                            },
+                            required: ["name", "content"]
+                        }
+                    },
+                    goals: { type: "string", description: "Specific improvement goals (e.g., 'make it responsive', 'fix bugs', 'modernize design')." }
+                },
+                required: ["files", "goals"]
+            }
+        }
+    },
+    {
+        // Tool 170: speak_to_channel - UNLIMITED VOICE (v7.6.5)
+        type: "function",
+        function: {
+            name: "speak_to_channel",
+            description: "🎙️ UNLIMITED VOICE - Converts text to audio using a free TTS engine. Sends a high-quality voice message or voice note to the user. Supports Hinglish/English/Hindi.",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: { type: "string", description: "Text to convert to speech." },
+                    language: { type: "string", description: "Language code (en, hi). Default: en" }
+                },
+                required: ["text"]
+            }
+        }
+    },
+    {
+        // Tool 171: security_scan - ANTI-GRAVITY SECURITY (v7.6.5)
+        type: "function",
+        function: {
+            name: "security_scan",
+            description: "🛡️ SECURITY SCAN - Analyzes code for vulnerabilities, leaks, and security risks. Returns a security report with a score and fixes.",
+            parameters: {
+                type: "object",
+                properties: {
+                    code: { type: "string", description: "Code to analyze for security risks." }
+                },
+                required: ["code"]
+            }
+        }
     }
 ];
+
 // ... (Rest of your original code follows) ...
 // ------------------ KEEP ALIVE ------------------
 const app = express();
@@ -12062,6 +12122,77 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
+    // Tool 169: Upgrade Existing Project (Project Maintenance)
+    else if (name === "upgrade_existing_project") {
+        const { files, goals } = parsedArgs;
+        if (!files || !Array.isArray(files)) return "❌ **MAINTENANCE ERROR**: Invalid files array.";
+
+        console.log(`🛠️ [MAINTENANCE] Upgrading project based on goals: ${goals}`);
+        try {
+            const upgradedFiles = [];
+            for (const file of files) {
+                const upgradedContent = await generateResponse([{
+                    role: "system",
+                    content: `You are the REFACTORING AGENT. Goal: ${goals}. Improve the provided code for efficiency, design, and logic. Return ONLY the upgraded code.`
+                }, {
+                    role: "user",
+                    content: `File: ${file.name}\n\nContent:\n${file.content}`
+                }]);
+                upgradedFiles.push({ name: file.name, content: upgradedContent });
+            }
+
+            return await runTool({ function: { name: "create_project_zip", arguments: JSON.stringify({ project_name: "Upgraded_Project", files: upgradedFiles }) } }, id, msg);
+        } catch (err) {
+            return `❌ **MAINTENANCE FAILED**: ${err.message}`;
+        }
+    }
+
+    // Tool 170: Speak to Channel (Unlimited TTS)
+    else if (name === "speak_to_channel") {
+        const { text, language = 'en' } = parsedArgs;
+        if (!text) return "❌ **VOICE ERROR**: No text provided.";
+
+        console.log(`🎙️ [VOICE] Generating speech: "${text.substring(0, 30)}..."`);
+        try {
+            const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${language}&client=tw-ob`;
+            const audioRes = await fetch(voiceUrl);
+            const audioBuffer = await audioRes.arrayBuffer();
+            const audioFile = `voice_${Date.now()}.mp3`;
+            fs.writeFileSync(audioFile, Buffer.from(audioBuffer));
+
+            if (msg && msg.channel) {
+                await msg.channel.send({
+                    content: `🎙️ **Voice Message from Renzu:**`,
+                    files: [audioFile]
+                });
+                setTimeout(() => { if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile); }, 10000);
+            }
+            return `✅ **VOICE GENERATED**: Message sent to channel.`;
+        } catch (err) {
+            return `❌ **VOICE FAILED**: ${err.message}`;
+        }
+    }
+
+    // Tool 171: Security Scan (Cyber-Sec)
+    else if (name === "security_scan") {
+        const { code } = parsedArgs;
+        if (!code) return "❌ **SECURITY ERROR**: No code provided.";
+
+        console.log(`🛡️ [SECURITY] Scanning code...`);
+        try {
+            const report = await generateResponse([{
+                role: "system",
+                content: "You are the ANTI-GRAVITY SECURITY AUDITOR. Analyze the provided code for SQL Injection, XSS, insecure headers, hardcoded credentials, and logic flaws. Provide a SECURITY SCORE (0-100) and specific FIXES."
+            }, {
+                role: "user",
+                content: `Code to audit:\n\n${code}`
+            }]);
+            return `🛡️ **ANTI-GRAVITY SECURITY REPORT**\n\n${report}`;
+        } catch (err) {
+            return `❌ **SECURITY SCAN FAILED**: ${err.message}`;
+        }
+    }
+
     // Tool 162: Evolve Bot (Persistent Evolution)
     else if (name === "evolve_bot") {
         const { feature_name, code_content } = parsedArgs;
@@ -12368,9 +12499,22 @@ async function generateSwarmResponse(query, msg) {
 
         // 2. EXECUTIONER - Processing with Tool Calling
         let executionerResult = "";
+        let executionerSystemPrompt = HIVE_MIND_AGENTS.EXECUTIONER.prompt;
+
+        // DYNAMIC SPAWNER: Check for specialist persona in Architect's plan
+        if (architectPlan.includes("SPECIALIST_PERSONA:")) {
+            const personaMatch = architectPlan.match(/SPECIALIST_PERSONA:\s*\[(.*?)\]/s) || architectPlan.match(/SPECIALIST_PERSONA:\s*(.*)/s);
+            if (personaMatch && personaMatch[1]) {
+                const specialistPrompt = personaMatch[1].trim();
+                executionerSystemPrompt = `ADOPT SPECIALIST IDENTITY:\n${specialistPrompt}\n\nCORE EXECUTIONER RULES:\n${HIVE_MIND_AGENTS.EXECUTIONER.prompt}`;
+                console.log(`🐝 [DYNAMIC SPAWNER] Specialized agent spawned: ${specialistPrompt.substring(0, 50)}...`);
+                if (statusMsg) await statusMsg.edit(`🐝 **Renzu Hive Mind Activity:**\n\`Specialized Agent Spawned.\` 🤖⚡\n\`Executioner is gathering data/tools...\` ⚡`).catch(() => { });
+            }
+        }
+
         let execMessages = [
-            { role: "system", content: HIVE_MIND_AGENTS.EXECUTIONER.prompt + "\n\n" + HONESTY_RULES },
-            { role: "user", content: `Plan: ${architectPlan}\n\nExecute this plan.` }
+            { role: "system", content: executionerSystemPrompt + "\n\n" + HONESTY_RULES },
+            { role: "user", content: `Plan: ${architectPlan}\n\nExecute this plan strictly.` }
         ];
 
         // 5-Step Tool Execution Loop for Executioner
