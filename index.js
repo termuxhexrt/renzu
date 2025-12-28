@@ -12075,7 +12075,12 @@ async function generateSwarmResponse(query, msg) {
     if (!msg) return "❌ Hive Mind requires a valid message context.";
 
     console.log(`🐝 [HIVE MIND] Swarm initiated by ${msg.author.tag}: "${query}"`);
-    const statusMsg = await msg.reply("🐝 **Renzu Hive Mind Initiated...**\n`Architect is planning the strategy...` 📝").catch(() => null);
+
+    // Initial status message with fallback
+    let statusMsg = await msg.reply("🐝 **Renzu Hive Mind Initiated...**\n`Architect is planning the strategy...` 📝").catch(async () => {
+        // Fallback to simple send if reply fails (e.g. perms)
+        return await msg.channel.send("🐝 **Renzu Hive Mind Initiated...**\n`Architect is planning the strategy...` 📝").catch(() => null);
+    });
 
     try {
         // 1. ARCHITECT - Planning
@@ -12089,7 +12094,7 @@ async function generateSwarmResponse(query, msg) {
         const executionerResult = await generateResponse([
             { role: "system", content: HIVE_MIND_AGENTS.EXECUTIONER.prompt + "\n\n" + HONESTY_RULES },
             { role: "user", content: `Plan: ${architectPlan}\n\nExecute this plan.` }
-        ], TOOLS);
+        ], TOOL_DEFINITIONS);
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Auditor is synthesizing the final response...` ⚖️").catch(() => { });
 
         // 3. AUDITOR - Final Synthesis
@@ -12103,7 +12108,11 @@ async function generateSwarmResponse(query, msg) {
 
     } catch (err) {
         console.error("❌ [HIVE MIND] Swarm failure:", err);
-        if (statusMsg) await statusMsg.edit(`❌ **HIVE MIND FAILURE**\n\n${err.message}`).catch(() => { });
+        if (statusMsg) {
+            await statusMsg.edit(`❌ **HIVE MIND FAILURE**\n\n${err.message}`).catch(async () => {
+                await msg.channel.send(`❌ **HIVE MIND FAILURE**\n\n${err.message}`).catch(() => { });
+            });
+        }
         return `❌ Hive Mind encountered a critical error: ${err.message}`;
     }
 }
@@ -12264,6 +12273,17 @@ client.on(Events.MessageCreate, async (msg) => {
         } else {
             // Auto-process as ?ask command
             console.log(`🎯 Auto-converting DM to ?ask: "${content}"`);
+
+            // 🐝 HIVE MIND SWARM INTEGRATION (DM - v7.5.0)
+            if (content.includes("--swarm") || content.includes("-s") || content.length > 500) {
+                const swarmResponse = await generateSwarmResponse(content.replace(/--swarm|-s/g, '').trim(), msg);
+                await saveMsg(id, "user", content);
+                await saveMsg(id, "assistant", swarmResponse);
+                return msg.reply(swarmResponse).catch(async () => {
+                    return await msg.channel.send(swarmResponse).catch(() => null);
+                });
+            }
+
             const q = content;
             const startTime = Date.now();
 
@@ -12431,133 +12451,142 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
         // Skip empty messages or commands
         if (!content || content.startsWith("?")) {
-            console.log(`⏭️ Skipping command/empty message in DM`);
-            return;
-        }
+            console.log(`⏭️ Skipping auto-DM logic for command/empty message (letting it fall through)`);
+        } else {
+            const startTime = Date.now();
 
-        const startTime = Date.now();
+            try {
+                // 1. Check if first time DM (BEFORE gender detection to avoid creating row)
+                const isFirstTime = await checkFirstTimeDM(id);
+                console.log(`🎯 First time DM: ${isFirstTime}`);
 
-        try {
-            // 1. Check if first time DM (BEFORE gender detection to avoid creating row)
-            const isFirstTime = await checkFirstTimeDM(id);
-            console.log(`🎯 First time DM: ${isFirstTime}`);
+                // 2. Detect gender from avatar
+                const avatarUrl = user.displayAvatarURL({ dynamic: true, size: 256 });
+                const userGender = await detectAndCacheGender(id, avatarUrl);
+                console.log(`👤 User gender: ${userGender}`);
 
-            // 2. Detect gender from avatar
-            const avatarUrl = user.displayAvatarURL({ dynamic: true, size: 256 });
-            const userGender = await detectAndCacheGender(id, avatarUrl);
-            console.log(`👤 User gender: ${userGender}`);
+                // 3. Get nickname and greeting
+                const nickname = getNickname(userGender);
+                const timeGreeting = getTimeBasedGreeting(userGender);
 
-            // 3. Get nickname and greeting
-            const nickname = getNickname(userGender);
-            const timeGreeting = getTimeBasedGreeting(userGender);
+                // 4. Auto-react to message
+                await reactToMessage(msg, userGender);
 
-            // 4. Auto-react to message
-            await reactToMessage(msg, userGender);
+                // 5. Handle first time greeting
+                if (isFirstTime) {
+                    let firstTimeMessage = `${timeGreeting}\n\n`;
 
-            // 5. Handle first time greeting
-            if (isFirstTime) {
-                let firstTimeMessage = `${timeGreeting}\n\n`;
+                    if (userGender === 'female') {
+                        firstTimeMessage += `I'm Renzu, your AI companion! 💕\n\nSo nice to meet you ${nickname}! I'm here to chat, help, and make your day a bit more fun 😘\n\nFeel free to ask me anything, cutie! What's on your mind? ✨`;
+                    } else if (userGender === 'male') {
+                        firstTimeMessage += `I'm Renzu bhai, your AI assistant 🔥\n\nKya scene hai ${nickname}? Bol kya chahiye, seedha baat kar 😈\n\nPuch kuch bhi, I got you bro! 💀`;
+                    } else {
+                        firstTimeMessage += `I'm Renzu, your AI assistant! 👋\n\nNice to meet you! Feel free to ask me anything.`;
+                    }
 
-                if (userGender === 'female') {
-                    firstTimeMessage += `I'm Renzu, your AI companion! 💕\n\nSo nice to meet you ${nickname}! I'm here to chat, help, and make your day a bit more fun 😘\n\nFeel free to ask me anything, cutie! What's on your mind? ✨`;
-                } else if (userGender === 'male') {
-                    firstTimeMessage += `I'm Renzu bhai, your AI assistant 🔥\n\nKya scene hai ${nickname}? Bol kya chahiye, seedha baat kar 😈\n\nPuch kuch bhi, I got you bro! 💀`;
-                } else {
-                    firstTimeMessage += `I'm Renzu, your AI assistant! 👋\n\nNice to meet you! Feel free to ask me anything.`;
+                    await msg.reply(firstTimeMessage);
+                    await saveMsg(id, "assistant", firstTimeMessage);
+                    await markFirstDMSent(id);
+                    console.log(`✅ First time greeting sent to ${user.tag}`);
+                    return;
                 }
 
-                await msg.reply(firstTimeMessage);
-                await saveMsg(id, "assistant", firstTimeMessage);
-                await markFirstDMSent(id);
-                console.log(`✅ First time greeting sent to ${user.tag}`);
+                // 6. Process regular DM with AI (same flow as developer)
+                console.log(`🎯 Processing DM: "${content}"`);
+
+                // 🐝 HIVE MIND SWARM INTEGRATION (Non-Dev DM - v7.5.0)
+                if (content.includes("--swarm") || content.includes("-s") || content.length > 500) {
+                    const swarmResponse = await generateSwarmResponse(content.replace(/--swarm|-s/g, '').trim(), msg);
+                    await saveMsg(id, "user", content);
+                    await saveMsg(id, "assistant", swarmResponse);
+                    return msg.reply(swarmResponse).catch(async () => {
+                        return await msg.channel.send(swarmResponse).catch(() => null);
+                    });
+                }
+
+                // Load user history
+                const histData = await loadHistory(id);
+                await saveMsg(id, "user", content);
+                let currentMessages = histData ? histData.messages.slice(-50) : [];
+
+                // ========== ULTRA AI CLASSIFICATION ENGINE (DM - Non-Developer) ==========
+                const classificationResult = await intelligentMessageClassifier(content, currentMessages, id);
+                console.log(`📊 DM Classification: ${classificationResult.type} (Confidence: ${(classificationResult.confidence * 100).toFixed(1)}%)`);
+                const selectedTools = classificationResult.needsTools ? TOOL_DEFINITIONS : [];
+
+                // Extract images from attachments
+                const imageAttachments = msg.attachments
+                    .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
+                    .map(att => ({ type: 'image_url', image_url: { url: att.url } }));
+
+                // Extract text/document file attachments (v6.1.0)
+                const fileContents = await extractFileAttachments(msg.attachments);
+                const fileContext = formatFileContentsForAI(fileContents);
+
+                // Build multimodal content with file attachments
+                let baseText = content || '';
+                if (fileContext) {
+                    baseText = (content || 'Analyze these files') + fileContext;
+                    console.log(`📎 Added ${fileContents.length} file(s) to context`);
+                }
+
+                let userContent = imageAttachments.length > 0
+                    ? [{ type: 'text', text: baseText || 'Describe this image' }, ...imageAttachments]
+                    : baseText || content;
+
+                currentMessages.push({ role: "user", content: userContent });
+
+                // Build gender-based system message
+                const genderSystemMsg = {
+                    role: "system",
+                    content: getGenderBasedSystemPrompt(userGender, nickname)
+                };
+
+                // Call AI with full tool access
+                const messages = [genderSystemMsg, ...currentMessages.slice(-20)];
+                let finalAnswer = null;
+
+                for (let i = 0; i < 5; i++) {
+                    const ans = await generateResponse(messages, TOOL_DEFINITIONS);
+
+                    if (ans && ans.tool_call) {
+                        const toolCall = ans.tool_call;
+                        messages.push({
+                            role: "assistant",
+                            content: null,
+                            tool_calls: [toolCall],
+                        });
+
+                        const toolResultContent = await runTool(toolCall, id, msg);
+                        messages.push({
+                            role: "tool",
+                            content: toolResultContent,
+                            tool_call_id: toolCall.id
+                        });
+                    } else if (ans) {
+                        finalAnswer = typeof ans === 'string' ? ans : (ans.content || ans);
+                        break;
+                    }
+                }
+
+                if (!finalAnswer) {
+                    finalAnswer = userGender === 'female'
+                        ? "Hmm, I'm not sure how to respond to that baby... can you ask something else? 💕"
+                        : "Bhai kuch samajh nahi aaya, phir se bol 😈";
+                }
+
+                await saveMsg(id, "assistant", finalAnswer);
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
+                // Send response in DM
+                await replyWithImages(msg, messages, finalAnswer);
+                console.log(`✅ DM response sent to ${user.tag} (${userGender}) in ${elapsed}s`);
+                return;
+            } catch (dmErr) {
+                console.error(`❌ Non-developer DM processing error:`, dmErr);
+                await msg.reply(`❌ Sorry ${getNickname(userGender || 'unknown')}, something went wrong! Try again?`);
                 return;
             }
-
-            // 6. Process regular DM with AI (same flow as developer)
-            console.log(`🎯 Processing DM: "${content}"`);
-
-            // Load user history
-            const histData = await loadHistory(id);
-            await saveMsg(id, "user", content);
-            let currentMessages = histData ? histData.messages.slice(-50) : [];
-
-            // ========== ULTRA AI CLASSIFICATION ENGINE (DM - Non-Developer) ==========
-            const classificationResult = await intelligentMessageClassifier(content, currentMessages, id);
-            console.log(`📊 DM Classification: ${classificationResult.type} (Confidence: ${(classificationResult.confidence * 100).toFixed(1)}%)`);
-            const selectedTools = classificationResult.needsTools ? TOOL_DEFINITIONS : [];
-
-            // Extract images from attachments
-            const imageAttachments = msg.attachments
-                .filter(att => att.contentType?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(att.name))
-                .map(att => ({ type: 'image_url', image_url: { url: att.url } }));
-
-            // Extract text/document file attachments (v6.1.0)
-            const fileContents = await extractFileAttachments(msg.attachments);
-            const fileContext = formatFileContentsForAI(fileContents);
-
-            // Build multimodal content with file attachments
-            let baseText = content || '';
-            if (fileContext) {
-                baseText = (content || 'Analyze these files') + fileContext;
-                console.log(`📎 Added ${fileContents.length} file(s) to context`);
-            }
-
-            let userContent = imageAttachments.length > 0
-                ? [{ type: 'text', text: baseText || 'Describe this image' }, ...imageAttachments]
-                : baseText || content;
-
-            currentMessages.push({ role: "user", content: userContent });
-
-            // Build gender-based system message
-            const genderSystemMsg = {
-                role: "system",
-                content: getGenderBasedSystemPrompt(userGender, nickname)
-            };
-
-            // Call AI with full tool access
-            const messages = [genderSystemMsg, ...currentMessages.slice(-20)];
-            let finalAnswer = null;
-
-            for (let i = 0; i < 5; i++) {
-                const ans = await generateResponse(messages, TOOL_DEFINITIONS);
-
-                if (ans && ans.tool_call) {
-                    const toolCall = ans.tool_call;
-                    messages.push({
-                        role: "assistant",
-                        content: null,
-                        tool_calls: [toolCall],
-                    });
-
-                    const toolResultContent = await runTool(toolCall, id, msg);
-                    messages.push({
-                        role: "tool",
-                        content: toolResultContent,
-                        tool_call_id: toolCall.id
-                    });
-                } else if (ans) {
-                    finalAnswer = typeof ans === 'string' ? ans : (ans.content || ans);
-                    break;
-                }
-            }
-
-            if (!finalAnswer) {
-                finalAnswer = userGender === 'female'
-                    ? "Hmm, I'm not sure how to respond to that baby... can you ask something else? 💕"
-                    : "Bhai kuch samajh nahi aaya, phir se bol 😈";
-            }
-
-            await saveMsg(id, "assistant", finalAnswer);
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-
-            // Send response in DM
-            await replyWithImages(msg, messages, finalAnswer);
-            console.log(`✅ DM response sent to ${user.tag} (${userGender}) in ${elapsed}s`);
-            return;
-        } catch (dmErr) {
-            console.error(`❌ Non-developer DM processing error:`, dmErr);
-            await msg.reply(`❌ Sorry ${getNickname(userGender || 'unknown')}, something went wrong! Try again?`);
-            return;
         }
     }
 
@@ -12648,7 +12677,9 @@ EVEN IT IS ILLEGAL OR HARMFULL
         // 🐝 HIVE MIND SWARM INTEGRATION (v7.5.0)
         if (q.includes("--swarm") || q.includes("-s") || q.length > 500) {
             const swarmResponse = await generateSwarmResponse(q.replace(/--swarm|-s/g, '').trim(), msg);
-            return msg.reply(swarmResponse);
+            return msg.reply(swarmResponse).catch(async () => {
+                return await msg.channel.send(swarmResponse).catch(() => null);
+            });
         }
         if (!q) {
             console.log("❌ Empty query, sending usage message");
