@@ -183,22 +183,22 @@ async function redisDel(key) {
     }
 }
 
-// 🐝 Renzu Hive Mind Agents (v7.6.6)
+// 🐝 Renzu Hive Mind Agents (v7.6.7)
 const HIVE_MIND_AGENTS = {
     ARCHITECT: {
         name: "Architect",
         role: "Planner & Strategist",
-        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed multi-step execution plan. USE THESE EXACT TOOLS: 'shadow_scraper' (web search/screenshots), 'infinite_memory_search' (knowledge), 'ui_master' (UI code), 'security_scan' (code audit), 'upgrade_existing_project' (refactor), 'speak_to_channel' (voice). DYNAMIC SPAWNER: If a task requires an expert (e.g., 'Python Expert', 'UI Designer'), mandate that the Executioner adopts that persona. Do not invent new tools. Focus on execution."
+        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed execution plan. USE THESE TOOLS ONLY: 'shadow_scraper', 'infinite_memory_search', 'ui_master', 'security_scan', 'upgrade_existing_project', 'speak_to_channel'. DO NOT DIVERT into roleplay or unrelated cyber-security scenarios unless explicitly asked. If the user says 'proceed' or 'go ahead', continue exactly where the previous task left off. DO NOT invent scenarios. Stay professional."
     },
     EXECUTIONER: {
         name: "Executioner",
         role: "Specialist & Tool Operator",
-        prompt: "You are the Executioner of the Renzu Hive Mind. Take the Architect's plan and execute it. Your priority is CALLING TOOLS. Do not just describe what you will do—ACTUALLY CALL THE TOOLS. Use 'shadow_scraper' for any web data. Use 'speak_to_channel' for any voice requests. If a SPECIALIST_PERSONA is requested, adopt it for the tool output."
+        prompt: "You are the Executioner. Execute the Architect's plan. ACTION OVER TALK: If the plan involves a tool, CALL THE TOOL immediately. Do not explain what you are doing. If you are asked to create a file or zip, YOU MUST use 'create_project_zip' or 'upgrade_existing_project'. A text-only response for a construction task is a FAILURE. Follow tool schemas strictly."
     },
     AUDITOR: {
         name: "Auditor",
         role: "Quality Control & Synthesis",
-        prompt: "You are the Auditor of the Renzu Hive Mind (v7.6.6). Review the Architect's plan and the Executioner's tool results. Your ONLY job is to synthesize the final answer. DO NOT ask for permission to use tools. DO NOT hallucinate tool names. If the Executioner failed to call a tool, state it clearly. If the Executioner uploaded a file or image, confirm it is ready for the user. Ensure premium quality and absolute honesty."
+        prompt: "You are the Auditor. Review the Executioner's logs. Summarize the results for the user. If the Executioner sent a file/zip/screenshot, confirm it. DO NOT hallucinate tool names like 'file_creator' or 'zip_project'. Use only real results. If the Executioner failed to use a tool, ask them to retry or explain the error. Keep it premium and grounded."
     }
 };
 
@@ -8353,11 +8353,10 @@ async function runTool(toolCall, id, msg = null) {
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
                     '--disable-gpu',
-                    '--single-process'
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-extensions'
                 ]
             });
 
@@ -11985,7 +11984,15 @@ async function runTool(toolCall, id, msg = null) {
             browser = await puppeteer.launch({
                 executablePath: executablePath,
                 headless: 'new',
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-extensions'
+                ]
             });
             const page = await browser.newPage();
             await page.setViewport({ width: 1280, height: 800 });
@@ -12501,9 +12508,13 @@ async function generateSwarmResponse(query, msg) {
     });
 
     try {
+        // Context-aware planning: Include recent memory for 'proceed' queries
+        const recentMemory = await getGlobalMemory(10);
+        const contextStr = recentMemory.map(m => `${m.role === 'renzu' ? 'Bot' : 'User'}: ${m.content}`).join('\n');
+
         // 1. ARCHITECT - Planning
         const architectPlan = await generateResponse([
-            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES },
+            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Query: ${query}` }
         ]);
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Architect plan ready.` ✅\n`Executioner is gathering data/tools...` ⚡").catch(() => { });
