@@ -12090,11 +12090,38 @@ async function generateSwarmResponse(query, msg) {
         ]);
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Architect plan ready.` ✅\n`Executioner is gathering data/tools...` ⚡").catch(() => { });
 
-        // 2. EXECUTIONER - Processing
-        const executionerResult = await generateResponse([
+        // 2. EXECUTIONER - Processing with Tool Calling
+        let executionerResult = "";
+        let execMessages = [
             { role: "system", content: HIVE_MIND_AGENTS.EXECUTIONER.prompt + "\n\n" + HONESTY_RULES },
             { role: "user", content: `Plan: ${architectPlan}\n\nExecute this plan.` }
-        ], TOOL_DEFINITIONS);
+        ];
+
+        // 5-Step Tool Execution Loop for Executioner
+        for (let i = 0; i < 5; i++) {
+            const ans = await generateResponse(execMessages, TOOL_DEFINITIONS);
+            if (ans && ans.tool_call) {
+                const toolCall = ans.tool_call;
+                execMessages.push({
+                    role: "assistant",
+                    content: null,
+                    tool_calls: [toolCall],
+                });
+
+                const toolResultContent = await runTool(toolCall, msg.author.id, msg);
+                execMessages.push({
+                    role: "tool",
+                    content: toolResultContent,
+                    tool_call_id: toolCall.id
+                });
+
+                if (statusMsg) await statusMsg.edit(`🐝 **Renzu Hive Mind Activity:**\n\`Executioner using tool: ${toolCall.function.name}...\` 🛠️`).catch(() => { });
+            } else if (ans) {
+                executionerResult = typeof ans === 'string' ? ans : (ans.content || ans);
+                break;
+            }
+        }
+
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Auditor is synthesizing the final response...` ⚖️").catch(() => { });
 
         // 3. AUDITOR - Final Synthesis
@@ -12104,7 +12131,10 @@ async function generateSwarmResponse(query, msg) {
         ]);
 
         if (statusMsg) await statusMsg.delete().catch(() => { });
-        return `🐝 **JOINT RESPONSE (RENZU HIVE MIND)**\n\n${finalResponse}`;
+
+        const jointResult = `🐝 **JOINT RESPONSE (RENZU HIVE MIND)**\n\n${finalResponse}`;
+        console.log(`🐝 [HIVE MIND] Swarm successfully completed. Response length: ${jointResult.length}`);
+        return jointResult;
 
     } catch (err) {
         console.error("❌ [HIVE MIND] Swarm failure:", err);
@@ -12279,9 +12309,7 @@ client.on(Events.MessageCreate, async (msg) => {
                 const swarmResponse = await generateSwarmResponse(content.replace(/--swarm|-s/g, '').trim(), msg);
                 await saveMsg(id, "user", content);
                 await saveMsg(id, "assistant", swarmResponse);
-                return msg.reply(swarmResponse).catch(async () => {
-                    return await msg.channel.send(swarmResponse).catch(() => null);
-                });
+                return replyChunks(msg, swarmResponse);
             }
 
             const q = content;
@@ -12499,9 +12527,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
                     const swarmResponse = await generateSwarmResponse(content.replace(/--swarm|-s/g, '').trim(), msg);
                     await saveMsg(id, "user", content);
                     await saveMsg(id, "assistant", swarmResponse);
-                    return msg.reply(swarmResponse).catch(async () => {
-                        return await msg.channel.send(swarmResponse).catch(() => null);
-                    });
+                    return replyChunks(msg, swarmResponse);
                 }
 
                 // Load user history
@@ -12677,9 +12703,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
         // 🐝 HIVE MIND SWARM INTEGRATION (v7.5.0)
         if (q.includes("--swarm") || q.includes("-s") || q.length > 500) {
             const swarmResponse = await generateSwarmResponse(q.replace(/--swarm|-s/g, '').trim(), msg);
-            return msg.reply(swarmResponse).catch(async () => {
-                return await msg.channel.send(swarmResponse).catch(() => null);
-            });
+            return replyChunks(msg, swarmResponse);
         }
         if (!q) {
             console.log("❌ Empty query, sending usage message");
