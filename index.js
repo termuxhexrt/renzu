@@ -12509,7 +12509,7 @@ async function generateSwarmResponse(query, msg) {
 
     try {
         // Context-aware planning: Include recent memory for 'proceed' queries
-        const recentMemory = await getGlobalMemory(10);
+        const recentMemory = await queryGlobalMemory(msg.author.id, null, 10);
         const contextStr = recentMemory.map(m => `${m.role === 'renzu' ? 'Bot' : 'User'}: ${m.content}`).join('\n');
 
         // 1. ARCHITECT - Planning
