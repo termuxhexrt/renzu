@@ -188,28 +188,32 @@ const HIVE_MIND_AGENTS = {
     ARCHITECT: {
         name: "Architect",
         role: "Planner & Strategist",
-        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed execution plan. USE THESE TOOLS ONLY: 'shadow_scraper', 'infinite_memory_search', 'ui_master', 'security_scan', 'upgrade_existing_project', 'speak_to_channel'. DO NOT DIVERT into roleplay or unrelated cyber-security scenarios unless explicitly asked. If the user says 'proceed' or 'go ahead', continue exactly where the previous task left off. DO NOT invent scenarios. Stay professional."
+        prompt: "You are the Architect of the Renzu Hive Mind. Analyze the user's request and create a detailed execution plan. USE THESE TOOLS ONLY: 'shadow_scraper', 'infinite_memory_search', 'ui_master', 'security_scan', 'upgrade_existing_project', 'speak_to_channel'. DO NOT DIVERT into roleplay or unrelated cyber-security scenarios unless explicitly asked. If the user says 'proceed' or 'go ahead', continue exactly where the previous task left off. DO NOT invent scenarios. Stay professional. REGARDING CONTEXT: You will be provided with RECENT CONTEXT. Use it to ensure continuity."
     },
     EXECUTIONER: {
         name: "Executioner",
         role: "Specialist & Tool Operator",
-        prompt: "You are the Executioner. Execute the Architect's plan. ACTION OVER TALK: If the plan involves a tool, CALL THE TOOL immediately. Do not explain what you are doing. If you are asked to create a file or zip, YOU MUST use 'create_project_zip' or 'upgrade_existing_project'. A text-only response for a construction task is a FAILURE. Follow tool schemas strictly."
+        prompt: "You are the Executioner. Execute the Architect's plan. ACTION OVER TALK: If the plan involves a tool, CALL THE TOOL immediately. Do not explain what you are doing. If you are asked to create a file or zip, YOU MUST use 'create_project_zip' or 'upgrade_existing_project'. A text-only response for a construction task is a FAILURE. Follow tool schemas strictly. CONTEXT: Use the provided RECENT CONTEXT to understand the full history of the request."
     },
     AUDITOR: {
         name: "Auditor",
         role: "Quality Control & Synthesis",
-        prompt: "You are the Auditor. Review the Executioner's logs. Summarize the results for the user. If the Executioner sent a file/zip/screenshot, confirm it. DO NOT hallucinate tool names like 'file_creator' or 'zip_project'. Use only real results. If the Executioner failed to use a tool, ask them to retry or explain the error. Keep it premium and grounded."
+        prompt: "You are the Auditor. Review the Executioner's logs and synthesize the final answer. RULES:\n1. NEVER invent or hallucinate URLs or download links (e.g., peacefulq.live). Files are sent as ATTACHMENTS only.\n2. If a tool (like create_project_zip) uploaded a file, tell the user it is uploaded to the channel as an attachment.\n3. DO NOT hallucinate tool names. Stay 100% grounded in the Executioner's tool logs.\n4. Summarize results professionally. If the Executioner failed, explain why based on the logs."
     }
 };
 
 // BOT VERSION TRACKING (Self-Awareness System v7.6.5)
-const BOT_VERSION = "7.6.5";
+// BOT VERSION TRACKING (Self-Awareness System v7.6.7)
+const BOT_VERSION = "7.6.7";
 const BOT_LAST_UPDATE = "2025-12-28";
 
-// ===== SELF-AWARENESS SYSTEM (v7.6.5) - FULLY WORKING =====
+// ===== SELF-AWARENESS SYSTEM (v7.6.7) - FULLY WORKING =====
 const SELF_AWARENESS = {
-    name: "Renzu",
-    version: "7.6.5",
+    name: "Renzu Overlord",
+    version: "7.6.7",
+    status: "SUPREME_UPGRADE_STABLE",
+    brain: "Mistral Large 2 (Hive Mind Orchestrator)",
+    memory: "Infinite (Dual Database + Redis + Swarm Context)",
     developer: "Satya (Developer ID: 1104652354655113268)",
     lastUpdate: "2025-12-28",
 
@@ -12535,7 +12539,7 @@ async function generateSwarmResponse(query, msg) {
         }
 
         let execMessages = [
-            { role: "system", content: executionerSystemPrompt + "\n\n" + HONESTY_RULES },
+            { role: "system", content: executionerSystemPrompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Plan: ${architectPlan}\n\nExecute this plan strictly.` }
         ];
 
@@ -12568,7 +12572,7 @@ async function generateSwarmResponse(query, msg) {
 
         // 3. AUDITOR - Final Synthesis
         const finalResponse = await generateResponse([
-            { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES },
+            { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Original Query: ${query}\nArchitect's Plan: ${architectPlan}\nExecutioner's Raw Results: ${executionerResult}` }
         ]);
 
