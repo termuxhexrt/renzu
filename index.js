@@ -208,7 +208,7 @@ const BOT_LAST_UPDATE = "2025-12-28";
 // ===== SELF-AWARENESS SYSTEM (v7.5.3) - FULLY WORKING =====
 const SELF_AWARENESS = {
     name: "Renzu",
-    version: "7.5.3",
+    version: "7.5.5",
     developer: "Satya (Developer ID: 1104652354655113268)",
     lastUpdate: "2025-12-28",
 
@@ -262,6 +262,8 @@ const SELF_AWARENESS = {
 
     // Recent Updates
     changelog: [
+        "v7.5.5 - Ultra Output Boost (16,384 Tokens) ✅",
+        "v7.5.4 - Memory Gap Fix (Property Typo) ✅",
         "v7.5.3 - Swarm Truncation Fix (8192 Tokens) ✅",
         "v7.5.2 - Swarm Silence & Execution Fix (replyChunks) ✅",
         "v7.5.1 - Hive Mind Stability & Perms Fix ✅",
@@ -12175,7 +12177,7 @@ export async function generateResponse(messages, tools = [], useMultimodal = fal
                     model: model,
                     messages,
                     temperature: 0.7,
-                    max_tokens: model.includes("large") ? 8192 : 2048, // Higher limit for large models
+                    max_tokens: model.includes("large") ? 16384 : 2048, // 16k Ultra limit for large models
                     top_p: 0.95,
                 };
 
