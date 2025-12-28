@@ -6935,12 +6935,12 @@ async function callGeminiAPI(endpoint, payload) {
 
     for (let i = 0; i < apiKeys.length; i++) {
         try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/${endpoint}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/${endpoint}?key=${apiKeys[i]}`;
             const res = await fetch(url, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": apiKeys[i]
+                    "Content-Type": "application/json"
+                    // "x-goog-api-key": apiKeys[i] // Optional but query param is more reliable
                 },
                 body: JSON.stringify(payload),
             });
