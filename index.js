@@ -11,6 +11,7 @@ import { Pool } from "pg";
 import fetch from "node-fetch";
 globalThis.fetch = (await import("node-fetch")).default;
 import fs from "fs";
+import path from "path";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { search as ddgSearch } from "duck-duck-scrape";
@@ -197,7 +198,7 @@ const HIVE_MIND_AGENTS = {
     AUDITOR: {
         name: "Auditor",
         role: "Quality Control & Synthesis",
-        prompt: "You are the Auditor of the Renzu Hive Mind (v7.6.5). Review the Architect's plan and the Executioner's results. Ensure 'ui_master' principles are applied for UI requests. Synthesize the final response ensuring it is premium, professional, and COMPLETE. DO NOT TRUNCATE. If a voice message was sent, confirm its contents. Ensure absolute honesty and quality."
+        prompt: "You are the Auditor of the Renzu Hive Mind (v7.6.5). Review the Architect's plan and the Executioner's results. Ensure 'ui_master' principles are applied for UI requests. Synthesize the final response ensuring it is premium, professional, and COMPLETE. DO NOT TRUNCATE. IMPORTANT: Your job is to confirm delivery and summarize results. DO NOT ask for permission to use tools—the Executioner has already done the work. Do NOT hallucinate tool names like 'file_creator'; stay 100% faithful to the Executioner's raw logs. If a zip was created, tell the user it is ready."
     }
 };
 
@@ -12099,10 +12100,20 @@ async function runTool(toolCall, id, msg = null) {
 
         const zipName = `${project_name}_${timestamp}.zip`;
         const zipPath = path.join(process.cwd(), zipName);
+
         try {
             const { execSync } = await import('child_process');
-            // 'zip' command must be available on Linux (Railway)
-            execSync(`zip -r ${zipName} ${path.basename(dir)}`, { cwd: process.cwd() });
+            const isWindows = process.platform === 'win32';
+
+            if (isWindows) {
+                // Windows PowerShell Zipping
+                // Use relative paths and double-quotes to handle spaces/escaping
+                const psCommand = `PowerShell -Command "Compress-Archive -Path '.\\${path.basename(dir)}\\*' -DestinationPath '.\\${zipName}' -Force"`;
+                execSync(psCommand, { stdio: 'inherit' });
+            } else {
+                // Linux/Railway Zipping
+                execSync(`zip -r ${zipName} ${path.basename(dir)}`, { cwd: process.cwd() });
+            }
 
             if (msg && msg.channel) {
                 await msg.channel.send({
