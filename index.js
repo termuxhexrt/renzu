@@ -17,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 import { search as ddgSearch } from "duck-duck-scrape";
 import { createClient as createRedisClient } from "redis";
 import puppeteer from "puppeteer-core";
+import AdmZip from "adm-zip";
 
 // ------------------ ROBUST JSON PARSER (v6.5.1) ------------------
 function robustJsonParse(rawResponse) {
@@ -12113,18 +12114,17 @@ async function runTool(toolCall, id, msg = null) {
         const zipPath = path.join(process.cwd(), zipName);
 
         try {
-            const { execSync } = await import('child_process');
-            const isWindows = process.platform === 'win32';
-
-            if (isWindows) {
-                // Windows PowerShell Zipping (Resilient)
-                // Using absolute paths with proper escaping for PowerShell
-                const psCommand = `PowerShell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory('${dir.replace(/'/g, "''")}', '${zipPath.replace(/'/g, "''")}')"`;
-                execSync(psCommand, { stdio: 'inherit' });
-            } else {
-                // Linux/Railway Zipping
-                execSync(`zip -r "${zipName}" "${path.basename(dir)}"`, { cwd: process.cwd() });
+            // Check if directory exists and has files
+            if (!fs.existsSync(dir) || fs.readdirSync(dir).length === 0) {
+                throw new Error("Project directory is empty or missing.");
             }
+
+            // CROSS-PLATFORM ZIPPING (ADM-ZIP)
+            // No shell commands, works on Windows, Linux, Railway, Termux
+            const zip = new AdmZip();
+            zip.addLocalFolder(dir);
+            zip.writeZip(zipPath);
+            console.log(`✅ [FILE_MAKER] ZIP created successfully using adm-zip: ${zipPath}`);
 
             if (msg && msg.channel) {
                 await msg.channel.send({
@@ -12759,6 +12759,11 @@ client.on(Events.MessageCreate, async (msg) => {
                 const swarmResponse = await generateSwarmResponse(content.replace(/--swarm|-s/g, '').trim(), msg);
                 await saveMsg(id, "user", content);
                 await saveMsg(id, "assistant", swarmResponse);
+
+                // FORCE SAVE TO GLOBAL MEMORY FOR SWARM CONTEXT
+                await saveGlobalMemory('USER_QUERY', id, client.user.id, content, { channel: msg.channel.id });
+                await saveGlobalMemory('RENZU_REPLY', client.user.id, id, swarmResponse, { channel: msg.channel.id });
+
                 return replyChunks(msg, swarmResponse);
             }
 
@@ -12767,8 +12772,10 @@ client.on(Events.MessageCreate, async (msg) => {
 
             try {
                 // Load user history
+                // Load user history
                 const histData = await loadHistory(id);
                 await saveMsg(id, "user", q);
+                await saveGlobalMemory('USER_MESSAGE', id, client.user.id, q, { channel: msg.channel.id }); // Sync to Global Memory
                 let currentMessages = histData ? histData.messages.slice(-50) : [];
 
                 // ========== ULTRA AI CLASSIFICATION ENGINE (DM) ==========
