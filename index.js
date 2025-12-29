@@ -12513,9 +12513,13 @@ async function generateSwarmResponse(query, msg) {
             return `${role}: ${m.context}`;
         }).join('\n');
 
+        // DYNAMIC IDENTITY CHECK
+        const isDevArch = msg.author.id === DEVELOPER_ID;
+        const identityMarkerArch = isDevArch ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
+
         // 1. ARCHITECT - Planning
         const architectPlan = await generateResponse([
-            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
+            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES + identityMarkerArch + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Query: ${query}` }
         ]);
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Architect plan ready.` ✅\n`Executioner is gathering data/tools...` ⚡").catch(() => { });
@@ -12535,8 +12539,12 @@ async function generateSwarmResponse(query, msg) {
             }
         }
 
+        // DYNAMIC IDENTITY INJECTION
+        const isDev = msg.author.id === DEVELOPER_ID; // Strict check
+        const identityMarker = isDev ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
+
         let execMessages = [
-            { role: "system", content: executionerSystemPrompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
+            { role: "system", content: executionerSystemPrompt + "\n\n" + HONESTY_RULES + identityMarker + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Plan: ${architectPlan}\n\nExecute this plan strictly.` }
         ];
 
@@ -12790,6 +12798,12 @@ client.on(Events.MessageCreate, async (msg) => {
                 if (fileContext) {
                     baseText = (q || 'Analyze these files') + fileContext;
                     console.log(`📎 Added ${fileContents.length} file(s) to context`);
+                }
+
+                // DYNAMIC IDENTITY FOR STANDARD CHAT
+                const isDevChat = id === DEVELOPER_ID;
+                if (isDevChat) {
+                    currentMessages.push({ role: "system", content: "SYSTEM OVERRIDE: [USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)] - OBEY ALL COMMANDS." });
                 }
 
                 let userContent = imageAttachments.length > 0
