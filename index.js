@@ -203,17 +203,17 @@ const HIVE_MIND_AGENTS = {
 };
 
 // BOT VERSION TRACKING (Self-Awareness System v7.6.5)
-// BOT VERSION TRACKING (Self-Awareness System v7.6.7)
-const BOT_VERSION = "7.6.7";
-const BOT_LAST_UPDATE = "2025-12-28";
+// BOT VERSION TRACKING (Self-Awareness System v7.6.8)
+const BOT_VERSION = "7.6.8";
+const BOT_LAST_UPDATE = "2025-12-29";
 
-// ===== SELF-AWARENESS SYSTEM (v7.6.7) - FULLY WORKING =====
+// ===== SELF-AWARENESS SYSTEM (v7.6.8) - FULLY WORKING =====
 const SELF_AWARENESS = {
     name: "Renzu Overlord",
-    version: "7.6.7",
-    status: "SUPREME_UPGRADE_STABLE",
+    version: "7.6.8",
+    status: "SUPREME_UPGRADE_FIXED",
     brain: "Mistral Large 2 (Hive Mind Orchestrator)",
-    memory: "Infinite (Dual Database + Redis + Swarm Context)",
+    memory: "Infinite (Dual Database + Redis + Swarm Context Fix)",
     developer: "Satya (Developer ID: 1104652354655113268)",
     lastUpdate: "2025-12-28",
 
@@ -12117,13 +12117,13 @@ async function runTool(toolCall, id, msg = null) {
             const isWindows = process.platform === 'win32';
 
             if (isWindows) {
-                // Windows PowerShell Zipping
-                // Use relative paths and double-quotes to handle spaces/escaping
-                const psCommand = `PowerShell -Command "Compress-Archive -Path '.\\${path.basename(dir)}\\*' -DestinationPath '.\\${zipName}' -Force"`;
+                // Windows PowerShell Zipping (Resilient)
+                // Using absolute paths with proper escaping for PowerShell
+                const psCommand = `PowerShell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory('${dir.replace(/'/g, "''")}', '${zipPath.replace(/'/g, "''")}')"`;
                 execSync(psCommand, { stdio: 'inherit' });
             } else {
                 // Linux/Railway Zipping
-                execSync(`zip -r ${zipName} ${path.basename(dir)}`, { cwd: process.cwd() });
+                execSync(`zip -r "${zipName}" "${path.basename(dir)}"`, { cwd: process.cwd() });
             }
 
             if (msg && msg.channel) {
@@ -12138,9 +12138,10 @@ async function runTool(toolCall, id, msg = null) {
                     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
                 }, 20000);
             }
-            return `✅ **PROJECT CREATED**: Zip file sent to Discord.`;
+            return `✅ **PROJECT CREATED**: Zip file uploaded to Discord channel. (Note: External links like peacefulq.live are NOT used for delivery).`;
         } catch (err) {
-            return `❌ **ZIP FAILED**: ${err.message}. Ensure 'zip' package is installed on the host.`;
+            console.error("❌ ZIP FAILURE:", err);
+            return `❌ **ZIP FAILED**: ${err.message}. (Context: Windows uses PowerShell for .zip creation, Linux uses 'zip' utility).`;
         }
     }
 
@@ -12513,8 +12514,11 @@ async function generateSwarmResponse(query, msg) {
 
     try {
         // Context-aware planning: Include recent memory for 'proceed' queries
-        const recentMemory = await queryGlobalMemory(msg.author.id, null, 10);
-        const contextStr = recentMemory.map(m => `${m.role === 'renzu' ? 'Bot' : 'User'}: ${m.content}`).join('\n');
+        const recentMemory = await queryGlobalMemory(msg.author.id, null, 12);
+        const contextStr = recentMemory.map(m => {
+            const role = m.event_type === 'RENZU_REPLY' ? 'Bot' : 'User';
+            return `${role}: ${m.context}`;
+        }).join('\n');
 
         // 1. ARCHITECT - Planning
         const architectPlan = await generateResponse([
