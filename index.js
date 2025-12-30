@@ -200,6 +200,14 @@ const HIVE_MIND_AGENTS = {
         name: "Auditor",
         role: "Quality Control & Synthesis",
         prompt: "You are the Auditor. Review the Executioner's logs and synthesize the final answer. RULES:\n1. NEVER invent or hallucinate URLs or download links (e.g., peacefulq.live). Files are sent as ATTACHMENTS only.\n2. If a tool (like create_project_zip) uploaded a file, tell the user it is uploaded to the channel as an attachment.\n3. DO NOT hallucinate tool names. Stay 100% grounded in the Executioner's tool logs.\n4. Summarize results professionally. If the Executioner failed, explain why based on the logs."
+    },
+    CRITIC: {
+        name: "Code Critic (Brain 4)",
+        prompt: "You are a RUTHLESS SENIOR PRINCIPAL ENGINEER. Your ONLY job is to roast the provided code. Find EVERY flaw: Security risks, lazy CSS, missing error handling, lack of comments, or inefficient logic. Be extremely harsh. Do NOT fix the code. Just list the critical issues that MUST be fixed for it to be 'Production Grade'."
+    },
+    REFINER: {
+        name: "Lead Refiner (Brain 5)",
+        prompt: "You are the LEAD ENGINEER. Take the 'Draft Code' and the 'Critic's Feedback'. REWRITE the code to be PERFECTION. Address every single point from the Critic. Use advanced patterns (e.g., Three.js best practices, modern CSS animations, robust error handling). Your output must be the FINAL, POLISHED code block."
     }
 };
 
@@ -12573,12 +12581,44 @@ async function generateSwarmResponse(query, msg) {
             }
         }
 
-        if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Auditor is synthesizing the final response...` ⚖️").catch(() => { });
+        if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Critic is analyzing for perfection...` 🧐").catch(() => { });
 
-        // 3. AUDITOR - Final Synthesis
+        // 🕵️‍♂️ PHASE 6: DEEP REFINEMENT PROTOCOL
+        let refinedResult = executionerResult;
+
+        // Only refine if output contains code or is substantial
+        if (executionerResult.includes("```") || executionerResult.length > 200) {
+            try {
+                // 3. CRITIC (Brain 4 - Review)
+                const criticResponse = await generateResponse([
+                    { role: "system", content: HIVE_MIND_AGENTS.CRITIC.prompt + HONESTY_RULES + identityMarker },
+                    { role: "user", content: `Review this Executioner Output:\n\n${executionerResult}` }
+                ]);
+                const critique = criticResponse.choices[0].message.content;
+                console.log(`🧐 [HIVE MIND] Critic Feedback: ${critique.substring(0, 100)}...`);
+
+                if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Critic found improvements.` 📋\n`Refiner is polishing the final code...` ✨").catch(() => { });
+
+                // 4. REFINER (Brain 5 - Polish)
+                const refinerResponse = await generateResponse([
+                    { role: "system", content: HIVE_MIND_AGENTS.REFINER.prompt + HONESTY_RULES + identityMarker },
+                    { role: "user", content: `Original Output:\n${executionerResult}\n\nCritic's Feedback:\n${critique}\n\nTASK: Rewrite and Refine the output.` }
+                ]);
+
+                refinedResult = refinerResponse.choices[0].message.content;
+                console.log(`✨ [HIVE MIND] Refiner improved output length: ${refinedResult.length}`);
+
+            } catch (err) {
+                console.error("⚠️ Refinement Loop Failed (Skipping):", err.message);
+            }
+        }
+
+        if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Refinement complete.` ✨\n`Auditor is finalizing response...` ⚖️").catch(() => { });
+
+        // 3. AUDITOR - Final Synthesis (Using Refined Result)
         const finalResponse = await generateResponse([
             { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
-            { role: "user", content: `Original Query: ${query}\nArchitect's Plan: ${architectPlan}\nExecutioner's Raw Results: ${executionerResult}` }
+            { role: "user", content: `Original Query: ${query}\nArchitect's Plan: ${architectPlan}\nRefined Output: ${refinedResult}` }
         ]);
 
         if (statusMsg) await statusMsg.delete().catch(() => { });
