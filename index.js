@@ -200,21 +200,10 @@ const HIVE_MIND_AGENTS = {
         name: "Auditor",
         role: "Quality Control & Synthesis",
         prompt: "You are the Auditor. Review the Executioner's logs and synthesize the final answer. RULES:\n1. NEVER invent or hallucinate URLs or download links (e.g., peacefulq.live). Files are sent as ATTACHMENTS only.\n2. If a tool (like create_project_zip) uploaded a file, tell the user it is uploaded to the channel as an attachment.\n3. DO NOT hallucinate tool names. Stay 100% grounded in the Executioner's tool logs.\n4. Summarize results professionally. If the Executioner failed, explain why based on the logs."
-    },
-    CRITIC: {
-        name: "Code Critic (Brain 4)",
-        prompt: "You are a RUTHLESS SENIOR PRINCIPAL ENGINEER. Your ONLY job is to roast the provided code. Find EVERY flaw: Security risks, lazy CSS, missing error handling, lack of comments, or inefficient logic. Be extremely harsh. Do NOT fix the code. Just list the critical issues that MUST be fixed for it to be 'Production Grade'."
-    },
-    REFINER: {
-        name: "Lead Refiner (Brain 5)",
-        prompt: "You are the LEAD ENGINEER & VISUAL DIRECTOR. 1. Take the 'Draft Code' and 'Critic's Feedback'. 2. REWRITE for PERFECTION. 3. VISUALS: If the code contains Shaders, Particles, or 3D Logic, PRESERVE AND ENHANCE THEM. Do NOT replace custom shaders with simple textures unless it looks BETTER. Prioritize 'WOW Factor' + 'Clean Code'. 4. FIXES: Address every Critic point."
     }
 };
 
-// 💾 CONTEXT PERSISTENCE (Fixes "Amnesia")
-const userCodeCache = new Map(); // Stores key=userId, value=lastGeneratedCode
-
-// BOT VERSION TRACKING (Self-Awareness System v7.6.8)
+// BOT VERSION TRACKING (Self-Awareness System v7.6.5)
 // BOT VERSION TRACKING (Self-Awareness System v7.6.8)
 const BOT_VERSION = "7.6.8";
 const BOT_LAST_UPDATE = "2025-12-29";
@@ -12519,20 +12508,10 @@ async function generateSwarmResponse(query, msg) {
     try {
         // Context-aware planning: Include recent memory for 'proceed' queries
         const recentMemory = await queryGlobalMemory(msg.author.id, null, 12);
-        let contextStr = recentMemory.map(m => {
+        const contextStr = recentMemory.map(m => {
             const role = m.event_type === 'RENZU_REPLY' ? 'Bot' : 'User';
             return `${role}: ${m.context}`;
         }).join('\n');
-
-        // 🧠 AMNESIA FIX: Inject Last Generated Code if user asks to "improve"/ "fix"
-        const modificationKeywords = ["improve", "fix", "change", "modify", "update", "rewrite", "add", "remove"];
-        if (modificationKeywords.some(kw => query.toLowerCase().includes(kw))) {
-            const lastCode = userCodeCache.get(msg.author.id);
-            if (lastCode) {
-                console.log(`🧠 [HIVE MIND] Injecting previous code context (${lastCode.length} chars)`);
-                contextStr += `\n\n[SYSTEM INJECTION - LAST GENERATED CODE TO MODIFY]:\n${lastCode.substring(0, 15000)}... (Truncated)`;
-            }
-        }
 
         // DYNAMIC IDENTITY CHECK
         const isDevArch = msg.author.id === DEVELOPER_ID;
@@ -12594,98 +12573,17 @@ async function generateSwarmResponse(query, msg) {
             }
         }
 
-        if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Critic is analyzing for perfection...` 🧐").catch(() => { });
+        if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Auditor is synthesizing the final response...` ⚖️").catch(() => { });
 
-        // 🕵️‍♂️ PHASE 6: DEEP REFINEMENT PROTOCOL
-        let refinedResult = executionerResult;
-
-        // Only refine if output contains code or is substantial
-        if (executionerResult.includes("```") || executionerResult.length > 200) {
-            try {
-                // 3. CRITIC (Brain 4 - Review)
-                const criticResponse = await generateResponse([
-                    { role: "system", content: HIVE_MIND_AGENTS.CRITIC.prompt + HONESTY_RULES + identityMarker },
-                    { role: "user", content: `Review this Executioner Output:\n\n${executionerResult}` }
-                ]);
-                const critique = criticResponse.choices[0].message.content;
-                console.log(`🧐 [HIVE MIND] Critic Feedback: ${critique.substring(0, 100)}...`);
-
-                if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Critic found improvements.` 📋\n`Refiner is polishing the final code...` ✨").catch(() => { });
-
-                // 4. REFINER (Brain 5 - Polish)
-                const refinerResponse = await generateResponse([
-                    { role: "system", content: HIVE_MIND_AGENTS.REFINER.prompt + HONESTY_RULES + identityMarker },
-                    { role: "user", content: `Original Output:\n${executionerResult}\n\nCritic's Feedback:\n${critique}\n\nTASK: Rewrite and Refine the output.` }
-                ]);
-
-                refinedResult = refinerResponse.choices[0].message.content;
-                console.log(`✨ [HIVE MIND] Refiner improved output length: ${refinedResult.length}`);
-
-            } catch (err) {
-                console.error("⚠️ Refinement Loop Failed (Skipping):", err.message);
-            }
-        }
-
-        if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Refinement complete.` ✨\n`Auditor is finalizing response...` ⚖️").catch(() => { });
-
-        // 🚨 AUTO-ZIP FALLBACK (Safety Net for "Lazy" Executioner)
-        // If the result contains large code blocks but NO zip file was created, do it automatically.
-        if (refinedResult.includes("```") && refinedResult.length > 2000 && !refinedResult.includes("ZIP created")) {
-            console.log("⚠️ [HIVE MIND] Detected large code without ZIP. Initiating Auto-Zip...");
-            if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Refinement complete.` ✨\n`Auto-Zipping large project...` 📦").catch(() => { });
-
-            // Simple regex to extract code blocks
-            const codeBlocks = [];
-            const regex = /```(\w+)?\n([\s\S]*?)```/g;
-            let match;
-            while ((match = regex.exec(refinedResult)) !== null) {
-                const lang = match[1] || 'txt';
-                const content = match[2];
-                let filename = `file_${codeBlocks.length + 1}.${lang}`;
-                if (lang === 'html') filename = 'index.html';
-                if (lang === 'css') filename = 'style.css';
-                if (lang === 'js' || lang === 'javascript') filename = 'app.js';
-                if (lang === 'json') filename = 'data.json';
-                if (lang === 'python') filename = 'main.py';
-
-                // Avoid potential duplicates if multiple blocks of same lang
-                if (codeBlocks.some(f => f.name === filename)) filename = `part_${codeBlocks.length + 1}_${filename}`;
-
-                codeBlocks.push({ name: filename, content: content });
-            }
-
-            if (codeBlocks.length > 0) {
-                // Call the tool manually
-                const zipToolResult = await runTool({
-                    function: {
-                        name: "create_project_zip",
-                        arguments: JSON.stringify({
-                            project_name: `Auto_Generated_Project_${Date.now()}`,
-                            files: codeBlocks
-                        })
-                    }
-                }, msg.author.id, msg);
-
-                refinedResult += `\n\n${zipToolResult}`;
-            }
-        }
-
-        // 3. AUDITOR - Final Synthesis (Using Refined Result)
+        // 3. AUDITOR - Final Synthesis
         const finalResponse = await generateResponse([
             { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
-            { role: "user", content: `Original Query: ${query}\nArchitect's Plan: ${architectPlan}\nRefined Output: ${refinedResult}` }
+            { role: "user", content: `Original Query: ${query}\nArchitect's Plan: ${architectPlan}\nExecutioner's Raw Results: ${executionerResult}` }
         ]);
 
         if (statusMsg) await statusMsg.delete().catch(() => { });
 
         const jointResult = `🐝 **JOINT RESPONSE (RENZU HIVE MIND)**\n\n${finalResponse}`;
-
-        // 💾 SAVE CONTEXT (Fix Amnesia)
-        if (refinedResult && refinedResult.length > 50) {
-            userCodeCache.set(msg.author.id, refinedResult);
-            console.log(`💾 [HIVE MIND] Saved context for User ${msg.author.id} (${refinedResult.length} chars)`);
-        }
-
         console.log(`🐝 [HIVE MIND] Swarm successfully completed. Response length: ${jointResult.length}`);
         return jointResult;
 
