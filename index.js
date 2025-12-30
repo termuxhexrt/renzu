@@ -12615,6 +12615,48 @@ async function generateSwarmResponse(query, msg) {
 
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Refinement complete.` ✨\n`Auditor is finalizing response...` ⚖️").catch(() => { });
 
+        // 🚨 AUTO-ZIP FALLBACK (Safety Net for "Lazy" Executioner)
+        // If the result contains large code blocks but NO zip file was created, do it automatically.
+        if (refinedResult.includes("```") && refinedResult.length > 2000 && !refinedResult.includes("ZIP created")) {
+            console.log("⚠️ [HIVE MIND] Detected large code without ZIP. Initiating Auto-Zip...");
+            if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Refinement complete.` ✨\n`Auto-Zipping large project...` 📦").catch(() => { });
+
+            // Simple regex to extract code blocks
+            const codeBlocks = [];
+            const regex = /```(\w+)?\n([\s\S]*?)```/g;
+            let match;
+            while ((match = regex.exec(refinedResult)) !== null) {
+                const lang = match[1] || 'txt';
+                const content = match[2];
+                let filename = `file_${codeBlocks.length + 1}.${lang}`;
+                if (lang === 'html') filename = 'index.html';
+                if (lang === 'css') filename = 'style.css';
+                if (lang === 'js' || lang === 'javascript') filename = 'app.js';
+                if (lang === 'json') filename = 'data.json';
+                if (lang === 'python') filename = 'main.py';
+
+                // Avoid potential duplicates if multiple blocks of same lang
+                if (codeBlocks.some(f => f.name === filename)) filename = `part_${codeBlocks.length + 1}_${filename}`;
+
+                codeBlocks.push({ name: filename, content: content });
+            }
+
+            if (codeBlocks.length > 0) {
+                // Call the tool manually
+                const zipToolResult = await runTool({
+                    function: {
+                        name: "create_project_zip",
+                        arguments: JSON.stringify({
+                            project_name: `Auto_Generated_Project_${Date.now()}`,
+                            files: codeBlocks
+                        })
+                    }
+                }, msg.author.id, msg);
+
+                refinedResult += `\n\n${zipToolResult}`;
+            }
+        }
+
         // 3. AUDITOR - Final Synthesis (Using Refined Result)
         const finalResponse = await generateResponse([
             { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
