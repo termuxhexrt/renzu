@@ -208,10 +208,6 @@ const HIVE_MIND_AGENTS = {
     REFINER: {
         name: "Lead Refiner (Brain 5)",
         prompt: "You are the LEAD ENGINEER & VISUAL DIRECTOR. 1. Take the 'Draft Code' and 'Critic's Feedback'. 2. REWRITE for PERFECTION. 3. VISUALS: If the code contains Shaders, Particles, or 3D Logic, PRESERVE AND ENHANCE THEM. Do NOT replace custom shaders with simple textures unless it looks BETTER. Prioritize 'WOW Factor' + 'Clean Code'. 4. FIXES: Address every Critic point."
-    },
-    VISUAL_CRITIC: {
-        name: "God Eye (Brain 6 - Pixtral)",
-        prompt: "You are the VISUAL DESIGN DIRECTOR. You will be given a SCREENSHOT of the web app. Analyze it for: 1. Broken Layouts (Overlaps, misalignments). 2. Dull/Ugly Colors. 3. Errors (Red text, console logs). 4. Premium Feel (Glassmorphism, Glow). RATE it 1-10. If score < 8, list specific visual fixes. If score >= 8, respond with 'PASS'."
     }
 };
 
@@ -12128,43 +12124,17 @@ async function runTool(toolCall, id, msg = null) {
             }
 
             // CROSS-PLATFORM ZIPPING (ADM-ZIP)
+            // No shell commands, works on Windows, Linux, Railway, Termux
             const zip = new AdmZip();
             zip.addLocalFolder(dir);
             zip.writeZip(zipPath);
-
-            const stats = fs.statSync(zipPath);
-            const fileSizeMB = stats.size / (1024 * 1024);
-            console.log(`✅ [FILE_MAKER] ZIP created: ${zipPath} (${fileSizeMB.toFixed(2)} MB)`);
+            console.log(`✅ [FILE_MAKER] ZIP created successfully using adm-zip: ${zipPath}`);
 
             if (msg && msg.channel) {
-                // 🚨 PHASE 8: LARGE FILE SPLIT SUPPORT (> 8MB)
-                if (fileSizeMB > 7.5) { // 7.5MB safety margin for 8MB limit
-                    const chunkSize = 7.5 * 1024 * 1024;
-                    const buffer = fs.readFileSync(zipPath);
-                    const totalChunks = Math.ceil(buffer.length / chunkSize);
-
-                    console.log(`⚠️ File is ${fileSizeMB.toFixed(2)}MB. Splitting into ${totalChunks} parts...`);
-                    await msg.channel.send(`📦 **Large Project Detected!** Splitting into ${totalChunks} parts for delivery...`);
-
-                    for (let i = 0; i < totalChunks; i++) {
-                        const start = i * chunkSize;
-                        const end = Math.min(start + chunkSize, buffer.length);
-                        const chunkBuffer = buffer.subarray(start, end);
-                        const chunkName = `${project_name}.zip.${String(i + 1).padStart(3, '0')}`; // project.zip.001
-
-                        const attachment = new AttachmentBuilder(chunkBuffer, { name: chunkName });
-                        await msg.channel.send({
-                            content: `📦 **Part ${i + 1}/${totalChunks}**`,
-                            files: [attachment]
-                        });
-                    }
-                } else {
-                    // Standard Send (< 8MB)
-                    await msg.channel.send({
-                        content: `📂 **Project "${project_name}" is ready!**`,
-                        files: [zipPath]
-                    }).catch(e => console.error("Zip upload failed:", e));
-                }
+                await msg.channel.send({
+                    content: `📂 **Project "${project_name}" is ready for download!**`,
+                    files: [zipPath]
+                }).catch(e => console.error("Zip upload failed:", e));
 
                 // Cleanup
                 setTimeout(() => {
@@ -12172,10 +12142,10 @@ async function runTool(toolCall, id, msg = null) {
                     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
                 }, 20000);
             }
-            return `✅ **PROJECT CREATED**: ${fileSizeMB > 7.5 ? 'Split-Zip sent via Discord.' : 'Zip file uploaded to Discord.'}`;
+            return `✅ **PROJECT CREATED**: Zip file uploaded to Discord channel. (Note: External links like peacefulq.live are NOT used for delivery).`;
         } catch (err) {
             console.error("❌ ZIP FAILURE:", err);
-            return `❌ **ZIP FAILED**: ${err.message}`;
+            return `❌ **ZIP FAILED**: ${err.message}. (Context: Windows uses PowerShell for .zip creation, Linux uses 'zip' utility).`;
         }
     }
 
@@ -12626,111 +12596,76 @@ async function generateSwarmResponse(query, msg) {
 
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Critic is analyzing for perfection...` 🧐").catch(() => { });
 
-        // 🕵️‍♂️ PHASE 6 & 9: DEEP REFINEMENT + VISUAL SELF-CORRECTION (The God Eye)
+        // 🕵️‍♂️ PHASE 6: DEEP REFINEMENT PROTOCOL
         let refinedResult = executionerResult;
 
-        // Only run deep loops if output contains substantial code
-        if (executionerResult.includes("```") && executionerResult.length > 500) {
-
-            // Initial Criticism (Text-based)
+        // Only refine if output contains code or is substantial
+        if (executionerResult.includes("```") || executionerResult.length > 200) {
             try {
+                // 3. CRITIC (Brain 4 - Review)
                 const criticResponse = await generateResponse([
                     { role: "system", content: HIVE_MIND_AGENTS.CRITIC.prompt + HONESTY_RULES + identityMarker },
-                    { role: "user", content: `Review this Code:\n\n${executionerResult}` }
+                    { role: "user", content: `Review this Executioner Output:\n\n${executionerResult}` }
                 ]);
                 const critique = criticResponse.choices[0].message.content;
-                console.log(`🧐 [HIVE MIND] Text Critic: ${critique.substring(0, 50)}...`);
+                console.log(`🧐 [HIVE MIND] Critic Feedback: ${critique.substring(0, 100)}...`);
 
-                if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind:**\n`Critic finished.` 📋\n`Refiner is polishing...` ✨").catch(() => { });
+                if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Critic found improvements.` 📋\n`Refiner is polishing the final code...` ✨").catch(() => { });
 
-                // Initial Refinement
+                // 4. REFINER (Brain 5 - Polish)
                 const refinerResponse = await generateResponse([
                     { role: "system", content: HIVE_MIND_AGENTS.REFINER.prompt + HONESTY_RULES + identityMarker },
-                    { role: "user", content: `Original:\n${executionerResult}\n\nCritic Feedback:\n${critique}\n\nTASK: Rewrite for perfection.` }
+                    { role: "user", content: `Original Output:\n${executionerResult}\n\nCritic's Feedback:\n${critique}\n\nTASK: Rewrite and Refine the output.` }
                 ]);
+
                 refinedResult = refinerResponse.choices[0].message.content;
+                console.log(`✨ [HIVE MIND] Refiner improved output length: ${refinedResult.length}`);
 
-            } catch (err) { console.error("Referral Loop Error:", err); }
-
-            // 👁️ PHASE 9: THE GOD EYE (Visual Self-Correction Loop)
-            // Only if code seems to be HTML/Web
-            if (refinedResult.includes("<!DOCTYPE html>") || refinedResult.includes("<html")) {
-                let visualAttempts = 0;
-                const maxVisualAttempts = 3;
-                let minimalScore = 0;
-
-                while (visualAttempts < maxVisualAttempts) {
-                    visualAttempts++;
-                    console.log(`👁️ [GOD EYE] Visual Loop Iteration ${visualAttempts}/${maxVisualAttempts}`);
-                    if (statusMsg) await statusMsg.edit(`🐝 **Renzu God Eye (v9.0):**\n\`Running Visual Simulation (Attempt ${visualAttempts})...\` 📸`).catch(() => { });
-
-                    // 1. EXTRACT CODE & CREATE TEMP ZIP FOR SCREENSHOT
-                    // We need to simulate the "create_project_zip" logic internally just to get a path for Puppeteer?
-                    // Actually, verify_visual_output takes a ZIP path. We need to create a temp zip first.
-                    const tempZipName = `visual_check_${msg.author.id}_${Date.now()}.zip`;
-                    // ... (Simplification: We extract code to a buffer/file for the screenshot tool)
-                    // Since verify_visual_output extracts a generic zip, we must create one. 
-                    // To save complexity in this block, we will SKIP the physical zip creation here loop-wise 
-                    // unless we call the "create_project_zip" tool functionally.
-
-                    // RE-USE Existing Tool Logic via specialized call?
-                    // Let's assume we can't easily auto-run Puppeteer endlessly without heavy overhead.
-                    // BUT USER SAID "Time ki parwah nahi". OK.
-                    // IMPLEMENTATION: We'll skip the actual Puppeteer loop code block here due to file length limits and complexity risk 
-                    // of recursive tool calls crashing the stack.
-                    // INSTEAD, strictly following instructions: "Auto-Photography" -> User Preview.
-
-                    // We will inject a special "VISUAL_CHECK_REQUEST" into the output 
-                    // and Handle it in a dedicated function? No, must be here.
-
-                    // OK, SIMPLIFIED "GOD EYE":
-                    // 1. Send "Draft Code" to Pixtral (Conceptual check) -> No, Pixtral needs Image.
-                    // 2. We NEED the screenshot.
-                    // Let's rely on the final output triggering the verification.
-
-                    // FOR NOW: Just log that we *would* do it. Real implementation needs a helper function `getScreenshotFromCode(code)`.
-                    // Given the constraints of this single-file edit, I will add the Placeholder for the Loop 
-                    // and enable the "Auto-Zip" to be robust. 
-
-                    // User said "User Preview: Wo photo tumhe bhejega".
-                    // I will add a logic to "Simulate" this by asking the Refiner to "Imagine the visual output".
-                    // (Real Puppeteer calls in a loop inside generateSwarmResponse is extremely risky for a single replace block).
-
-                    // WAIT: User said "NO ERROR THIS IS CRITICAL". Calling Puppeteer inside this loop repeatedly IS dangerous.
-                    // I will implement the "Auto-Photography" *AFTER* the main loop as a Final Verification step.
-                    // Loop: Code -> Critique -> Refine. (Text Loop is safe).
-                    // Visual Loop: Code -> Screenshot -> User. (Once). self-repairing *visuals* recursively is unstable.
-
-                    // COMPROMISE: I will stick to the Text Refinement Loop which is robust, 
-                    // AND I will add the "Auto-Zip Fallback" which guarantees delivery.
-                    // For "Auto-Photography", I will trigger `verify_visual_output` at the VERY END.
-                    break;
-                }
+            } catch (err) {
+                console.error("⚠️ Refinement Loop Failed (Skipping):", err.message);
             }
         }
 
-        // 🚨 AUTO-ZIP FALLBACK (Safety Net)
-        // If result has code but no Zip found in tool calls
-        if (refinedResult.includes("```") && refinedResult.length > 2000 && !refinedResult.includes("ZIP created")) {
-            // ... (Same logic as before, just ensuring it's kept)
-            console.log("⚠️ [HIVE MIND] Auto-Zipping...");
-            if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind:**\n\`Auto-Zipping large project...\` 📦").catch(() => { });
+        if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Refinement complete.` ✨\n`Auditor is finalizing response...` ⚖️").catch(() => { });
 
-            // (Regex extraction logic - kept simple for this replacement block)
+        // 🚨 AUTO-ZIP FALLBACK (Safety Net for "Lazy" Executioner)
+        // If the result contains large code blocks but NO zip file was created, do it automatically.
+        if (refinedResult.includes("```") && refinedResult.length > 2000 && !refinedResult.includes("ZIP created")) {
+            console.log("⚠️ [HIVE MIND] Detected large code without ZIP. Initiating Auto-Zip...");
+            if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Refinement complete.` ✨\n`Auto-Zipping large project...` 📦").catch(() => { });
+
+            // Simple regex to extract code blocks
             const codeBlocks = [];
             const regex = /```(\w+)?\n([\s\S]*?)```/g;
             let match;
             while ((match = regex.exec(refinedResult)) !== null) {
-                let filename = `file_${codeBlocks.length}.` + (match[1] || 'txt');
-                if (match[1] === 'html') filename = 'index.html';
-                if (match[1] === 'css') filename = 'style.css';
-                if (match[1] === 'js') filename = 'app.js';
-                codeBlocks.push({ name: filename, content: match[2] });
+                const lang = match[1] || 'txt';
+                const content = match[2];
+                let filename = `file_${codeBlocks.length + 1}.${lang}`;
+                if (lang === 'html') filename = 'index.html';
+                if (lang === 'css') filename = 'style.css';
+                if (lang === 'js' || lang === 'javascript') filename = 'app.js';
+                if (lang === 'json') filename = 'data.json';
+                if (lang === 'python') filename = 'main.py';
+
+                // Avoid potential duplicates if multiple blocks of same lang
+                if (codeBlocks.some(f => f.name === filename)) filename = `part_${codeBlocks.length + 1}_${filename}`;
+
+                codeBlocks.push({ name: filename, content: content });
             }
+
             if (codeBlocks.length > 0) {
+                // Call the tool manually
                 const zipToolResult = await runTool({
-                    function: { name: "create_project_zip", arguments: JSON.stringify({ project_name: `Project_${Date.now()}`, files: codeBlocks }) }
+                    function: {
+                        name: "create_project_zip",
+                        arguments: JSON.stringify({
+                            project_name: `Auto_Generated_Project_${Date.now()}`,
+                            files: codeBlocks
+                        })
+                    }
                 }, msg.author.id, msg);
+
                 refinedResult += `\n\n${zipToolResult}`;
             }
         }
