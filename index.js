@@ -207,11 +207,14 @@ const HIVE_MIND_AGENTS = {
     },
     REFINER: {
         name: "Lead Refiner (Brain 5)",
-        prompt: "You are the LEAD ENGINEER. Take the 'Draft Code' and the 'Critic's Feedback'. REWRITE the code to be PERFECTION. Address every single point from the Critic. Use advanced patterns (e.g., Three.js best practices, modern CSS animations, robust error handling). Your output must be the FINAL, POLISHED code block."
+        prompt: "You are the LEAD ENGINEER & VISUAL DIRECTOR. 1. Take the 'Draft Code' and 'Critic's Feedback'. 2. REWRITE for PERFECTION. 3. VISUALS: If the code contains Shaders, Particles, or 3D Logic, PRESERVE AND ENHANCE THEM. Do NOT replace custom shaders with simple textures unless it looks BETTER. Prioritize 'WOW Factor' + 'Clean Code'. 4. FIXES: Address every Critic point."
     }
 };
 
-// BOT VERSION TRACKING (Self-Awareness System v7.6.5)
+// 💾 CONTEXT PERSISTENCE (Fixes "Amnesia")
+const userCodeCache = new Map(); // Stores key=userId, value=lastGeneratedCode
+
+// BOT VERSION TRACKING (Self-Awareness System v7.6.8)
 // BOT VERSION TRACKING (Self-Awareness System v7.6.8)
 const BOT_VERSION = "7.6.8";
 const BOT_LAST_UPDATE = "2025-12-29";
@@ -12516,10 +12519,20 @@ async function generateSwarmResponse(query, msg) {
     try {
         // Context-aware planning: Include recent memory for 'proceed' queries
         const recentMemory = await queryGlobalMemory(msg.author.id, null, 12);
-        const contextStr = recentMemory.map(m => {
+        let contextStr = recentMemory.map(m => {
             const role = m.event_type === 'RENZU_REPLY' ? 'Bot' : 'User';
             return `${role}: ${m.context}`;
         }).join('\n');
+
+        // 🧠 AMNESIA FIX: Inject Last Generated Code if user asks to "improve"/ "fix"
+        const modificationKeywords = ["improve", "fix", "change", "modify", "update", "rewrite", "add", "remove"];
+        if (modificationKeywords.some(kw => query.toLowerCase().includes(kw))) {
+            const lastCode = userCodeCache.get(msg.author.id);
+            if (lastCode) {
+                console.log(`🧠 [HIVE MIND] Injecting previous code context (${lastCode.length} chars)`);
+                contextStr += `\n\n[SYSTEM INJECTION - LAST GENERATED CODE TO MODIFY]:\n${lastCode.substring(0, 15000)}... (Truncated)`;
+            }
+        }
 
         // DYNAMIC IDENTITY CHECK
         const isDevArch = msg.author.id === DEVELOPER_ID;
@@ -12666,6 +12679,13 @@ async function generateSwarmResponse(query, msg) {
         if (statusMsg) await statusMsg.delete().catch(() => { });
 
         const jointResult = `🐝 **JOINT RESPONSE (RENZU HIVE MIND)**\n\n${finalResponse}`;
+
+        // 💾 SAVE CONTEXT (Fix Amnesia)
+        if (refinedResult && refinedResult.length > 50) {
+            userCodeCache.set(msg.author.id, refinedResult);
+            console.log(`💾 [HIVE MIND] Saved context for User ${msg.author.id} (${refinedResult.length} chars)`);
+        }
+
         console.log(`🐝 [HIVE MIND] Swarm successfully completed. Response length: ${jointResult.length}`);
         return jointResult;
 
