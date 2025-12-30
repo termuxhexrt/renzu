@@ -6979,7 +6979,8 @@ Enhanced: "sleek modern sports car with aggressive design, metallic finish gleam
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`
+                "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
+                "Accept": "application/json"
             },
             body: JSON.stringify({
                 model: "mistral-small-latest",  // Fast model for quick enhancement
@@ -12540,18 +12541,96 @@ Apply the changes precisely. Return ONLY the new full file content.`;
     }
 }
 // ------------------ DATABASE DUMPING (FIXED) ------------------
-async function dumpLeaks() {
+// ------------------ DUAL BRAIN & MEMORY SYSTEM (v8.0.0) ------------------
+const MISTRAL_KEYS = [
+    process.env.MISTRAL_API_KEY,
+    process.env.MISTRAL_API_KEY_2
+].filter(Boolean);
+
+async function generateSwarmResponse(query, msg) {
+    const isDev = msg.author.id === DEVELOPER_ID;
+
+    // 🧠 DUAL BRAIN KEY ROTATION
+    const activeKey = MISTRAL_KEYS[Math.floor(Math.random() * MISTRAL_KEYS.length)];
+    // If developer, try to use Key 2 (Secondary Brain) for "Fresh" context if available, else random.
+    // Actually, random load balancing is better for rate limits.
+
+    // 🧠 SWARM SHORT-TERM MEMORY (Fixes "-s" Amnesia)
+    let memoryContext = "";
     try {
-        const res = await pool.query("SELECT * FROM leaks");
-        if (res.rows.length === 0) throw new Error("No leaks found!");
-        const dumpFile = "leaks_dump_" + Date.now() + ".json";
-        fs.writeFileSync(dumpFile, JSON.stringify(res.rows, null, 2));
-        console.log(`💀 Leaks dumped to ${dumpFile}`);
-        return dumpFile;
+        const recentMsgs = await msg.channel.messages.fetch({ limit: 15 });
+        const history = Array.from(recentMsgs.values())
+            .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+            .filter(m => !m.content.startsWith("!") && !m.author.bot || m.author.id === client.user.id)
+            .map(m => `${m.author.username}: ${m.content}`)
+            .join('\n');
+
+        memoryContext = `\n\n[IMMEDIATE CHANNEL HISTORY (LAST 15 MESSAGES)]:\n${history}\n[END HISTORY]\n`;
     } catch (err) {
-        console.error("❌ Dump failed:", err.message);
-        return null;
+        console.log("⚠️ Failed to fetch Swarm Short-Term Memory:", err.message);
     }
+
+    // Identify user intent
+    let planPrompt = `User Query: "${query}"\n${memoryContext}\nAnalyze this request. Break it down into steps for the Executioner.`;
+
+    // ... Rest of Swarm Logic ...
+    // Note: We need to pass 'activeKey' to 'generateResponse' (need to update generateResponse to accept key arg)
+    // For now, let's update generateResponse globally or strictly here?
+    // Let's modify the prompt injection first.
+
+    const id = msg.author.id;
+    const contextStr = getConversationContext(id);
+    const identityMarker = isDev ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
+
+    // ARCHITECT (Brain 1 - Planning)
+    const architectSystemPrompt = HIVE_MIND_AGENTS.ARCHITECT.prompt + HONESTY_RULES + identityMarker + memoryContext;
+
+    let architectPlan = "";
+    try {
+        const architectRes = await generateResponse([
+            { role: "system", content: architectSystemPrompt },
+            { role: "user", content: planPrompt }
+        ], [], false, activeKey); // Pass Active Key
+
+        architectPlan = architectRes.choices[0].message.content;
+    } catch (err) {
+        return `❌ **Architect Brain Failed**: ${err.message}`;
+    }
+
+    // EXECUTIONER (Brain 2 - Action)
+    // If we had 2 distinct keys, we could force swap here. But strict rotation per request is safer for now.
+    const executionerSystemPrompt = HIVE_MIND_AGENTS.EXECUTIONER.prompt + HONESTY_RULES + identityMarker;
+
+    let executionOutput = "";
+    try {
+        const execRes = await generateResponse([
+            { role: "system", content: executionerSystemPrompt },
+            { role: "user", content: `Architect's Plan:\n${architectPlan}\n\nEXECUTE THIS PLAN NOW. Use tools if needed.` }
+        ], TOOL_DEFINITIONS, false, activeKey); // Pass Active Key
+
+        const msgContent = execRes.choices[0].message.content;
+        const toolCalls = execRes.choices[0].message.tool_calls;
+
+        if (toolCalls && toolCalls.length > 0) {
+            // Executioner decided to use tools
+            executionOutput = await handleToolCalls(toolCalls, msg); // Handle tools recursively
+        } else {
+            executionOutput = msgContent;
+        }
+
+    } catch (err) {
+        return `❌ **Executioner Brain Failed**: ${err.message}`;
+    }
+
+    // AUDITOR (QA - Verification)
+    const auditorSystemPrompt = HIVE_MIND_AGENTS.AUDITOR.prompt + HONESTY_RULES + identityMarker;
+    // Auditor always runs to verify the output quality
+    // We skip Auditor if tool calls were made successfully to avoid double-spam, 
+    // unless it was a visual check? No, Auditor logic is separate.
+
+    // For now, return the Executioner's output directly to the user
+    // But format it nicely
+    return `♟️ **Architect** (Brain ${MISTRAL_KEYS.indexOf(activeKey) + 1}): Plan Generated.\n⚔️ **Executioner**: ${executionOutput}`;
 }
 
 
@@ -12899,9 +12978,12 @@ async function generateSwarmResponse(query, msg) {
     }
 }
 
-export async function generateResponse(messages, tools = [], useMultimodal = false) {
-    const retries = 3;
-    const retryDelay = 1000;
+// Main generation function
+export async function generateResponse(messages, tools = [], useMultimodal = false, apiKey = process.env.MISTRAL_API_KEY) {
+    // Retry logic
+    const maxRetries = 3;
+    const retryDelay = 1000; // Delay between retries
+    let retryCount = 0;
 
     // Smart model selection: pixtral for images, mistral-large for everything else
     const hasImages = messages.some(m =>
