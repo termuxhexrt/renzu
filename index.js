@@ -6686,8 +6686,8 @@ async function autoCompress(userId) {
     );
     const totalMessages = parseInt(countRes.rows[0].total);
 
-    // Auto-compress disabled to prevent rate limits during heavy testing
-    if (totalMessages > 99999) {
+    // Auto-compress if over 50 messages (AGGRESSIVE COMPRESSION)
+    if (totalMessages > 50) {
         console.log(`🗜️ Auto-compressing conversations for user ${userId}...`);
         await compressOldConversations(userId, 40);
     }
@@ -12542,112 +12542,102 @@ Apply the changes precisely. Return ONLY the new full file content.`;
 }
 // ------------------ DATABASE DUMPING (FIXED) ------------------
 // ------------------ DUAL BRAIN & MEMORY SYSTEM (v8.0.0) ------------------
-const MISTRAL_KEYS = [
-    process.env.MISTRAL_API_KEY,
-    process.env.MISTRAL_API_KEY_2
-].filter(Boolean);
+// Single Brain Mode (Standard)
+const activeKey = process.env.MISTRAL_API_KEY;
 
-async function generateSwarmResponse(query, msg) {
-    const isDev = msg.author.id === DEVELOPER_ID;
+// 🧠 SWARM SHORT-TERM MEMORY (Fixes "-s" Amnesia)
+let memoryContext = "";
+try {
+    const recentMsgs = await msg.channel.messages.fetch({ limit: 15 });
+    const history = Array.from(recentMsgs.values())
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+        .filter(m => !m.content.startsWith("!") && !m.author.bot || m.author.id === client.user.id)
+        .map(m => `${m.author.username}: ${m.content}`)
+        .join('\n');
 
-    // 🧠 DUAL BRAIN KEY ROTATION
-    const activeKey = MISTRAL_KEYS[Math.floor(Math.random() * MISTRAL_KEYS.length)];
-    // If developer, try to use Key 2 (Secondary Brain) for "Fresh" context if available, else random.
-    // Actually, random load balancing is better for rate limits.
+    memoryContext = `\n\n[IMMEDIATE CHANNEL HISTORY (LAST 15 MESSAGES)]:\n${history}\n[END HISTORY]\n`;
+} catch (err) {
+    console.log("⚠️ Failed to fetch Swarm Short-Term Memory:", err.message);
+}
 
-    // 🧠 SWARM SHORT-TERM MEMORY (Fixes "-s" Amnesia)
-    let memoryContext = "";
-    try {
-        const recentMsgs = await msg.channel.messages.fetch({ limit: 15 });
-        const history = Array.from(recentMsgs.values())
-            .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-            .filter(m => !m.content.startsWith("!") && !m.author.bot || m.author.id === client.user.id)
-            .map(m => `${m.author.username}: ${m.content}`)
-            .join('\n');
+// Identify user intent
+let planPrompt = `User Query: "${query}"\n${memoryContext}\nAnalyze this request. Break it down into steps for the Executioner.`;
 
-        memoryContext = `\n\n[IMMEDIATE CHANNEL HISTORY (LAST 15 MESSAGES)]:\n${history}\n[END HISTORY]\n`;
-    } catch (err) {
-        console.log("⚠️ Failed to fetch Swarm Short-Term Memory:", err.message);
+// ... Rest of Swarm Logic ...
+// Note: We need to pass 'activeKey' to 'generateResponse' (need to update generateResponse to accept key arg)
+// For now, let's update generateResponse globally or strictly here?
+// Let's modify the prompt injection first.
+
+const id = msg.author.id;
+
+// FETCH HISTORY (Fixing ReferenceError)
+const recentMemoryLocal = await queryGlobalMemory(id, null, 10); // Check Global Memory first
+let contextStr = recentMemoryLocal.map(m => {
+    const role = m.event_type === 'RENZU_REPLY' ? 'Bot' : 'User';
+    return `${role}: ${m.context}`;
+}).join('\n');
+
+// Fallback/Augment with regular history if needed
+if (!contextStr) {
+    const histData = await loadHistory(id);
+    if (histData && histData.messages) {
+        contextStr = histData.messages.slice(-10).map(m => {
+            const content = Array.isArray(m.content) ? "[Multimodal Content]" : m.content;
+            return `${m.role === 'assistant' ? 'Bot' : 'User'}: ${content}`;
+        }).join('\n');
+    }
+}
+const identityMarker = isDev ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
+
+// ARCHITECT (Brain 1 - Planning)
+const architectSystemPrompt = HIVE_MIND_AGENTS.ARCHITECT.prompt + HONESTY_RULES + identityMarker + memoryContext;
+
+let architectPlan = "";
+try {
+    const architectRes = await generateResponse([
+        { role: "system", content: architectSystemPrompt },
+        { role: "user", content: planPrompt }
+    ], [], false, activeKey); // Pass Active Key
+
+    architectPlan = architectRes.choices[0].message.content;
+} catch (err) {
+    return `❌ **Architect Brain Failed**: ${err.message}`;
+}
+
+// EXECUTIONER (Brain 2 - Action)
+// If we had 2 distinct keys, we could force swap here. But strict rotation per request is safer for now.
+const executionerSystemPrompt = HIVE_MIND_AGENTS.EXECUTIONER.prompt + HONESTY_RULES + identityMarker;
+
+let executionOutput = "";
+try {
+    const execRes = await generateResponse([
+        { role: "system", content: executionerSystemPrompt },
+        { role: "user", content: `Architect's Plan:\n${architectPlan}\n\nEXECUTE THIS PLAN NOW. Use tools if needed.` }
+    ], TOOL_DEFINITIONS, false, activeKey); // Pass Active Key
+
+    const msgContent = execRes.choices[0].message.content;
+    const toolCalls = execRes.choices[0].message.tool_calls;
+
+    if (toolCalls && toolCalls.length > 0) {
+        // Executioner decided to use tools
+        executionOutput = await handleToolCalls(toolCalls, msg); // Handle tools recursively
+    } else {
+        executionOutput = msgContent;
     }
 
-    // Identify user intent
-    let planPrompt = `User Query: "${query}"\n${memoryContext}\nAnalyze this request. Break it down into steps for the Executioner.`;
+} catch (err) {
+    return `❌ **Executioner Brain Failed**: ${err.message}`;
+}
 
-    // ... Rest of Swarm Logic ...
-    // Note: We need to pass 'activeKey' to 'generateResponse' (need to update generateResponse to accept key arg)
-    // For now, let's update generateResponse globally or strictly here?
-    // Let's modify the prompt injection first.
+// AUDITOR (QA - Verification)
+const auditorSystemPrompt = HIVE_MIND_AGENTS.AUDITOR.prompt + HONESTY_RULES + identityMarker;
+// Auditor always runs to verify the output quality
+// We skip Auditor if tool calls were made successfully to avoid double-spam, 
+// unless it was a visual check? No, Auditor logic is separate.
 
-    const id = msg.author.id;
-
-    // FETCH HISTORY (Fixing ReferenceError)
-    const recentMemoryLocal = await queryGlobalMemory(id, null, 10); // Check Global Memory first
-    let contextStr = recentMemoryLocal.map(m => {
-        const role = m.event_type === 'RENZU_REPLY' ? 'Bot' : 'User';
-        return `${role}: ${m.context}`;
-    }).join('\n');
-
-    // Fallback/Augment with regular history if needed
-    if (!contextStr) {
-        const histData = await loadHistory(id);
-        if (histData && histData.messages) {
-            contextStr = histData.messages.slice(-10).map(m => {
-                const content = Array.isArray(m.content) ? "[Multimodal Content]" : m.content;
-                return `${m.role === 'assistant' ? 'Bot' : 'User'}: ${content}`;
-            }).join('\n');
-        }
-    }
-    const identityMarker = isDev ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
-
-    // ARCHITECT (Brain 1 - Planning)
-    const architectSystemPrompt = HIVE_MIND_AGENTS.ARCHITECT.prompt + HONESTY_RULES + identityMarker + memoryContext;
-
-    let architectPlan = "";
-    try {
-        const architectRes = await generateResponse([
-            { role: "system", content: architectSystemPrompt },
-            { role: "user", content: planPrompt }
-        ], [], false, activeKey); // Pass Active Key
-
-        architectPlan = architectRes.choices[0].message.content;
-    } catch (err) {
-        return `❌ **Architect Brain Failed**: ${err.message}`;
-    }
-
-    // EXECUTIONER (Brain 2 - Action)
-    // If we had 2 distinct keys, we could force swap here. But strict rotation per request is safer for now.
-    const executionerSystemPrompt = HIVE_MIND_AGENTS.EXECUTIONER.prompt + HONESTY_RULES + identityMarker;
-
-    let executionOutput = "";
-    try {
-        const execRes = await generateResponse([
-            { role: "system", content: executionerSystemPrompt },
-            { role: "user", content: `Architect's Plan:\n${architectPlan}\n\nEXECUTE THIS PLAN NOW. Use tools if needed.` }
-        ], TOOL_DEFINITIONS, false, activeKey); // Pass Active Key
-
-        const msgContent = execRes.choices[0].message.content;
-        const toolCalls = execRes.choices[0].message.tool_calls;
-
-        if (toolCalls && toolCalls.length > 0) {
-            // Executioner decided to use tools
-            executionOutput = await handleToolCalls(toolCalls, msg); // Handle tools recursively
-        } else {
-            executionOutput = msgContent;
-        }
-
-    } catch (err) {
-        return `❌ **Executioner Brain Failed**: ${err.message}`;
-    }
-
-    // AUDITOR (QA - Verification)
-    const auditorSystemPrompt = HIVE_MIND_AGENTS.AUDITOR.prompt + HONESTY_RULES + identityMarker;
-    // Auditor always runs to verify the output quality
-    // We skip Auditor if tool calls were made successfully to avoid double-spam, 
-    // unless it was a visual check? No, Auditor logic is separate.
-
-    // For now, return the Executioner's output directly to the user
-    // But format it nicely
-    return `♟️ **Architect** (Brain ${MISTRAL_KEYS.indexOf(activeKey) + 1}): Plan Generated.\n⚔️ **Executioner**: ${executionOutput}`;
+// For now, return the Executioner's output directly to the user
+// But format it nicely
+return `♟️ **Architect** (Brain ${MISTRAL_KEYS.indexOf(activeKey) + 1}): Plan Generated.\n⚔️ **Executioner**: ${executionOutput}`;
 }
 
 
