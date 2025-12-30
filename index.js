@@ -6686,8 +6686,8 @@ async function autoCompress(userId) {
     );
     const totalMessages = parseInt(countRes.rows[0].total);
 
-    // Auto-compress if over 50 messages (AGGRESSIVE COMPRESSION)
-    if (totalMessages > 50) {
+    // Auto-compress disabled to prevent rate limits during heavy testing
+    if (totalMessages > 99999) {
         console.log(`🗜️ Auto-compressing conversations for user ${userId}...`);
         await compressOldConversations(userId, 40);
     }
