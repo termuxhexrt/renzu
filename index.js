@@ -12920,7 +12920,7 @@ export async function generateResponse(messages, tools = [], useMultimodal = fal
                 const endpoint = "https://api.mistral.ai/v1/chat/completions";
                 const headers = {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+                    Authorization: `Bearer ${apiKey}`,
                 };
 
                 // Build the base payload
