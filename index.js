@@ -12579,7 +12579,24 @@ async function generateSwarmResponse(query, msg) {
     // Let's modify the prompt injection first.
 
     const id = msg.author.id;
-    const contextStr = getConversationContext(id);
+
+    // FETCH HISTORY (Fixing ReferenceError)
+    const recentMemoryLocal = await queryGlobalMemory(id, null, 10); // Check Global Memory first
+    let contextStr = recentMemoryLocal.map(m => {
+        const role = m.event_type === 'RENZU_REPLY' ? 'Bot' : 'User';
+        return `${role}: ${m.context}`;
+    }).join('\n');
+
+    // Fallback/Augment with regular history if needed
+    if (!contextStr) {
+        const histData = await loadHistory(id);
+        if (histData && histData.messages) {
+            contextStr = histData.messages.slice(-10).map(m => {
+                const content = Array.isArray(m.content) ? "[Multimodal Content]" : m.content;
+                return `${m.role === 'assistant' ? 'Bot' : 'User'}: ${content}`;
+            }).join('\n');
+        }
+    }
     const identityMarker = isDev ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
 
     // ARCHITECT (Brain 1 - Planning)
