@@ -104,6 +104,32 @@ async function deepResearch(query) {
     return results.join("\n\n---\n\n");
 }
 
+
+// ------------------ RENZU SELF-EVOLUTION ENGINE (v8.1.0) ------------------
+async function injectDynamicTool(name, category, code) {
+    console.log("🧬 Evolving: Injecting new tool " + name);
+    await pool.query(
+        "INSERT INTO dynamic_tools (tool_name, category, code) VALUES ($1, $2, $3) " +
+        "ON CONFLICT (tool_name) DO UPDATE SET code = EXCLUDED.code, category = EXCLUDED.category",
+        [name, category, code]
+    );
+    // Reload tool logic could go here
+    return true;
+}
+
+async function getHiveMemory(sessionId) {
+    const res = await pool.query("SELECT context FROM hive_memory WHERE session_id = $1", [sessionId]);
+    return res.rows[0]?.context || {};
+}
+
+async function saveHiveMemory(sessionId, context) {
+    await pool.query(
+        "INSERT INTO hive_memory (session_id, context) VALUES ($1, $2) " +
+        "ON CONFLICT (session_id) DO UPDATE SET context = EXCLUDED.context, last_updated = CURRENT_TIMESTAMP",
+        [sessionId, context]
+    );
+}
+
 // ------------------ SUPABASE INITIALIZATION (DUAL DATABASE SETUP) ------------------
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
@@ -734,6 +760,19 @@ const CHANGELOG = [
 ];
 
 const TOOL_DEFINITIONS = [
+    {
+        name: "selfEvolution",
+        description: "Inject a new tool or code logic into the Hive Mind permanently. Use this to expand your own capabilities.",
+        parameters: {
+            type: "object",
+            properties: {
+                name: { type: "string", description: "The unique name of the new tool." },
+                category: { type: "string", description: "Category (e.g., Search, Code, Security)." },
+                code: { type: "string", description: "The JavaScript code for the tool." }
+            },
+            required: ["name", "category", "code"]
+        }
+    },
     {
         // Tool 144: generate_adimage (PRIMARY - ALWAYS USE THIS FIRST FOR IMAGE GENERATION!)
         type: "function",
@@ -12784,6 +12823,16 @@ const MIYU_BOT_ID = process.env.MIYU_BOT_ID || "1431714837574058125";
 const processingMessages = new Set();
 
 client.on(Events.MessageCreate, async (msg) => {
+    // v8.1.0: Hive Session Memory (-s persistence)
+    let sessionId = msg.author.id;
+    let sessionContext = await getHiveMemory(sessionId);
+    
+    if (msg.content.includes("-s")) {
+        console.log("🐝 Resuming Hive Session for " + msg.author.username);
+        // Logic to inject sessionContext into the AI prompt would go here
+    }
+
+
     // v8.0.0: Karma update on message
     if (!msg.author.bot) {
         updateUserKarma(msg.author.id, msg.author.username, 1).catch(e => console.error("Karma err:", e.message));
