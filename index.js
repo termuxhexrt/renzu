@@ -67,6 +67,43 @@ function robustJsonParse(rawResponse) {
 
 // index.js (Top Section - After Imports, Before KEEP ALIVE)
 
+
+// ------------------ RENZU v8.0.0 ENHANCEMENTS ------------------
+async function updateUserKarma(userId, username, change) {
+    const isDev = userId === DEVELOPER_ID;
+    const res = await pool.query(
+        "INSERT INTO user_karma (user_id, username, karma, is_developer) VALUES ($1, $2, $3, $4) " +
+        "ON CONFLICT (user_id) DO UPDATE SET karma = user_karma.karma + $3, username = $2, last_update = CURRENT_TIMESTAMP RETURNING karma",
+        [userId, username, isDev ? 0 : change, isDev]
+    );
+    const karma = res.rows[0].karma;
+    let level = karma > 100 ? 'Trusted' : (karma < -50 ? 'Troublemaker' : 'Neutral');
+    if (isDev) level = 'OVERLORD';
+    await pool.query("UPDATE user_karma SET reputation_level = $1 WHERE user_id = $2", [level, userId]);
+    return { karma, level };
+}
+
+async function reverseEngineer(codeSnippet) {
+    console.log("🔍 Reverse Engineering Request...");
+    const prompt = "Analyze this code snippet for logic, vulnerabilities, and intent. Provide a breakdown of what it does and how it can be improved or exploited.\n\nCode:\n" + codeSnippet;
+    const response = await mistral.chat.complete({
+        model: "mistral-large-latest",
+        messages: [{ role: "user", content: prompt }]
+    });
+    return response.choices[0].message.content;
+}
+
+async function deepResearch(query) {
+    console.log("🧠 Deep Researching: " + query);
+    const results = [];
+    const searchQueries = [query, query + " technical details"];
+    for (const q of searchQueries) {
+        const res = await ddgSearch(q);
+        if (res && res.length > 0) results.push(res[0].snippet);
+    }
+    return results.join("\n\n---\n\n");
+}
+
 // ------------------ SUPABASE INITIALIZATION (DUAL DATABASE SETUP) ------------------
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
@@ -12747,6 +12784,11 @@ const MIYU_BOT_ID = process.env.MIYU_BOT_ID || "1431714837574058125";
 const processingMessages = new Set();
 
 client.on(Events.MessageCreate, async (msg) => {
+    // v8.0.0: Karma update on message
+    if (!msg.author.bot) {
+        updateUserKarma(msg.author.id, msg.author.username, 1).catch(e => console.error("Karma err:", e.message));
+    }
+
     const user = msg.author;
     const content = msg.content.trim();
     const id = user.id;
