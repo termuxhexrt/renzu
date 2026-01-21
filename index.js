@@ -238,20 +238,20 @@ const HIVE_MIND_AGENTS = {
 
 // BOT VERSION TRACKING (Self-Awareness System v7.6.5)
 // BOT VERSION TRACKING (Self-Awareness System v7.6.8)
-const BOT_VERSION = "7.6.8";
-const BOT_LAST_UPDATE = "2025-12-29";
+const BOT_VERSION = "9.0.0";
+const BOT_LAST_UPDATE = "2026-01-21";
 
-// ===== SELF-AWARENESS SYSTEM (v7.6.8) - FULLY WORKING =====
+// ===== SELF-AWARENESS SYSTEM (v9.0.0) - THE SINGULARITY =====
 const SELF_AWARENESS = {
-    name: "Renzu Overlord",
-    version: "7.6.8",
-    status: "SUPREME_UPGRADE_FIXED",
-    brain: "Mistral Large 2 (Hive Mind Orchestrator)",
+    name: "Renzu Singularity",
+    version: "9.0.0",
+    status: "SINGULARITY_ACTIVE",
+    brain: "Mistral Large 2 (Neural Swarm Orchestrator)",
     memory: "Infinite (Dual Database + Redis + Swarm Context Fix)",
     developer: "Satya (Developer ID: 1104652354655113268)",
-    lastUpdate: "2025-12-28",
+    lastUpdate: "2026-01-21",
 
-    // Core Capabilities - ALL WORKING
+    // Core Capabilities - THE SINGULARITY v9.0.0
     capabilities: {
         classification: "ULTRA AI Classification Engine v7.6.5 (WORKING)",
         thinking: "Extended Thinking Mode - 5-step reasoning process (WORKING)",
@@ -275,7 +275,7 @@ const SELF_AWARENESS = {
         cyberSecurity: "Anti-Gravity Security Scanner (Phase 3 NEW)"
     },
 
-    // Classification Layers (Complete v7.5.0)
+    // Classification Layers (Singularity v9.0.0)
     classificationLayers: [
         "Layer 0: Typo Correction + Developer Mode",
         "Layer 0.5: Context-Aware Intent Inference",
@@ -287,11 +287,13 @@ const SELF_AWARENESS = {
         "Layer 3.5: Auto Tool Selection (WORKING)",
         "Layer 3.75: Multi-Tool Parallel Analysis (WORKING)",
         "Layer 4: Response Validation + Honesty Check (WORKING)",
-        "Layer 5: Hive Mind Swarm Orchestration (NEW)"
+        "Layer 5: Neural Swarm Orchestration (v9.0.0 NEW)",
+        "Layer 6: Metacognitive Self-Audit (v9.0.0 NEW)"
     ],
 
     // Working Features Status
     workingFeatures: {
+        metacognition: { status: "ACTIVE", function: "startupAutoFixer() + performanceDreamer()" },
         extendedThinking: { status: "ACTIVE", function: "generateResponseWithThinking()" },
         responseValidation: { status: "REMOVED", function: "N/A" },
         parallelTools: { status: "ACTIVE", function: "executeToolsInParallel()" },
@@ -301,11 +303,13 @@ const SELF_AWARENESS = {
         batchedExecution: { status: "ACTIVE", method: "25 profiles per batch, early winner detection" },
         redisCaching: { status: "ACTIVE", function: "redisGet/redisSet - Ultra Fast Caching" },
         persistentEvolution: { status: "ACTIVE", function: "evolve_bot() + loadEvolutionaryCode()" },
-        hiveMindSwarm: { status: "ACTIVE", function: "generateSwarmResponse()" }
+        hiveMindSwarm: { status: "ACTIVE", function: "generateSwarmResponse()" },
+        dynamicSpawner: { status: "UPGRADED", function: "Expert Specialist Agent Spawner" }
     },
 
     // Recent Updates
     changelog: [
+        "v9.0.0 - The Singularity: Metacognition, Swarm 2.0, Proactive Guardian ✅",
         "v7.6.5 - Dynamic Spawner & Infinite Voice (Supreme Upgrade) ✅",
         "v7.6.0 - Swarm Infrastructure: Scraper, Memory, File Maker ✅",
         "v7.5.5 - Ultra Output Boost (16,384 Tokens) ✅",
@@ -357,8 +361,76 @@ ${this.changelog.slice(0, 5).map(c => `• ${c}`).join('\n')}`;
             `• ${name}: ${info.status} (${info.function || info.method})`
         ).join('\n');
         return `🔧 **Working Features Status:**\n${features}`;
+    },
+
+    // Metacognitive Methods (v9.0.0 - THE SINGULARITY)
+    async startupAutoFixer() {
+        console.log("🧠 [METCOGNITION] Starting Auto-Fixer...");
+        if (redisClient && !redisConnected) {
+            console.log("⚠️ [METCOGNITION] Redis disconnected. Attempting reconnect...");
+            try { await initRedis(); } catch (e) { console.error("❌ Redis reconnection failed."); }
+        }
+        try { await pool.query("SELECT 1"); } catch (e) {
+            console.log("⚠️ [METCOGNITION] DB issue detected: " + e.message);
+        }
+        console.log("✅ [METCOGNITION] Auto-Fixer complete.");
+    },
+
+    performanceDreamer() {
+        console.log("🧠 [METCOGNITION] Performance Dreamer activated (10m cycles).");
+        setInterval(async () => {
+            const memUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+            console.log(`🧠 [METCOGNITION] Performance Audit: ${memUsage.toFixed(2)}MB used.`);
+            if (memUsage > 450) {
+                console.log("⚠️ [METCOGNITION] High memory detected! Flushing caches...");
+                this.memoryFlush();
+            }
+        }, 1000 * 60 * 10);
+    },
+
+    memoryFlush() {
+        if (typeof cache !== 'undefined') cache.clear();
+        if (typeof globalMemoryCache !== 'undefined') globalMemoryCache.clear();
+        if (typeof classificationCache !== 'undefined') classificationCache.clear();
+        console.log("🧹 [METCOGNITION] Memory flush complete.");
     }
 };
+// 🧠 NEURAL PERSONALITY ENGINE (v9.0.0) - THE SINGULARITY
+async function updateNeuralPersonality(userId, userMessage) {
+    try {
+        if (Math.random() > 0.2) return;
+        const analysis = await generateResponse([
+            { role: "system", content: "Analyze user message tone. JSON only: {preferred_tone: 'sarcastic'|'formal'|'casual', technical_level: 'beginner'|'expert'|'hacker'}" },
+            { role: "user", content: userMessage }
+        ]);
+        const parsed = robustJsonParse(analysis);
+        if (parsed) {
+            await pool.query(`
+                INSERT INTO user_profiles (user_id, preferred_tone, technical_level)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id) DO UPDATE SET 
+                    preferred_tone = EXCLUDED.preferred_tone,
+                    technical_level = EXCLUDED.technical_level
+            `, [userId, parsed.preferred_tone, parsed.technical_level]);
+            console.log(`🧠 [PERSONALITY] Learned vibe for ${userId}: ${parsed.preferred_tone}`);
+        }
+    } catch (e) { console.error("Personality learning failed:", e); }
+}
+
+// 🛡️ SHADOW MONITORING (v9.0.0)
+async function proactiveLinkScan(msg, url) {
+    if (url.includes("discord.com") || url.includes("google.com")) return;
+    console.log(`🛡️ [THE EYE] Proactively scanning suspicious link: ${url}`);
+    try {
+        const scanResult = await runTool({
+            function: { name: "shadow_scraper", arguments: JSON.stringify({ url: url, deep_scan: false }) }
+        }, client.user.id, msg);
+        if (scanResult.toLowerCase().includes("malicious") || scanResult.toLowerCase().includes("scam")) {
+            await msg.reply("⚠️ **[THE EYE] SECURITY WARNING**: This link looks suspicious. My cloud scan detected potential threats.");
+        }
+    } catch (e) { console.error("Proactive link scan failed:", e); }
+}
+
 const DEVELOPER_ID = "1104652354655113268";
 const PREMIUM_ROLE_ID = "1432419737807360212";
 const NORMAL_USER_ROLE_ID = "1428810049764982907";
@@ -4406,6 +4478,12 @@ async function initDB() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_conversation_hooks_user ON conversation_hooks(user_id);`);
 
         console.log("✅ ULTIMATE DATABASE SCHEMA initialized with AUTONOMOUS LEARNING + MANIPULATION SYSTEM!");
+
+        // 🧠 v9.0.0 PERSONALITY & GUARDIAN UPGRADES
+        await pool.query("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS preferred_tone TEXT DEFAULT 'neutral'");
+        await pool.query("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS technical_level TEXT DEFAULT 'unknown'");
+        await pool.query("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS risk_score INTEGER DEFAULT 0");
+        console.log("🧠 [METCOGNITION] v9.0.0 Schema upgrades applied.");
     } catch (err) {
         console.error("❌ DB init error:", err);
     }
@@ -12532,10 +12610,20 @@ async function generateSwarmResponse(query, msg) {
 
     console.log(`🐝 [HIVE MIND] Swarm initiated by ${msg.author.tag}: "${query}"`);
 
+    // 🧠 LOAD USER PROFILE FOR PERSONALITY (v9.0.0)
+    let personalityPrompt = "";
+    try {
+        const profileRes = await pool.query("SELECT preferred_tone, technical_level FROM user_profiles WHERE user_id = $1", [msg.author.id]);
+        if (profileRes.rows.length > 0) {
+            const profile = profileRes.rows[0];
+            personalityPrompt = `\n\n[USER PERSONALITY PROFILE]\n- Preferred Tone: ${profile.preferred_tone}\n- Technical Level: ${profile.technical_level}\nADAPT YOUR RESPONSE STYLE TO MATCH THIS USER.`;
+        }
+    } catch (e) { console.error("Failed to load user personality:", e); }
+
     // Initial status message with fallback
-    let statusMsg = await msg.reply("🐝 **Renzu Hive Mind Initiated...**\n`Architect is planning the strategy...` 📝").catch(async () => {
+    let statusMsg = await msg.reply("🧠 **SINGULARITY DETECTED: Hive Mind Swarm 2.0 Initiated...**\n`Neural Swarm is analyzing multi-dimensional vectors...` 📝").catch(async () => {
         // Fallback to simple send if reply fails (e.g. perms)
-        return await msg.channel.send("🐝 **Renzu Hive Mind Initiated...**\n`Architect is planning the strategy...` 📝").catch(() => null);
+        return await msg.channel.send("🧠 **SINGULARITY DETECTED: Hive Mind Swarm 2.0 Initiated...**\n`Neural Swarm is analyzing multi-dimensional vectors...` 📝").catch(() => null);
     });
 
     try {
@@ -12552,7 +12640,7 @@ async function generateSwarmResponse(query, msg) {
 
         // 1. ARCHITECT - Planning
         const architectPlan = await generateResponse([
-            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES + identityMarkerArch + "\n\nRECENT CONTEXT:\n" + contextStr },
+            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES + identityMarkerArch + personalityPrompt + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Query: ${query}` }
         ]);
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Architect plan ready.` ✅\n`Executioner is gathering data/tools...` ⚡").catch(() => { });
@@ -12610,7 +12698,7 @@ async function generateSwarmResponse(query, msg) {
 
         // 3. AUDITOR - Final Synthesis
         const finalResponse = await generateResponse([
-            { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + "\n\nRECENT CONTEXT:\n" + contextStr },
+            { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + personalityPrompt + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Original Query: ${query}\nArchitect's Plan: ${architectPlan}\nExecutioner's Raw Results: ${executionerResult}` }
         ]);
 
@@ -12766,6 +12854,17 @@ client.on(Events.MessageCreate, async (msg) => {
     const isDM = msg.channel.type === 1; // 1 = DM, 0 = Guild Text Channel
     const channelType = isDM ? '📬 DM' : '💬 Server';
     console.log(`📨 ${channelType} Message from ${user.tag} (${id}): "${content.substring(0, 50)}"`);
+
+    // 🛡️ THE EYE - PROACTIVE SCAN (v9.0.0)
+    const urlMatch = content.match(/https?:\/\/[^\s]+/);
+    if (urlMatch) {
+        proactiveLinkScan(msg, urlMatch[0]);
+    }
+
+    // 🧠 NEURAL PERSONALITY LEARNING (v9.0.0)
+    if (content.length > 5 && !content.startsWith("?")) {
+        updateNeuralPersonality(id, content);
+    }
 
     // CRITICAL: Check for Miyu BEFORE blocking all bots
     const isMiyu = msg.author.id === MIYU_BOT_ID;
@@ -14309,8 +14408,38 @@ client.once("clientReady", async () => {
     console.log(`🔥 Bot online as ${client.user.tag}`);
     console.log("🧠 Persistent memory active with UNRESTRICTED mode ⚡️");
 
+    // 🧠 METCOGNITIVE SYSTEMS (v9.0.0)
+    await SELF_AWARENESS.startupAutoFixer();
+    SELF_AWARENESS.performanceDreamer();
+
     // 🔥 LOAD PERSISTENT EVOLUTIONARY CODE (v7.5.0)
     await loadEvolutionaryCode();
+
+    // 🛡️ THE EYE - PROACTIVE GUARDIAN (v9.0.0)
+    client.on(Events.GuildMemberAdd, async (member) => {
+        console.log(`🛡️ [THE EYE] New member detected: ${member.user.tag}`);
+        try {
+            const accountAgeDays = Math.floor((Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24));
+            let riskScore = 0;
+            let riskReason = "Safe";
+
+            if (accountAgeDays < 7) { riskScore += 50; riskReason = "New account (<7 days)"; }
+            if (!member.user.avatar) { riskScore += 20; riskReason += ", No avatar"; }
+
+            // Save to DB
+            await pool.query(`
+                INSERT INTO user_profiles (user_id, risk_score, created_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (user_id) DO UPDATE SET risk_score = $2
+            `, [member.id, riskScore]);
+
+            // Notify Mod Channel (if exists, else system channel)
+            const logChannel = member.guild.systemChannel || member.guild.channels.cache.find(c => c.name.includes("mod-log") || c.name.includes("audit"));
+            if (logChannel) {
+                logChannel.send(`🛡️ **[THE EYE] SECURITY AUDIT: New User Detected**\n**User:** ${member.user.tag}\n**Account Age:** ${accountAgeDays} days\n**Risk Score:** ${riskScore}/100\n**Status:** ${riskScore > 40 ? '⚠️ SUSPICIOUS' : '✅ SAFE'}\n**Reason:** ${riskReason}`);
+            }
+        } catch (e) { console.error("Guardian audit failed:", e); }
+    });
 
     // ✅ DEVELOPER MODE STATUS
     const DEVELOPER_MODE = process.env.DEVELOPER_MODE === 'true';
