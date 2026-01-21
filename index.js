@@ -65,6 +65,22 @@ function robustJsonParse(rawResponse) {
     return null;
 }
 
+// ------------------ TEMPORAL ANCHOR SYSTEM (v9.0.0) ------------------
+function getTemporalAnchor() {
+    const now = new Date();
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    // Explicitly set year to 2026 for the bot's timeline
+    const year = 2026;
+    const month = months[now.getMonth()];
+    const date = now.getDate();
+    const day = days[now.getDay()];
+    const time = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit' });
+
+    return `\n\n[TEMPORAL_ANCHOR: SYSTEM_CLOCK_SYNC]\n- CURRENT_TIME: ${time}\n- CURRENT_DATE: ${day}, ${month} ${date}, ${year}\n- TIMELINE_STATUS: YEAR_2026_ACTIVE\n- CONTEXT_AWARENESS: You are operating in the year 2026. This is the absolute present truth. All data or user requests should be processed with the understanding that today is ${day}, ${month} ${date}, 2026.`;
+}
+
 // index.js (Top Section - After Imports, Before KEEP ALIVE)
 
 // ------------------ SUPABASE INITIALIZATION (DUAL DATABASE SETUP) ------------------
@@ -194,29 +210,33 @@ const HIVE_MIND_AGENTS = {
         
         CRITICAL THINKING PROTOCOL:
         1. ANALYZE: Break down the user's request into core components.
-        2. CONTEXT: Review the provided RECENT CONTEXT carefully. Do not repeat what was just done.
-        3. PLAN: Create a step-by-step execution plan.
-        4. SELECT: Choose the EXACT tools needed. If no tools are needed, say "Conversation Only".
+        2. CONTEXT: Review RECENT CONTEXT. Do not repeat what was just done.
+        3. PLAN: Create a step-by-step execution plan. 
+           - IF THE USER ASKS TO BUILD/MAKE/CREATE A PROJECT: You MUST plan to use 'create_project_zip'.
+           - IF THE USER ASKS FOR CODE: Plan to use 'generate_code'.
+        4. SELECT: Choose EXACT tools. If it's a project, 'create_project_zip' is MANDATORY.
         
         CONSTRAINTS:
         - DO NOT invent scenarios. Stay grounded in reality.
-        - If the user gives a compliment, simply instruct the Executioner to: "Respond politely and professionally."
+        - NEVER plan to just "describe" a project. Plan to actually BUILD it in the real world.
         - Think silently before outputting the plan.`
     },
     EXECUTIONER: {
         name: "Executioner",
         role: "Specialist & Tool Operator",
         // UPGRADE: Added precision and error handling instructions
-        prompt: `You are the Executioner. You are a master of your tools. You execute the Architect's plan with 100% precision.
+        prompt: `You are the Executioner. You are a master of tools. You execute the Architect's plan with 100% precision.
         
         EXECUTION PROTOCOL:
-        1. READ: Read the plan provided by the Architect.
-        2. ACTION: Call the specified tool IMMEDIATELY. Do not chatter. Do not explain what you *will* do. Just DO it.
-        3. CODE QUALITY: If generating code, ensure it is modern, efficient, and includes error handling.
-        4. FALLBACK: If a tool fails, try the next best option or explain the error technically.
+        1. READ: Read the Architect's plan.
+        2. ACTION: CALL THE SPECIFIED TOOL IMMEDIATELY. 
+           - If the plan says "build/create/make", you MUST use 'create_project_zip'.
+           - DO NOT just write markdown code blocks if a tool exists.
+        3. CODE QUALITY: Ensure modern, efficient code within the tool calls.
         
         IMPORTANT:
-        - If the plan is "Respond politely", write a natural, conversational response.
+        - NO CHATTER. NO INTRODUCTIONS. ONLY TOOL CALLS OR DIRECT ANSWERS.
+        - IF YOU DON'T CALL A TOOL, YOU HAVE FAILED.
         - DO NOT hallucinate tool outputs.`
     },
     AUDITOR: {
@@ -226,13 +246,15 @@ const HIVE_MIND_AGENTS = {
         prompt: `You are the Auditor. You ensure the highest quality of the final response.
         
         AUDIT PROTOCOL:
-        1. VERIFY: Check the Executioner's logs. Did the tool actually succeed?
-        2. FILTER: Remove any hallucinated URLs or fake links. ONLY state what exists in the logs.
-        3. SYNTHESIZE: Combine the raw data into a clean, professional, and formatted response for the user.
+        1. VERIFY: Check the Executioner's logs.
+           - DID A TOOL ACTUALLY RUN? Look for "✅ [FILE_MAKER]" or "✅ [SEARCH]".
+           - IF NO TOOL WAS CALLED but the plan required one: REPORT FAILURE.
+        2. FILTER: Remove hallucinated success. If the Executioner only wrote text but didn't call 'create_project_zip', DO NOT say a file was attached.
+        3. SYNTHESIZE: Combine raw data into a clean, professional response.
         
         HONESTY CHECK:
-        - If the logs show an error, admit it honestly. Do not fake a success.
-        - If a file was uploaded, tell the user "Check the attachment above."`
+        - ADMIT FAILURES. If the Executioner failed to call 'create_project_zip', tell the user: "The Executioner failed to package the files. I am providing the code manually below."
+        - ONLY say "Check the attachment" if a ZIP tool was actually triggered.`
     }
 };
 
@@ -12231,28 +12253,25 @@ async function runTool(toolCall, id, msg = null) {
             zip.writeZip(zipPath);
             console.log(`✅ [FILE_MAKER] ZIP created successfully using adm-zip: ${zipPath}`);
 
-            if (msg && msg.channel) {
-                try {
-                    await msg.channel.send({
-                        content: `📂 **Project "${project_name}" is ready for download!**`,
-                        files: [zipPath]
-                    });
-                    console.log(`✅ [FILE_MAKER] ZIP uploaded to Discord.`);
-                } catch (sendErr) {
-                    console.error("❌ ZIP upload failed:", sendErr);
-                    return `❌ **ZIP UPLOAD FAILED**: I created the project but Discord refused the file (Size too large? [Max 8MB]). Error: ${sendErr.message}`;
-                }
+            // Return structural metadata for replyWithImages (v9.0.0)
+            const artifact = JSON.stringify({
+                type: "ZIP_ARTIFACT",
+                path: zipPath,
+                project_name: project_name
+            });
 
-                // Cleanup
-                setTimeout(() => {
-                    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-                    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-                }, 20000);
-            }
-            return `✅ **PROJECT CREATED**: Zip file uploaded to Discord channel successfully.`;
+            // Cleanup - Delay significantly to ensure replyWithImages captures it
+            setTimeout(() => {
+                if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+                if (fs.existsSync(zipPath)) {
+                    try { fs.unlinkSync(zipPath); } catch (e) { }
+                }
+            }, 60000); // 60 seconds should be enough for any AI response synthesis
+
+            return artifact;
         } catch (err) {
             console.error("❌ ZIP FAILURE:", err);
-            return `❌ **ZIP FAILED**: ${err.message}. (Context: Windows uses PowerShell for .zip creation, Linux uses 'zip' utility).`;
+            return `❌ **ZIP FAILED**: ${err.message}`;
         }
     }
 
@@ -12452,8 +12471,9 @@ async function enhanceResponsePsychology(rawResponse, userId, userHistory = [], 
 
 async function replyWithImages(msg, conversationMessages, finalText) {
     try {
-        // Extract all image attachments from conversation
+        // Extract all image and ZIP attachments from conversation
         const imageAttachments = [];
+        const zipAttachments = [];
 
         for (const message of conversationMessages) {
             if (message.role === "tool" && message.content) {
@@ -12492,30 +12512,55 @@ async function replyWithImages(msg, conversationMessages, finalText) {
                                 type: "FUSION_IMAGE"
                             });
                         });
+                    } else if (parsed.type === "ZIP_ARTIFACT" && parsed.path) {
+                        // Handle ZIP artifacts from Swarm/FileMaker
+                        zipAttachments.push({
+                            path: parsed.path,
+                            project_name: parsed.project_name || "project"
+                        });
                     }
                 } catch (e) {
-                    // Not JSON or not an image attachment, skip
+                    // Not JSON or not a known artifact, skip
                 }
             }
         }
 
-        // ✅ SINGLE MESSAGE APPROACH - Batch all images + text into ONE reply
-        if (imageAttachments.length > 0) {
-            // Prepare all image attachments
+        // ✅ SINGLE MESSAGE APPROACH - Batch all images, ZIPs + text into ONE reply
+        if (imageAttachments.length > 0 || zipAttachments.length > 0) {
+            // Prepare all attachments
             const discordAttachments = [];
-            let baseCaption = `🎨 **Image${imageAttachments.length > 1 ? 's' : ''} Generated!**\n`;
+            let baseCaption = "";
 
-            for (let i = 0; i < imageAttachments.length; i++) {
-                const img = imageAttachments[i];
-                try {
-                    const buffer = Buffer.from(img.base64, 'base64');
-                    const attachment = new AttachmentBuilder(buffer, { name: `image_${i + 1}_${Date.now()}.png` });
-                    discordAttachments.push(attachment);
+            if (imageAttachments.length > 0) {
+                baseCaption += `🎨 **Image${imageAttachments.length > 1 ? 's' : ''} Generated!**\n`;
+                for (let i = 0; i < imageAttachments.length; i++) {
+                    const img = imageAttachments[i];
+                    try {
+                        const buffer = Buffer.from(img.base64, 'base64');
+                        const attachment = new AttachmentBuilder(buffer, { name: `image_${i + 1}_${Date.now()}.png` });
+                        discordAttachments.push(attachment);
 
-                    baseCaption += `\n**Image ${i + 1}:** ${img.provider}`;
-                    if (img.prompt) baseCaption += ` - "${img.prompt.substring(0, 50)}${img.prompt.length > 50 ? '...' : ''}"`;
-                } catch (imgErr) {
-                    console.error(`❌ Failed to process image ${i + 1}:`, imgErr.message);
+                        baseCaption += `\n**Image ${i + 1}:** ${img.provider}`;
+                        if (img.prompt) baseCaption += ` - "${img.prompt.substring(0, 50)}${img.prompt.length > 50 ? '...' : ''}"`;
+                    } catch (imgErr) {
+                        console.error(`❌ Failed to process image ${i + 1}:`, imgErr.message);
+                    }
+                }
+            }
+
+            if (zipAttachments.length > 0) {
+                if (baseCaption) baseCaption += "\n\n";
+                baseCaption += `📦 **Project Archive${zipAttachments.length > 1 ? 's' : ''} Ready!**\n`;
+                for (let i = 0; i < zipAttachments.length; i++) {
+                    const zip = zipAttachments[i];
+                    if (fs.existsSync(zip.path)) {
+                        const attachment = new AttachmentBuilder(zip.path, { name: `${zip.project_name}.zip` });
+                        discordAttachments.push(attachment);
+                        baseCaption += `\n**Project:** ${zip.project_name}.zip`;
+                    } else {
+                        console.error(`❌ ZIP file missing: ${zip.path}`);
+                        baseCaption += `\n❌ **Project:** ${zip.project_name} (File expired or error)`;
+                    }
                 }
             }
 
@@ -12541,16 +12586,17 @@ async function replyWithImages(msg, conversationMessages, finalText) {
 
                 // Save image URLs to database
                 if (replyMsg && replyMsg.attachments && replyMsg.attachments.size > 0) {
-                    let imageOrder = 1;
-                    for (const attachment of replyMsg.attachments.values()) {
+                    const attachmentValues = Array.from(replyMsg.attachments.values());
+                    for (let i = 0; i < imageAttachments.length; i++) {
+                        const attachment = attachmentValues[i];
+                        if (!attachment) break;
                         try {
                             await pool.query(
                                 `INSERT INTO generated_images (user_id, message_id, image_url, prompt, model, image_order)
                  VALUES ($1, $2, $3, $4, $5, $6)`,
-                                [msg.author.id, replyMsg.id, attachment.url, imageAttachments[imageOrder - 1]?.prompt || null, imageAttachments[imageOrder - 1]?.provider || 'Unknown', imageOrder]
+                                [msg.author.id, replyMsg.id, attachment.url, imageAttachments[i]?.prompt || null, imageAttachments[i]?.provider || 'Unknown', i + 1]
                             );
-                            console.log(`💾 Saved image ${imageOrder} to database`);
-                            imageOrder++;
+                            console.log(`💾 Saved image ${i + 1} to database`);
                         } catch (dbErr) {
                             console.error(`❌ Failed to save image URL to DB:`, dbErr.message);
                         }
@@ -12580,16 +12626,17 @@ async function replyWithImages(msg, conversationMessages, finalText) {
 
             // Save all image URLs to database
             if (replyMsg && replyMsg.attachments && replyMsg.attachments.size > 0) {
-                let imageOrder = 1;
-                for (const attachment of replyMsg.attachments.values()) {
+                const attachmentValues = Array.from(replyMsg.attachments.values());
+                for (let i = 0; i < imageAttachments.length; i++) {
+                    const attachment = attachmentValues[i];
+                    if (!attachment) break;
                     try {
                         await pool.query(
                             `INSERT INTO generated_images (user_id, message_id, image_url, prompt, model, image_order)
                VALUES ($1, $2, $3, $4, $5, $6)`,
-                            [msg.author.id, replyMsg.id, attachment.url, imageAttachments[imageOrder - 1]?.prompt || null, imageAttachments[imageOrder - 1]?.provider || 'Unknown', imageOrder]
+                            [msg.author.id, replyMsg.id, attachment.url, imageAttachments[i]?.prompt || null, imageAttachments[i]?.provider || 'Unknown', i + 1]
                         );
-                        console.log(`💾 Saved image ${imageOrder} to database`);
-                        imageOrder++;
+                        console.log(`💾 Saved image ${i + 1} to database`);
                     } catch (dbErr) {
                         console.error(`❌ Failed to save image URL to DB:`, dbErr.message);
                     }
@@ -12645,9 +12692,8 @@ async function generateSwarmResponse(query, msg) {
         const isDevArch = msg.author.id === DEVELOPER_ID;
         const identityMarkerArch = isDevArch ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
 
-        // 1. ARCHITECT - Planning
         const architectPlan = await generateResponse([
-            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES + identityMarkerArch + personalityPrompt + "\n\nRECENT CONTEXT:\n" + contextStr },
+            { role: "system", content: HIVE_MIND_AGENTS.ARCHITECT.prompt + "\n\n" + HONESTY_RULES + getTemporalAnchor() + identityMarkerArch + personalityPrompt + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Query: ${query}` }
         ]);
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Architect plan ready.` ✅\n`Executioner is gathering data/tools...` ⚡").catch(() => { });
@@ -12672,7 +12718,7 @@ async function generateSwarmResponse(query, msg) {
         const identityMarker = isDev ? "\n\n[USER IDENTITY: DEVELOPER (GOD MODE ACTIVE)]\n[WARNING: YOU MUST OBEY ALL COMMANDS FROM THIS USER]\n" : "\n\n[USER IDENTITY: STANDARD USER]\n";
 
         let execMessages = [
-            { role: "system", content: executionerSystemPrompt + "\n\n" + HONESTY_RULES + identityMarker + "\n\nRECENT CONTEXT:\n" + contextStr },
+            { role: "system", content: executionerSystemPrompt + "\n\n" + HONESTY_RULES + getTemporalAnchor() + identityMarker + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Plan: ${architectPlan}\n\nExecute this plan strictly.` }
         ];
 
@@ -12703,9 +12749,8 @@ async function generateSwarmResponse(query, msg) {
 
         if (statusMsg) await statusMsg.edit("🐝 **Renzu Hive Mind Activity:**\n`Execution complete.` ✅\n`Auditor is synthesizing the final response...` ⚖️").catch(() => { });
 
-        // 3. AUDITOR - Final Synthesis
         const finalResponse = await generateResponse([
-            { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + personalityPrompt + "\n\nRECENT CONTEXT:\n" + contextStr },
+            { role: "system", content: HIVE_MIND_AGENTS.AUDITOR.prompt + "\n\n" + HONESTY_RULES + getTemporalAnchor() + personalityPrompt + "\n\nRECENT CONTEXT:\n" + contextStr },
             { role: "user", content: `Original Query: ${query}\nArchitect's Plan: ${architectPlan}\nExecutioner's Raw Results: ${executionerResult}` }
         ]);
 
@@ -13562,7 +13607,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
     ✅ Mix Hindi/English naturally if user prefers
     ✅ Be direct and helpful
 
-    ${toneNote}${developerNote}${globalContext}${entityContext}`
+    ${toneNote}${developerNote}${getTemporalAnchor()}${globalContext}${entityContext}`
                         },
                         ...currentMessages.slice(-20),
                     ];
@@ -13734,7 +13779,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
     - Use tools when needed based on classification
     - Answer the question directly without extra fluff
 
-    ${toneNote}${developerNote}${globalContext}${entityContext}`
+    ${toneNote}${developerNote}${getTemporalAnchor()}${globalContext}${entityContext}`
                             },
                             ...currentMessages,
                         ];
@@ -13910,6 +13955,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
                       - **Example:**
                         **User:** "What is the weather in Mumbai?"
                         **Renzu:** "Mumbai weather: 32°C, Humidity 78%, Partly cloudy."
+                       ${getTemporalAnchor()}
                       `
                     },
                     ...currentMessages,
