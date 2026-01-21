@@ -12232,10 +12232,16 @@ async function runTool(toolCall, id, msg = null) {
             console.log(`✅ [FILE_MAKER] ZIP created successfully using adm-zip: ${zipPath}`);
 
             if (msg && msg.channel) {
-                await msg.channel.send({
-                    content: `📂 **Project "${project_name}" is ready for download!**`,
-                    files: [zipPath]
-                }).catch(e => console.error("Zip upload failed:", e));
+                try {
+                    await msg.channel.send({
+                        content: `📂 **Project "${project_name}" is ready for download!**`,
+                        files: [zipPath]
+                    });
+                    console.log(`✅ [FILE_MAKER] ZIP uploaded to Discord.`);
+                } catch (sendErr) {
+                    console.error("❌ ZIP upload failed:", sendErr);
+                    return `❌ **ZIP UPLOAD FAILED**: I created the project but Discord refused the file (Size too large? [Max 8MB]). Error: ${sendErr.message}`;
+                }
 
                 // Cleanup
                 setTimeout(() => {
@@ -12243,7 +12249,7 @@ async function runTool(toolCall, id, msg = null) {
                     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
                 }, 20000);
             }
-            return `✅ **PROJECT CREATED**: Zip file uploaded to Discord channel. (Note: External links like peacefulq.live are NOT used for delivery).`;
+            return `✅ **PROJECT CREATED**: Zip file uploaded to Discord channel successfully.`;
         } catch (err) {
             console.error("❌ ZIP FAILURE:", err);
             return `❌ **ZIP FAILED**: ${err.message}. (Context: Windows uses PowerShell for .zip creation, Linux uses 'zip' utility).`;
@@ -12705,8 +12711,12 @@ async function generateSwarmResponse(query, msg) {
 
         if (statusMsg) await statusMsg.delete().catch(() => { });
 
+        // 🧠 FINAL DELIVERY VIA replyWithImages (v9.0.0 Support for Swarm Tool Outputs)
+        // This ensures ZIP artifacts and Images are properly handled
+        await replyWithImages(msg, execMessages, finalResponse);
+
         const jointResult = `🐝 **JOINT RESPONSE (RENZU HIVE MIND)**\n\n${finalResponse}`;
-        console.log(`🐝 [HIVE MIND] Swarm successfully completed. Response length: ${jointResult.length}`);
+        console.log(`🐝 [HIVE MIND] Swarm successfully completed.`);
         return jointResult;
 
     } catch (err) {
@@ -12898,7 +12908,7 @@ client.on(Events.MessageCreate, async (msg) => {
                 await saveGlobalMemory('USER_QUERY', id, client.user.id, content, { channel: msg.channel.id });
                 await saveGlobalMemory('RENZU_REPLY', client.user.id, id, swarmResponse, { channel: msg.channel.id });
 
-                return replyChunks(msg, swarmResponse);
+                return;
             }
 
             const q = content;
@@ -13124,7 +13134,7 @@ ${getTemporalAnchor()}
                     const swarmResponse = await generateSwarmResponse(content.replace(/--swarm|-s/g, '').trim(), msg);
                     await saveMsg(id, "user", content);
                     await saveMsg(id, "assistant", swarmResponse);
-                    return replyChunks(msg, swarmResponse);
+                    return;
                 }
 
                 // Load user history
@@ -13302,7 +13312,8 @@ ${getTemporalAnchor()}
             const swarmResponse = await generateSwarmResponse(q.replace(/--swarm|-s/g, '').trim(), msg);
             await saveMsg(id, "user", q);
             await saveMsg(id, "assistant", swarmResponse);
-            return replyChunks(msg, swarmResponse);
+            // No need for replyChunks here, generateSwarmResponse now handles delivery internally
+            return;
         }
         if (!q) {
             console.log("❌ Empty query, sending usage message");
