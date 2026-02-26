@@ -394,7 +394,7 @@ ${this.changelog.slice(0, 5).map(c => `�€� ${c}`).join('\n')}`;
             try { await initRedis(); } catch (e) { console.error("❒ Redis reconnection failed."); }
         }
         try { await pool.query("SELECT 1"); } catch (e) {
-            console.log("⡠️ [METCOGNITION] DB issue detected: " + e.message);
+            if (DB_AVAILABLE) console.log("⡠️ [METCOGNITION] DB issue detected: " + e.message);
         }
         console.log("✅ [METCOGNITION] Auto-Fixer complete.");
     },
@@ -5029,6 +5029,7 @@ async function queryGlobalMemory(sourceId, targetId = null, limit = 50) {
 
 // ------------------ ENTITY EXTRACTION ------------------
 async function extractAndSaveEntities(userId, content) {
+    if (!DB_AVAILABLE) return; // skip when Neon quota exceeded
     try {
         // Simple entity extraction (can be enhanced with NLP)
         const entities = [];
@@ -6621,6 +6622,7 @@ async function saveMsg(userId, role, content, topic = null, sentiment = 'neutral
 
 // Track statistics
 async function trackStatistic(userId, metricName, metricValue) {
+    if (!DB_AVAILABLE) return; // skip when Neon quota exceeded
     try {
         await pool.query(
             `INSERT INTO statistics (user_id, metric_name, metric_value) VALUES ($1, $2, $3)`,
@@ -7036,13 +7038,33 @@ async function generateWithPollinationsAPI(prompt, options = {}) {
         return best;
     }
 
-    throw new Error('All Pollinations profile requests failed');
+    // Retry with delay — HTTP 530 is temporary server overload
+    console.log('⏳ [POLLINATIONS] All profiles failed, retrying in 3s with fresh profiles...');
+    await new Promise(r => setTimeout(r, 3000));
+    
+    // Pick 3 random fresh profiles for retry
+    const retryProfiles = profiles.sort(() => Math.random() - 0.5).slice(0, 3);
+    const retryAttempts = await Promise.allSettled(
+        retryProfiles.map((profile, i) => attemptWithProfile(profile, i + 100))
+    );
+    const retrySuccessful = retryAttempts
+        .filter(r => r.status === 'fulfilled' && r.value.success)
+        .map(r => r.value);
+    
+    if (retrySuccessful.length > 0) {
+        const best = retrySuccessful.reduce((a, b) => parseFloat(a.sizeMB) > parseFloat(b.sizeMB) ? a : b);
+        console.log(`🏆 [POLLINATIONS-RETRY] Winner: ${best.profile} | ${best.sizeMB} MB | ${best.latencyMs}ms`);
+        return best;
+    }
+    
+    throw new Error('All Pollinations profile requests failed after retry');
 }
 
 // ==================== ADDICTIVE FEATURES ====================
 
 // 🔥 DAILY STREAK SYSTEM
 async function getImageStreak(userId) {
+    if (!DB_AVAILABLE) return { currentStreak: 0, bestStreak: 0, totalImages: 0 }; // skip when Neon quota exceeded
     try {
         const result = await pool.query(
             `SELECT image_streak, last_image_date, total_images_generated,
@@ -7069,6 +7091,7 @@ async function getImageStreak(userId) {
 }
 
 async function updateImageStreak(userId) {
+    if (!DB_AVAILABLE) return; // skip when Neon quota exceeded
     try {
         // Increment total + update streak in one query
         await pool.query(`
