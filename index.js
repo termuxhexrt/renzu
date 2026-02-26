@@ -10159,7 +10159,7 @@ async function runTool(toolCall, id, msg = null) {
 
     else if (name === "qr_code_generator_v2") {
         const content = parsedArgs.content || "";
-        return `📱 **QR CODE GENERATOR V2**\n\nContent: ${content.substring(0, 50)}...\n\n⡠️ QR CODE CREATED:\n- Size: ${parsedArgs.size || 256}x${parsedArgs.size || 256}\n- Type: ${content.startsWith('http') ? 'URL' : 'TEXT'}\n- Status: Ready\n\n💡 Scan with phone camera or QR app!\n⡡ Real generators: qr-code-generator.com, QRCode Monkey`;
+        return `📱 **QR CODE GENERATOR V2**\n\nContent: ${content.substring(0, 50)}...\n\n⡠️ QR CODE CREATED:\n- Size: ${parsedArgs.size || 256}x${parsedArgs.size || 256}\n- Type: ${content && content.startsWith('http') ? 'URL' : 'TEXT'}\n- Status: Ready\n\n💡 Scan with phone camera or QR app!\n⡡ Real generators: qr-code-generator.com, QRCode Monkey`;
     }
 
     else if (name === "github_scanner_v2") {
@@ -12130,7 +12130,7 @@ const processingMessages = new Set();
 
 client.on(Events.MessageCreate, async (msg) => {
     const user = msg.author;
-    const content = msg.content.trim();
+    const content = (msg.content || '').trim();
     const id = user.id;
 
     // ✅ DEBOUNCE CHECK - Skip if already processing this message
@@ -12507,7 +12507,7 @@ ${getTemporalAnchor()}
     }
 
     // HELP
-    if (content === "?help")
+    if (content && content === "?help")
         return msg.reply(`**RENZU COMMAND MENU (NO BULLSHIT)**
     ---
     **BASIC COMMANDS (FOR EVERYONE)**
@@ -12543,12 +12543,12 @@ ${getTemporalAnchor()}
         );
 
     // PING
-    if (content === "?ping")
+    if (content && content === "?ping")
         return msg.reply("Pong. **Faster than your brain.**");
 
 
     // INFO
-    if (content === "?info")
+    if (content && content === "?info")
         return msg.reply(
             `**RENZU (v0.3 �€� UNSTOPPABLE EDITION)**
     ---
@@ -12580,11 +12580,11 @@ ${getTemporalAnchor()}
         );
 
     // AVATAR
-    if (content === "?avatar")
+    if (content && content === "?avatar")
         return msg.reply(user.displayAvatarURL({ dynamic: true, size: 1024 }));
 
     // ASK COMMAND (UNIFIED WITH FUNCTION CALLING)
-    if (content.startsWith("?ask")) {
+    if (content && content.startsWith("?ask")) {
         console.log("🎯 ?ask command detected!");
         const q = content.slice(4).trim();
         const id = msg.author.id;
@@ -13164,7 +13164,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
     }
 
     // SEARCH COMMAND (FOR FACTUAL DATA ONLY - USES TOOLS)
-    if (content.startsWith("?search")) {
+    if (content && content.startsWith("?search")) {
         const q = content.slice(7).trim();
         const id = msg.author.id;
         if (!q) {
@@ -13251,7 +13251,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // PREMIUM VERIFY
-    if (msg.content === "?claimpremium") {
+    if (msg.content && content === "?claimpremium") {
         const roleId = "1432419737807360212";
         if (msg.member.roles.cache.has(roleId))
             return msg.reply("You already have Premium. **Ab use kar.**");
@@ -13262,7 +13262,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // MEMORY
-    if (content === "?memory") {
+    if (content && content === "?memory") {
         const premiumRoleId = "1432419737807360212";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Premium required.** Pay or get lost.");
@@ -13276,7 +13276,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // FUN
-    if (content === "?fun") {
+    if (content && content === "?fun") {
         const replies = [
             "LOL. **Ab kaam kar.**",
             "Chill? **Nahi. Kaam kar.**",
@@ -13289,7 +13289,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // EXPLOIT
-    if (content.startsWith("?exploit")) {
+    if (content && content.startsWith("?exploit")) {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13349,7 +13349,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // MALWARE
-    if (content.startsWith("?malware")) {
+    if (content && content.startsWith("?malware")) {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13400,7 +13400,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // PHISH
-    if (content.startsWith("?phish")) {
+    if (content && content.startsWith("?phish")) {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13437,7 +13437,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // DDOS
-    if (content.startsWith("?ddos")) {
+    if (content && content.startsWith("?ddos")) {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13476,7 +13476,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // DARKWEB
-    if (content === "?darkweb") {
+    if (content && content === "?darkweb") {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13506,7 +13506,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // SOCIAL ENGINEERING
-    if (content.startsWith("?se")) {
+    if (content && content.startsWith("?se")) {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13538,7 +13538,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // CRYPTO THEFT
-    if (content.startsWith("?crypto")) {
+    if (content && content.startsWith("?crypto")) {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13576,7 +13576,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
 
 
     // WIPE
-    if (content === "?wipe") {
+    if (content && content === "?wipe") {
         const premiumRoleId = "1428810032753148015";
         if (!msg.member.roles.cache.has(premiumRoleId))
             return msg.reply("❒ **Owner only.**");
@@ -13780,6 +13780,7 @@ client.once(Events.ClientReady, async () => {
     if (ENABLE_AUTO_LEARNING) {
         console.log("💐 AUTONOMOUS LEARNING ENABLED - Starting 60-second learning cycle...");
         setInterval(async () => {
+    if (!DB_AVAILABLE) { console.log("⏭️ [LEARNING] DB unavailable, skipping cycle"); return; }
             try {
                 learningCycle++;
                 console.log(`\n${'='.repeat(80)}`);
