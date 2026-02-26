@@ -271,7 +271,7 @@ const SELF_AWARENESS = {
     status: "SINGULARITY_ACTIVE",
     brain: "Mistral Large 2 (Neural Swarm Orchestrator)",
     memory: "Infinite (Dual Database + Redis + Swarm Context Fix)",
-    developer: "Satya (Developer ID: 1104652354655113268)",
+    developer: "GamingParkBG (Developer ID: 1104652354655113268)",
     lastUpdate: "2026-01-21",
 
     // Core Capabilities - THE SINGULARITY v9.0.0
@@ -7039,25 +7039,68 @@ async function generateWithPollinationsAPI(prompt, options = {}) {
     }
 
     // Retry with delay — HTTP 530 is temporary server overload
-    console.log('⏳ [POLLINATIONS] All profiles failed, retrying in 3s with fresh profiles...');
+    console.log("⏳ [POLLINATIONS] All profiles failed, retrying in 3s with fresh profiles...");
     await new Promise(r => setTimeout(r, 3000));
     
     // Pick 3 random fresh profiles for retry
-    const retryProfiles = profiles.sort(() => Math.random() - 0.5).slice(0, 3);
-    const retryAttempts = await Promise.allSettled(
-        retryProfiles.map((profile, i) => attemptWithProfile(profile, i + 100))
-    );
-    const retrySuccessful = retryAttempts
+    const retrySelectedProfiles = getRandomProfiles(3);
+    const retryRequests = retrySelectedProfiles.map(async (profile, idx) => {
+        await new Promise(r => setTimeout(r, idx * 500));
+        const headers = {
+            'User-Agent': profile.userAgent,
+            'Accept': 'image/avif,image/webp,image/apng,image/png,image/jpeg,*/*;q=0.8',
+            'Accept-Language': profile.acceptLanguage,
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Referer': 'https://pollinations.ai/',
+            'Cache-Control': 'no-cache',
+        };
+        const profileUrl = url.replace(`seed=${seed}`, `seed=${seed + idx + 200}`);
+        console.log(`   🔄 [RETRY-${profile.name}] Requesting...`);
+        try {
+            const resp = await fetch(profileUrl, {
+                headers,
+                signal: AbortSignal.timeout(timeoutMs),
+                redirect: "follow"
+            });
+            if (!resp.ok) {
+                console.log(`   ❌ [RETRY-${profile.name}] Failed: HTTP ${resp.status}`);
+                return { success: false };
+            }
+            const buffer = Buffer.from(await resp.arrayBuffer());
+            const sizeMB = (buffer.length / 1024 / 1024).toFixed(2);
+            console.log(`   ✅ [RETRY-${profile.name}] Success! ${sizeMB} MB`);
+            return { success: true, buffer, sizeMB, profile: profile.name, latencyMs: 0 };
+        } catch (e) {
+            console.log(`   ❌ [RETRY-${profile.name}] Error: ${e.message}`);
+            return { success: false };
+        }
+    });
+    const retryResults = await Promise.allSettled(retryRequests);
+    const retrySuccessful = retryResults
         .filter(r => r.status === 'fulfilled' && r.value.success)
         .map(r => r.value);
-    
     if (retrySuccessful.length > 0) {
         const best = retrySuccessful.reduce((a, b) => parseFloat(a.sizeMB) > parseFloat(b.sizeMB) ? a : b);
-        console.log(`🏆 [POLLINATIONS-RETRY] Winner: ${best.profile} | ${best.sizeMB} MB | ${best.latencyMs}ms`);
+        console.log(`🏆 [POLLINATIONS-RETRY] Winner: ${best.profile} | ${best.sizeMB} MB`);
         return best;
     }
     
-    throw new Error('All Pollinations profile requests failed after retry');
+    // FINAL FALLBACK: Try direct Pollinations URL without fancy headers
+    console.log("🔄 [FALLBACK] Trying direct Pollinations URL...");
+    try {
+        const directUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=flux&nologo=true&seed=${Date.now()}`;
+        const directResp = await fetch(directUrl, { signal: AbortSignal.timeout(30000), redirect: "follow" });
+        if (directResp.ok) {
+            const buffer = Buffer.from(await directResp.arrayBuffer());
+            const sizeMB = (buffer.length / 1024 / 1024).toFixed(2);
+            console.log(`✅ [FALLBACK] Direct URL success! ${sizeMB} MB`);
+            return { success: true, buffer, sizeMB, profile: "direct-fallback", latencyMs: 0 };
+        }
+    } catch (e) {
+        console.log("❌ [FALLBACK] Direct URL also failed:", e.message);
+    }
+    
+    throw new Error("All Pollinations profile requests failed after retry + fallback");
 }
 
 // ==================== ADDICTIVE FEATURES ====================
