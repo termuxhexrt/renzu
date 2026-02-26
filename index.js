@@ -4978,6 +4978,7 @@ async function getRealtimeData(table, filter = {}) {
 
 // ------------------ GLOBAL MEMORY SYSTEM (EXTREME) ------------------
 async function saveGlobalMemory(eventType, sourceId, targetId, context, metadata = {}) {
+    if (!DB_AVAILABLE) return; // skip when Neon quota exceeded
     try {
         // Save to Neon (main database)
         await pool.query(
@@ -5002,7 +5003,7 @@ async function saveGlobalMemory(eventType, sourceId, targetId, context, metadata
         if (!globalMemoryCache.has(cacheKey)) globalMemoryCache.set(cacheKey, []);
         globalMemoryCache.get(cacheKey).push({ eventType, context, metadata, timestamp: new Date() });
     } catch (err) {
-        console.error("❒ Global memory save failed:", err);
+        if (!err?.message?.includes("compute time quota")) console.error("❒ Global memory save failed:", err);
     }
 }
 
@@ -6359,6 +6360,27 @@ function instantPatternMatch(text) {
         return { type: 'image_generation', confidence: 0.96, needsTools: true, simpleResponse: false, description: 'Image request', recommendedTools: [imageGenSelector.tool] };
     }
 
+    // 7.1. SHORT VISUAL STYLE PROMPT (e.g., "cat in cyberpunk city", "naruto 4k", "sunset anime")
+    // Any short phrase containing art styles, locations, or visual descriptors = image request
+    const artStyleKeywords = /\b(cyberpunk|anime|realistic|cartoon|pixel art|oil painting|watercolor|sketch|3d render|photorealistic|fantasy|sci-fi|steampunk|vaporwave|synthwave|lo-fi|neon|noir|surreal|abstract|minimalist|hyperrealistic|ukiyo-e|ghibli|manga|chibi|gothic|baroque|impressionist|pop art|retro|futuristic|dystopian|apocalyptic|dark fantasy|high fantasy|studio lighting|cinematic|dramatic|epic|4k|8k|hd|ultra hd|high quality|high resolution|wallpaper|background)\b/i;
+    const subjectKeywords = /\b(cat|dog|girl|boy|woman|man|person|warrior|wizard|dragon|robot|city|forest|mountain|ocean|sky|sunset|sunrise|landscape|portrait|character|hero|villain|knight|ninja|samurai|alien|monster|creature|wolf|lion|tiger|fox|bird|phoenix|dragon|castle|spaceship|galaxy|planet|nature|flower|tree|car|motorcycle|sword|magic)\b/i;
+    if (wordCount >= 2 && wordCount <= 10 && artStyleKeywords.test(lower)) {
+        console.log(`🎨 SHORT ART STYLE PROMPT DETECTED: "${text}"`);
+        console.log(`🎯 IMAGE GEN SELECTOR: ${imageGenSelector.tool} (${imageGenSelector.reason})`);
+        return { type: 'image_generation', confidence: 0.95, needsTools: true, simpleResponse: false, description: 'Short art style prompt', recommendedTools: [imageGenSelector.tool] };
+    }
+    // Also: subject + visual style without explicit art keyword (e.g., "cat on moon", "samurai at dawn")
+    if (wordCount >= 2 && wordCount <= 8 && subjectKeywords.test(lower) && !lower.includes('?') && 
+        !lower.match(/^(what|who|how|why|when|where|is|are|does|can|tell me|explain)/)) {
+        const hasDescriptiveStructure = /\b(in|on|at|with|under|above|behind|beside|near|during|a|an|the|epic|legendary|dark|bright|glowing|ancient|futuristic|beautiful|stunning|amazing|cool|cute|fierce|majestic)\b/i.test(lower);
+        if (hasDescriptiveStructure) {
+            console.log(`🎨 SUBJECT+DESCRIPTOR PROMPT DETECTED: "${text}"`);
+            console.log(`🎯 IMAGE GEN SELECTOR: ${imageGenSelector.tool} (${imageGenSelector.reason})`);
+            return { type: 'image_generation', confidence: 0.90, needsTools: true, simpleResponse: false, description: 'Subject+descriptor image prompt', recommendedTools: [imageGenSelector.tool] };
+        }
+    }
+
+
     // 7.5. DESCRIPTIVE IMAGE PROMPT DETECTION (for prompts like "A stunning Korean girl...")
     // Long descriptive prompts with visual/aesthetic keywords = image generation
     const visualKeywords = /\b(stunning|beautiful|gorgeous|cute|handsome|aesthetic|cinematic|realistic|4k|8k|hd|ultra|portrait|selfie|photo|wearing|lighting|shadows|vibrant|colors|style|anime|cyberpunk|fantasy|scene|background|foreground|pose|standing|sitting|looking|holding|girl|boy|woman|man|person|character|face|hair|eyes|skin|dress|outfit|clothes)\b/gi;
@@ -6507,6 +6529,7 @@ if (!globalThis.__classificationCacheCleanupActive) {
 // ------------------ SELF-LEARNING MEMORY (ENHANCED) ------------------
 async function loadHistory(userId) {
     if (cache.has(userId)) return cache.get(userId);
+    if (!DB_AVAILABLE) return []; // skip when Neon quota exceeded
     try {
         const res = await pool.query(
             `SELECT role, content, topic, sentiment FROM conversations
@@ -6529,7 +6552,7 @@ async function loadHistory(userId) {
         cache.set(userId, { messages: history, style: userStyle, entities });
         return { messages: history, style: userStyle, entities };
     } catch (err) {
-        console.error("❒ Load history failed:", err);
+        if (!err?.message?.includes("compute time quota")) console.error("❒ Load history failed:", err);
         return { messages: [], style: "neutral", entities: [] };
     }
 }
@@ -6547,6 +6570,7 @@ function analyzeStyle(historyObj) {
 }
 
 async function saveMsg(userId, role, content, topic = null, sentiment = 'neutral') {
+    if (!DB_AVAILABLE) return null; // skip when Neon quota exceeded
     try {
         // Save to conversations with enhanced fields
         const result = await pool.query(
@@ -6589,7 +6613,7 @@ async function saveMsg(userId, role, content, topic = null, sentiment = 'neutral
 
         return conversationId;
     } catch (err) {
-        console.error("❒ Save message failed:", err);
+        if (!err?.message?.includes("compute time quota")) console.error("❒ Save message failed:", err);
         return null;
     }
 }
