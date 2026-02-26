@@ -6,7 +6,7 @@
 import "dotenv/config";
 import express from "express";
 import { Client, GatewayIntentBits, Events, AttachmentBuilder, Partials } from "discord.js";
-import { Mistral } from "@mistralai/mistralai";
+// import { Mistral } from "@mistralai/mistralai"; // Unused - using raw fetch() instead
 import { Pool } from "pg";
 import fetch from "node-fetch";
 globalThis.fetch = (await import("node-fetch")).default;
@@ -18,6 +18,7 @@ import { search as ddgSearch } from "duck-duck-scrape";
 import { createClient as createRedisClient } from "redis";
 import puppeteer from "puppeteer-core";
 import AdmZip from "adm-zip";
+import sharp from "sharp";
 
 // ------------------ ROBUST JSON PARSER (v6.5.1) ------------------
 function robustJsonParse(rawResponse) {
@@ -4186,6 +4187,7 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,    // Server messages
         GatewayIntentBits.DirectMessages,   // DM support (NEW!)
         GatewayIntentBits.MessageContent,   // Read message content
+        GatewayIntentBits.GuildMembers,     // Required for GuildMemberAdd (The Eye security)
     ],
     partials: [Partials.Channel, Partials.Message], // Required for DM support
 });
@@ -12775,7 +12777,7 @@ async function generateSwarmResponse(query, msg) {
     }
 }
 
-export async function generateResponse(messages, tools = [], useMultimodal = false) {
+async function generateResponse(messages, tools = [], useMultimodal = false) {
     const retries = 3;
     const retryDelay = 1000;
 
@@ -12784,7 +12786,7 @@ export async function generateResponse(messages, tools = [], useMultimodal = fal
         Array.isArray(m.content) && m.content.some(c => c.type === 'image_url')
     );
     const primaryModel = (useMultimodal || hasImages) ? "pixtral-large-latest" : "mistral-large-latest";
-    const fallbackModels = ["mistral-large-latest", "mistral-large-latest"];
+    const fallbackModels = ["mistral-medium-latest", "open-mistral-nemo"];
 
     function logStatus(model, status, attempt, ms, reason = "") {
         const pad = (s, n) => s.toString().padEnd(n);
@@ -14462,7 +14464,7 @@ function logStatus(message) {
     console.log(`[${time}] [RENZU] ${message}`);
 }
 
-client.once("clientReady", async () => {
+client.once(Events.ClientReady, async () => {
     console.log(`🔥 Bot online as ${client.user.tag}`);
     console.log("🧠 Persistent memory active with UNRESTRICTED mode ⚡️");
 
