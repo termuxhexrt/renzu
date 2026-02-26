@@ -420,6 +420,7 @@ ${this.changelog.slice(0, 5).map(c => `�€� ${c}`).join('\n')}`;
 };
 // 🧠 NEURAL PERSONALITY ENGINE (v9.0.0) - THE SINGULARITY
 async function updateNeuralPersonality(userId, userMessage) {
+    if (!DB_AVAILABLE) return; // skip DB when quota exceeded
     try {
         if (Math.random() > 0.2) return;
         const analysis = await generateResponse([
@@ -437,7 +438,7 @@ async function updateNeuralPersonality(userId, userMessage) {
             `, [userId, parsed.preferred_tone, parsed.technical_level]);
             console.log(`🧠 [PERSONALITY] Learned vibe for ${userId}: ${parsed.preferred_tone}`);
         }
-    } catch (e) { console.error("Personality learning failed:", e); }
+    } catch (e) { if (!DB_AVAILABLE) {} else console.warn("Personality learning failed:", e); }
 }
 
 // 🛡️ SHADOW MONITORING (v9.0.0)
@@ -6529,7 +6530,7 @@ if (!globalThis.__classificationCacheCleanupActive) {
 // ------------------ SELF-LEARNING MEMORY (ENHANCED) ------------------
 async function loadHistory(userId) {
     if (cache.has(userId)) return cache.get(userId);
-    if (!DB_AVAILABLE) return []; // skip when Neon quota exceeded
+    if (!DB_AVAILABLE) return { messages: [], style: "neutral", entities: [] }; // skip when Neon quota exceeded
     try {
         const res = await pool.query(
             `SELECT role, content, topic, sentiment FROM conversations
@@ -7469,6 +7470,7 @@ Reply with ONLY one word: 'male', 'female', or 'unknown' (only use unknown if it
 
 // Get user gender from database
 async function getUserGender(userId) {
+    if (!DB_AVAILABLE) return "unknown"; // skip DB when quota exceeded
     try {
         const res = await pool.query(
             `SELECT gender FROM user_profiles WHERE user_id=$1`,
@@ -7502,6 +7504,7 @@ async function saveUserGender(userId, gender, avatarUrl) {
 
 // Detect and cache user gender (called once per user)
 async function detectAndCacheGender(userId, avatarUrl) {
+    if (!DB_AVAILABLE) return "unknown"; // skip DB when quota exceeded
     try {
         // Check if already in database
         const existingGender = await getUserGender(userId);
@@ -12203,7 +12206,7 @@ client.on(Events.MessageCreate, async (msg) => {
                 const histData = await loadHistory(id);
                 await saveMsg(id, "user", q);
                 await saveGlobalMemory('USER_MESSAGE', id, client.user.id, q, { channel: msg.channel.id }); // Sync to Global Memory
-                let currentMessages = histData ? histData.messages.slice(-50) : [];
+                let currentMessages = histData?.messages ? (histData?.messages || []).slice(-50) : [];
 
                 // ========== ULTRA AI CLASSIFICATION ENGINE (DM) ==========
                 const classificationResult = await intelligentMessageClassifier(q, currentMessages, id);
@@ -12423,7 +12426,7 @@ ${getTemporalAnchor()}
                 // Load user history
                 const histData = await loadHistory(id);
                 await saveMsg(id, "user", content);
-                let currentMessages = histData ? histData.messages.slice(-50) : [];
+                let currentMessages = histData?.messages ? (histData?.messages || []).slice(-50) : [];
 
                 // ========== ULTRA AI CLASSIFICATION ENGINE (DM - Non-Developer) ==========
                 const classificationResult = await intelligentMessageClassifier(content, currentMessages, id);
@@ -12730,7 +12733,7 @@ ${getTemporalAnchor()}
                 }
             }
 
-            let currentMessages = histData ? histData.messages.slice(-50) : [];
+            let currentMessages = histData?.messages ? (histData?.messages || []).slice(-50) : [];
 
             // Extract Discord image attachments for multimodal processing
             const imageAttachments = msg.attachments
@@ -12772,8 +12775,8 @@ ${getTemporalAnchor()}
 
             // Build enhanced context with entities
             let entityContext = "";
-            if (histData.entities && histData.entities.length > 0) {
-                const topEntities = histData.entities.slice(0, 5);
+            if ((histData?.entities || []) && (histData?.entities || []).length > 0) {
+                const topEntities = (histData?.entities || []).slice(0, 5);
                 entityContext = `\n**Known about user:** ${topEntities.map(e => `${e.entity_type}: ${e.entity_value}`).join(', ')}`;
             }
 
@@ -13174,7 +13177,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
             await msg.channel.sendTyping();
             const histData = await loadHistory(id);
             await saveMsg(id, "user", q);
-            let currentMessages = histData ? histData.messages.slice(-100) : [];
+            let currentMessages = histData?.messages ? (histData?.messages || []).slice(-100) : [];
             currentMessages.push({ role: "user", content: q });
             let finalAnswer = null;
 
