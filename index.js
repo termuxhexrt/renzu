@@ -444,8 +444,9 @@ Last Update: ${this.lastUpdate}
 ✅ Auto Tool Selection
 ✅ Honesty Enforcement
 
-**Image Generation:** REMOVED (v8.1.0)
-If user asks for image generation, tell them this feature was removed for performance. Suggest using external tools like Midjourney, DALL-E, or Pollinations.ai directly.
+**Image Generation:** ❌ NOT AVAILABLE — REMOVED in v8.1.0
+You CANNOT generate images. You do NOT have generate_adimage or any image tool. If user asks, say: 'Image generation feature remove ho chuka hai. Midjourney, DALL-E, ya Pollinations.ai use karo directly.'
+NEVER claim you can make images. NEVER hallucinate fake image generation. NEVER say 'Image chahiye? generate_adimage'. This tool DOES NOT EXIST.
 
 **Classification Engine:**
 ${this.classificationLayers.map((l, i) => `${i + 1}. ${l}`).join('\n')}
@@ -5265,7 +5266,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        const rawResponse = data.choices[0].message.content.trim();
+        const rawResponse = (data.choices?.[0]?.message?.content || '').trim();
 
         // Clean control characters and use robust parser
         const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -5391,7 +5392,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        const rawResponse = data.choices[0].message.content.trim();
+        const rawResponse = (data.choices?.[0]?.message?.content || '').trim();
 
         // Clean control characters and use robust parser
         const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -5622,7 +5623,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        const rawResponse = data.choices[0].message.content.trim();
+        const rawResponse = (data.choices?.[0]?.message?.content || '').trim();
 
         // Clean control characters and use robust parser
         const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -5781,7 +5782,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        const rawResponse = data.choices[0].message.content.trim();
+        const rawResponse = (data.choices?.[0]?.message?.content || '').trim();
 
         // Parse JSON with control character cleaning
         // Remove control characters (except \n \r \t) that break JSON parsing
@@ -5864,7 +5865,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        const rawResponse = data.choices[0].message.content.trim();
+        const rawResponse = (data.choices?.[0]?.message?.content || '').trim();
 
         // Clean control characters and use robust parser
         const cleanedResponse = rawResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -6114,7 +6115,7 @@ Return ONLY valid JSON.`
         }
 
         const data = await res.json();
-        const rawResponse = data.choices[0].message.content.trim();
+        const rawResponse = (data.choices?.[0]?.message?.content || '').trim();
 
         // Parse JSON response with robust extraction
         let classification;
@@ -6278,28 +6279,10 @@ function instantPatternMatch(text) {
         return { type: 'meta_conversation', confidence: 0.95, needsTools: false, simpleResponse: true, description: 'About bot', recommendedTools: [] };
     }
 
+    // Image generation requests — feature REMOVED, tell user
     if (/\b(image|picture|photo|logo|poster|banner|wallpaper|artwork|illustration)\s*(bana|generate|create|draw|design|make)/i.test(lower) ||
         /\b(bana|generate|create|draw|design|make)\s*(ek|one|a|an|mera|mere|meri)?\s*(image|picture|photo|logo|poster|banner)/i.test(lower)) {
-        console.log(`🎯 IMAGE GEN SELECTOR: ${'search_the_web'} (${'image gen removed'})`);
-        return { type: 'general_query', confidence: 0.96, needsTools: true, simpleResponse: false, description: 'Image request', recommendedTools: [] };
-    }
-
-    // 7.5. DESCRIPTIVE IMAGE PROMPT DETECTION (for prompts like "A stunning Korean girl...")
-    const visualKeywords = /\b(stunning|beautiful|gorgeous|cute|handsome|aesthetic|cinematic|realistic|4k|8k|hd|ultra|portrait|selfie|photo|wearing|lighting|shadows|vibrant|colors|style|anime|cyberpunk|fantasy|scene|background|foreground|pose|standing|sitting|looking|holding|girl|boy|woman|man|person|character|face|hair|eyes|skin|dress|outfit|clothes)\b/gi;
-    const visualMatches = (lower.match(visualKeywords) || []).length;
-
-    // If message is long (>15 words) AND has 5+ visual keywords = likely image prompt
-    if (wordCount >= 15 && visualMatches >= 5) {
-        console.log(`🎨 DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords found`);
-        console.log(`🎯 IMAGE GEN SELECTOR: ${'search_the_web'} (${'image gen removed'})`);
-        return { type: 'general_query', confidence: 0.94, needsTools: true, simpleResponse: false, description: 'Descriptive image prompt detected', recommendedTools: [] };
-    }
-
-    // Shorter but still descriptive (8+ words, 3+ visual keywords)
-    if (wordCount >= 8 && visualMatches >= 3 && /\b(girl|boy|woman|man|person|character|portrait|selfie|scene|landscape)\b/i.test(lower)) {
-        console.log(`🎨 SHORT DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords`);
-        console.log(`🎯 IMAGE GEN SELECTOR: ${'search_the_web'} (${'image gen removed'})`);
-        return { type: 'general_query', confidence: 0.92, needsTools: true, simpleResponse: false, description: 'Short descriptive image prompt', recommendedTools: [] };
+        return { type: 'general_query', confidence: 0.96, needsTools: false, simpleResponse: true, description: 'Image request - feature removed', recommendedTools: [] };
     }
 
     // 8. CODE GENERATION (explicit)
@@ -10878,9 +10861,9 @@ async function replyChunks(msg, text) {
         return;
     }
 
-    // If too long, send as .txt file attachment instead of chunking
+    // If too long, send as .md file attachment for better formatting
     const buffer = Buffer.from(sanitized, 'utf-8');
-    const attachment = new AttachmentBuilder(buffer, { name: 'response.txt' });
+    const attachment = new AttachmentBuilder(buffer, { name: 'response.md' });
     await msg.reply({
         content: '📄 **Response too long - attached as file:**',
         files: [attachment]
