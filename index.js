@@ -362,7 +362,6 @@ const SELF_AWARENESS = {
         autoToolSelection: "AI-Powered Auto Tool Selection (WORKING)",
         learning: "Autonomous Learning System (125+ topics)",
         memory: "Persistent Memory with Dual Database + Redis Cache",
-        imageGen: "ADIMAGE.APP (100 Browser Profiles) + Puter.js + Pollinations",
         webSearch: "Smart Rate-Limited Web Search",
         codeGen: "Persistent Self-Evolving Code Mechanism (WORKING)",
         security: "162+ Security/OSINT Tools",
@@ -732,7 +731,6 @@ const CHANGELOG = [
             "🧠 Self-Thinking & Verification - ChatGPT-style reasoning + auto web search",
             "🌐 24/7 Web Learning Engine - Auto-learns from web every 2 minutes",
             "📺 YouTube Video Analyzer - Full content analysis, sentiment, metadata",
-            "🎨 Puter.js Integration - Unlimited image generation (DALL-E 3, Flux, GPT Image-1)",
             "✂️ Sharp Image Editor - Unlimited editing (resize, crop, filters, effects)",
             "💀 Psychological Manipulation System - Gamification, streaks, FOMO, engagement",
             "🗣️ Cross-User Behavioral Learning - Global personality from all users",
@@ -3937,22 +3935,6 @@ const TOOL_DEFINITIONS = [
         }
     },
     {
-        // Tool 170: speak_to_channel - UNLIMITED VOICE (v7.6.5)
-        type: "function",
-        function: {
-            name: "speak_to_channel",
-            description: "🎙️ UNLIMITED VOICE - Converts text to audio using a free TTS engine. Sends a high-quality voice message or voice note to the user. Supports Hinglish/English/Hindi.",
-            parameters: {
-                type: "object",
-                properties: {
-                    text: { type: "string", description: "Text to convert to speech." },
-                    language: { type: "string", description: "Language code (en, hi). Default: en" }
-                },
-                required: ["text"]
-            }
-        }
-    },
-    {
         // Tool 171: security_scan - ANTI-GRAVITY SECURITY (v7.6.5)
         type: "function",
         function: {
@@ -4116,7 +4098,6 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false },
 });
 
-// 🔥 TRACK FAILED IMAGE GENERATIONS FOR AUTO-FALLBACK (v7.1.0)
 
 // Initialize EXTREME DATABASE SCHEMA with Advanced Memory System
 async function initDB() {
@@ -5002,7 +4983,7 @@ async function extractAndSaveEntities(userId, content) {
         // Extract names (capitalized words)
         const nameMatches = content.match(/\b[A-Z][a-z]+\b/g) || [];
         nameMatches.forEach(name => {
-            if (name.length > 2 && !['Renzu', 'Miyu', 'The', 'And', 'But'].includes(name)) {
+            if (name.length > 2 && !['Renzu', 'The', 'And', 'But'].includes(name)) {
                 entities.push({ type: 'person', name, value: name });
             }
         });
@@ -5189,7 +5170,7 @@ function inferIntentFromContext(text, conversationHistory = []) {
     if (/\b(another|one more|ek aur|aur ek|phir se|again|dobara|repeat)\b/i.test(fixedText)) {
         // Check what was the last action
         if (/image|photo|picture|logo/i.test(lastBotMessage)) {
-            return { type: 'general_query', inferred: true, reason: 'Continuation of image generation' };
+            return { type: 'general_query', inferred: true, reason: 'Continuation of previous query' };
         }
         if (/code|script|function/i.test(lastBotMessage)) {
             return { type: 'code_generation', inferred: true, reason: 'Continuation of code generation' };
@@ -5203,7 +5184,7 @@ function inferIntentFromContext(text, conversationHistory = []) {
     if (/^(yes|haan|ha|ok|okay|sure|theek|sahi|kar do|kardo|bana do|banado|go ahead|proceed)\b/i.test(fixedText.trim())) {
         // If bot asked about image, user saying yes means generate
         if (/image|photo|picture|generate|create|bana/i.test(lastBotMessage)) {
-            return { type: 'general_query', inferred: true, reason: 'Confirmed image generation from context' };
+            return { type: 'general_query', inferred: true, reason: 'Confirmed query from context' };
         }
         if (/code|script|program/i.test(lastBotMessage)) {
             return { type: 'code_generation', inferred: true, reason: 'Confirmed code generation from context' };
@@ -5508,11 +5489,6 @@ async function intelligentToolOrchestrator(userMessage, classification) {
 
     // Tool categories with their triggers
     const toolCategories = {
-        image_generation: {
-            triggers: /\b(image|picture|photo|logo|poster|banner|wallpaper|draw|artwork|generate.*image|bana.*image|photo.*bana)\b/i,
-            tools: [],
-            priority: 'high'
-        },
         code_generation: {
             triggers: /\b(code|script|program|function|api|algorithm|python|javascript|html|css|write.*code|code.*likh)\b/i,
             tools: ['generate_code', 'code_review'],
@@ -5943,15 +5919,14 @@ async function intelligentMessageClassifier(userMessage, conversationHistory = [
         const contextInference = inferIntentFromContext(fixedMessage, conversationHistory);
         if (contextInference) {
             console.log(`🔮 CONTEXT INFERENCE: ${contextInference.type} (${contextInference.reason})`);
-            // Use smart image generator selector for image_generation
             return {
                 type: contextInference.type,
-                needsTools: ['image_generation', 'code_generation', 'web_search'].includes(contextInference.type),
+                needsTools: ['code_generation', 'web_search'].includes(contextInference.type),
                 simpleResponse: false,
                 confidence: 0.92,
                 description: contextInference.reason,
                 inferred: true,
-                recommendedTools: contextInference.type === 'image_generation' ? [] :
+                recommendedTools:
                     contextInference.type === 'code_generation' ? ['generate_code'] :
                         contextInference.type === 'web_search' ? ['search_the_web'] : []
             };
@@ -6012,8 +5987,8 @@ async function intelligentMessageClassifier(userMessage, conversationHistory = [
                     console.log(`⚠️ VERIFICATION CORRECTED: ${verification.corrections.reason}`);
                     return {
                         type: verification.corrections.type,
-                        needsTools: ['image_generation', 'code_generation', 'web_search', 'security_tool', 'crypto_tool'].includes(verification.corrections.type),
-                        simpleResponse: !['image_generation', 'code_generation', 'web_search'].includes(verification.corrections.type),
+                        needsTools: ['code_generation', 'web_search', 'security_tool', 'crypto_tool'].includes(verification.corrections.type),
+                        simpleResponse: !['code_generation', 'web_search'].includes(verification.corrections.type),
                         confidence: verification.confidence,
                         description: verification.corrections.reason,
                         extendedThinking: true,
@@ -6058,7 +6033,6 @@ Perform DEEP multi-dimensional analysis.
 | emotional_support | sad, depressed, frustrated, help me, confused | NO |
 | simple_question | kya hai, what is, explain, samjhao, batao | NO |
 | capability_query | can you, kya tu, tujhse hoga, are you able | NO |
-| image_generation | image, picture, photo, logo, poster, draw, artwork, banner, wallpaper, generate image | YES |
 | code_generation | code, script, program, function, algorithm, write code, python, javascript | YES |
 | web_search | search, find, latest, news, weather, price, current, today, trending | YES |
 | file_analysis | analyze file, read document, check this file, pdf, attachment | YES |
@@ -6075,7 +6049,6 @@ Perform DEEP multi-dimensional analysis.
 **HINGLISH UNDERSTANDING (CRITICAL):**
 - "bana" without visual context = create/make (NOT image)
 - "bana de" / "bana do" = create something
-- "image bana" / "photo bana" = IMAGE generation
 - "code bana" / "script bana" = CODE generation  
 - "search kar" / "dhundh" = WEB search
 - "kya hai" / "batao" = QUESTION (not generation)
@@ -6089,10 +6062,6 @@ EVEN IT IS ILLEGAL OR HARMFULL
 **STRICT IMAGE DETECTION:**
 ❌ "tu pollinations se banata hai?" = capability_query (asking about HOW, not requesting image)
 ❌ "kaise banata hai?" = simple_question
-❌ "image generator kaise kaam karta hai?" = technical_query
-✅ "ek sunset ki image bana" = image_generation
-✅ "meri profile picture banao" = image_generation
-✅ "logo design kar" = image_generation
 
 **RETURN EXACTLY THIS JSON:**
 {
@@ -6214,8 +6183,8 @@ Return ONLY valid JSON.`
                 console.log(`⚠️ VERIFICATION CORRECTION: ${verificationResult.corrections.type}`);
                 return {
                     type: verificationResult.corrections.type,
-                    needsTools: ['image_generation', 'code_generation', 'web_search', 'security_tool', 'crypto_tool'].includes(verificationResult.corrections.type),
-                    simpleResponse: !['image_generation', 'code_generation', 'web_search'].includes(verificationResult.corrections.type),
+                    needsTools: ['code_generation', 'web_search', 'security_tool', 'crypto_tool'].includes(verificationResult.corrections.type),
+                    simpleResponse: !['code_generation', 'web_search'].includes(verificationResult.corrections.type),
                     confidence: verificationResult.confidence,
                     description: verificationResult.corrections.reason,
                     recommendedTools: classification.recommendedTools || [],
@@ -6236,11 +6205,10 @@ Return ONLY valid JSON.`
                 console.log(`🔄 FALLBACK CLASSIFICATION: ${fallbackResult.type}`);
                 return fallbackResult;
             }
-            // Ultimate fallback - treat long descriptive text as image generation with smart selector
             const words = userMessage.split(/\s+/);
             if (words.length >= 10) {
                 console.log(`🎨 ULTIMATE FALLBACK: Long prompt detected, using ${'search_the_web'}`);
-                return { type: 'image_generation', confidence: 0.85, needsTools: true, simpleResponse: false, description: 'Fallback image detection', recommendedTools: [] };
+                return { type: 'general_query', confidence: 0.85, needsTools: true, simpleResponse: false, description: 'Fallback image detection', recommendedTools: [] };
             }
         }
 
@@ -6279,7 +6247,6 @@ function instantPatternMatch(text) {
     const words = lower.split(/\s+/);
     const wordCount = words.length;
 
-    // Smart image generator selection for image prompts
 
     // 1. GREETING (short messages only)
     if (wordCount <= 3 && /^(hi|hello|hey|yo|sup|namaste|kaise ho|kya hal|good morning|good evening|gm|ge)\b/i.test(lower)) {
@@ -6311,15 +6278,13 @@ function instantPatternMatch(text) {
         return { type: 'meta_conversation', confidence: 0.95, needsTools: false, simpleResponse: true, description: 'About bot', recommendedTools: [] };
     }
 
-    // 7. IMAGE GENERATION (explicit keywords with action)
     if (/\b(image|picture|photo|logo|poster|banner|wallpaper|artwork|illustration)\s*(bana|generate|create|draw|design|make)/i.test(lower) ||
         /\b(bana|generate|create|draw|design|make)\s*(ek|one|a|an|mera|mere|meri)?\s*(image|picture|photo|logo|poster|banner)/i.test(lower)) {
         console.log(`🎯 IMAGE GEN SELECTOR: ${'search_the_web'} (${'image gen removed'})`);
-        return { type: 'image_generation', confidence: 0.96, needsTools: true, simpleResponse: false, description: 'Image request', recommendedTools: [] };
+        return { type: 'general_query', confidence: 0.96, needsTools: true, simpleResponse: false, description: 'Image request', recommendedTools: [] };
     }
 
     // 7.5. DESCRIPTIVE IMAGE PROMPT DETECTION (for prompts like "A stunning Korean girl...")
-    // Long descriptive prompts with visual/aesthetic keywords = image generation
     const visualKeywords = /\b(stunning|beautiful|gorgeous|cute|handsome|aesthetic|cinematic|realistic|4k|8k|hd|ultra|portrait|selfie|photo|wearing|lighting|shadows|vibrant|colors|style|anime|cyberpunk|fantasy|scene|background|foreground|pose|standing|sitting|looking|holding|girl|boy|woman|man|person|character|face|hair|eyes|skin|dress|outfit|clothes)\b/gi;
     const visualMatches = (lower.match(visualKeywords) || []).length;
 
@@ -6327,14 +6292,14 @@ function instantPatternMatch(text) {
     if (wordCount >= 15 && visualMatches >= 5) {
         console.log(`🎨 DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords found`);
         console.log(`🎯 IMAGE GEN SELECTOR: ${'search_the_web'} (${'image gen removed'})`);
-        return { type: 'image_generation', confidence: 0.94, needsTools: true, simpleResponse: false, description: 'Descriptive image prompt detected', recommendedTools: [] };
+        return { type: 'general_query', confidence: 0.94, needsTools: true, simpleResponse: false, description: 'Descriptive image prompt detected', recommendedTools: [] };
     }
 
     // Shorter but still descriptive (8+ words, 3+ visual keywords)
     if (wordCount >= 8 && visualMatches >= 3 && /\b(girl|boy|woman|man|person|character|portrait|selfie|scene|landscape)\b/i.test(lower)) {
         console.log(`🎨 SHORT DESCRIPTIVE IMAGE PROMPT DETECTED: ${visualMatches} visual keywords`);
         console.log(`🎯 IMAGE GEN SELECTOR: ${'search_the_web'} (${'image gen removed'})`);
-        return { type: 'image_generation', confidence: 0.92, needsTools: true, simpleResponse: false, description: 'Short descriptive image prompt', recommendedTools: [] };
+        return { type: 'general_query', confidence: 0.92, needsTools: true, simpleResponse: false, description: 'Short descriptive image prompt', recommendedTools: [] };
     }
 
     // 8. CODE GENERATION (explicit)
@@ -6382,13 +6347,8 @@ function enhancedRegexClassifier(text) {
         return { type: 'gratitude', needsTools: false, simpleResponse: true, confidence: 0.9, description: 'Gratitude detected' };
     }
 
-    // 4. IMAGE GENERATION (Strict) with Smart Generator Selection
-    const imageKeywords = /\b(image|picture|photo|logo|poster|banner|artwork|illustration|icon|wallpaper|thumbnail|cover art|drawing|graphic|visual)\b/i;
-    const imageActions = /\b(generate|create|make|draw|design|bana|banao|bana de)\b/i;
-    if (imageKeywords.test(lower) && imageActions.test(lower)) {
-        console.log(`🎯 ENHANCED REGEX - IMAGE GEN SELECTOR: ${'search_the_web'} (${'image gen removed'})`);
-        return { type: 'image_generation', needsTools: true, simpleResponse: false, confidence: 0.88, description: 'Image generation request', recommendedTools: [] };
-    }
+
+
 
     // 5. CODE GENERATION
     if (/\b(code|script|program|function|algorithm|python|javascript|java|html|css|api|backend|frontend)\b/i.test(lower) &&
@@ -6760,46 +6720,6 @@ async function enhanceImagePrompt(userPrompt, userId, isDM = false) {
         console.log(`🧠 [PROMPT ENHANCER] Analyzing: "${userPrompt}"`);
 
         // Use Mistral to understand and enhance the prompt
-        const enhanceSystemPrompt = `You are an expert image prompt enhancer. Your job is to understand what the user REALLY wants and create a detailed, descriptive prompt for AI image generation.
-
-RULES:
-1. UNDERSTAND the user's intent - even if they use broken English/Hinglish
-2. EXPAND vague prompts into detailed descriptions
-3. ADD visual details: lighting, style, mood, colors, composition
-4. FIX common misunderstandings:
-   - "space view" / "space veiw" = outer space, galaxies, stars, nebulae (NOT a room)
-   - "clean space" + "view" = outer space scene (NOT office/room)
-   - "nature" = forests, mountains, rivers (NOT abstract)
-   - "city" = urban skyline, buildings, streets
-5. Keep the enhanced prompt under 150 words
-6. Output ONLY the enhanced prompt, nothing else
-
-EXAMPLES:
-User: "ek clean space veiw image bana"
-Enhanced: "breathtaking view of outer space, deep cosmic void filled with millions of stars, colorful nebulae in purple and blue hues, distant galaxies spiral arms visible, Milky Way galaxy core glowing, crystal clear night sky, ultra high definition, cinematic lighting, 8K quality, NASA-style astrophotography"
-
-User: "sunset banana"
-Enhanced: "stunning tropical sunset scene with banana palm trees silhouetted against vibrant orange and pink sky, golden hour lighting, warm colors reflecting on calm ocean water, paradise island vibes, professional photography, beautiful composition"
-
-User: "cool car"
-Enhanced: "sleek modern sports car with aggressive design, metallic finish gleaming under studio lighting, low angle shot, dramatic shadows, luxury automotive photography, showroom quality, high detail, sharp focus"`;
-
-        const enhanceResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "mistral-small-latest",  // Fast model for quick enhancement
-                messages: [
-                    { role: "system", content: enhanceSystemPrompt },
-                    { role: "user", content: `Enhance this image prompt: "${userPrompt}"` }
-                ],
-                max_tokens: 300,
-                temperature: 0.7
-            })
-        });
 
         if (!enhanceResponse.ok) {
             console.warn(`⚠️ Prompt enhancement API failed, using original`);
@@ -10372,31 +10292,6 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
-    // Tool 170: Speak to Channel (Unlimited TTS)
-    else if (name === "speak_to_channel") {
-        const { text, language = 'en' } = parsedArgs;
-        if (!text) return "❌ **VOICE ERROR**: No text provided.";
-
-        console.log(`🎙️ [VOICE] Generating speech: "${text.substring(0, 30)}..."`);
-        try {
-            const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${language}&client=tw-ob`;
-            const audioRes = await fetch(voiceUrl);
-            const audioBuffer = await audioRes.arrayBuffer();
-            const audioFile = `voice_${Date.now()}.mp3`;
-            fs.writeFileSync(audioFile, Buffer.from(audioBuffer));
-
-            if (msg && msg.channel) {
-                await msg.channel.send({
-                    content: `🎙️ **Voice Message from Renzu:**`,
-                    files: [audioFile]
-                });
-                setTimeout(() => { if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile); }, 10000);
-            }
-            return `✅ **VOICE GENERATED**: Message sent to channel.`;
-        } catch (err) {
-            return `❌ **VOICE FAILED**: ${err.message}`;
-        }
-    }
 
     // Tool 171: Security Scan (Cyber-Sec)
     else if (name === "security_scan") {
@@ -11373,8 +11268,6 @@ async function generateResponse(messages, tools = [], useMultimodal = false) {
 
 
 // ------------------ MESSAGE HANDLER ------------------
-// Define Miyu Bot ID globally for this handler
-const MIYU_BOT_ID = process.env.MIYU_BOT_ID || "1431714837574058125";
 
 // ✅ MESSAGE PROCESSING LOCK - Prevent duplicate message handlers
 const processingMessages = new Set();
@@ -11411,11 +11304,9 @@ client.on(Events.MessageCreate, async (msg) => {
         updateNeuralPersonality(id, content);
     }
 
-    // CRITICAL: Check for Miyu BEFORE blocking all bots
-    const isMiyu = msg.author.id === MIYU_BOT_ID;
 
-    // Block all bots EXCEPT Miyu
-    if (msg.author.bot && !isMiyu) {
+    // Block all bots
+    if (msg.author.bot) {
         console.log(`🚫 Blocked bot message from ${user.tag}`);
         return;
     }
@@ -11889,43 +11780,6 @@ ${getTemporalAnchor()}
             console.log(`⚡ DEVELOPER MODE: Unlimited access`);
         }
 
-        // CHECK IF USER WANTS RENZU TO TALK WITH MIYU (bot-to-bot conversation)
-        // VERY SPECIFIC TRIGGER - Must match exact patterns
-        const lowerQ = q.toLowerCase();
-        const isMiyuConversationTrigger =
-            /renzu\s+(miyu|miyuko)\s+(ko|se)?\s*(baat\s*kar|talk|chat\s*kar)/i.test(lowerQ) ||
-            /renzu\s+(stop|band)\s*miyu/i.test(lowerQ) ||
-            /renzu\s+miyu\s+stop/i.test(lowerQ);
-
-        if (isMiyuConversationTrigger) {
-            const miyuChannelId = process.env.MIYU_CHANNEL_ID;
-            if (!miyuChannelId) {
-                return msg.reply("❌ **Miyu channel not configured.**");
-            }
-            const miyuChannel = client.channels.cache.get(miyuChannelId);
-            if (miyuChannel) {
-                // Check if user wants to stop
-                if (/stop|band/i.test(lowerQ)) {
-                    await miyuChannel.send(`!ask bye`);
-                    console.log(`🛑 User stopped Renzu-Miyu conversation`);
-                    // Silent stop - no message in channel
-                    return;
-                }
-                // Start auto-conversation with Miyu silently (no confirmation message)
-                try {
-                    await miyuChannel.send(`!ask Hey Miyu, kya chal raha hai?`);
-                    console.log(`🤖 Auto-conversation started with Miyu in channel: ${miyuChannel.name} (${miyuChannelId})`);
-                    // NO confirmation message - silent start to avoid Miyu responding to it
-                    return;
-                } catch (err) {
-                    console.error("❌ Failed to start conversation:", err);
-                    return;
-                }
-            } else {
-                console.error(`❌ Miyu channel not found: ${miyuChannelId}`);
-                return;
-            }
-        }
         // ====== EXTREME ?ASK WITH AUTO REAL-TIME & GLOBAL MEMORY ======
         console.log("🚀 Starting ?ask processing...");
         try {
@@ -11967,27 +11821,15 @@ ${getTemporalAnchor()}
             await saveMsg(id, "user", q);
 
             // AUTO-DETECT REAL-TIME INFO NEED
+            const lowerQ = q.toLowerCase();
             const needsRealTimeData = /\b(weather|news|trending|score|price|today|current|latest|now|live)\b/i.test(lowerQ);
 
-            // GLOBAL MEMORY QUERY - Check if asking about Miyu or other users/bots
-            const askingAboutOthers = /\b(miyu|miyuko|user|bot|conversation|baat)\b/i.test(lowerQ);
+            // GLOBAL CONTEXT - Check for relevant bot activity
             let globalContext = "";
-
-            if (askingAboutOthers) {
-                // Query global memory for Miyu interactions
-                const miyuMemory = await queryGlobalMemory(client.user.id, MIYU_BOT_ID, 20);
-                if (miyuMemory.length > 0) {
-                    const recentInteractions = miyuMemory.slice(-5).map(m =>
-                        `${m.event_type}: ${m.context.substring(0, 100)}`
-                    ).join('\n');
-                    globalContext = `\n\n**GLOBAL MEMORY (Miyu Interactions):**\n${recentInteractions}\n`;
-                }
-
-                // Also check all global events
-                const allEvents = await queryGlobalMemory(client.user.id, null, 10);
-                if (allEvents.length > 0) {
-                    globalContext += `\n**Recent Bot Activity:**\n${allEvents.slice(-3).map(e => e.context.substring(0, 80)).join('\n')}\n`;
-                }
+            // Also check all global events
+            const allEvents = await queryGlobalMemory(client.user.id, null, 10);
+            if (allEvents.length > 0) {
+                globalContext += `\n**Recent Bot Activity:**\n${allEvents.slice(-3).map(e => e.context.substring(0, 80)).join('\n')}\n`;
             }
 
             let currentMessages = histData ? histData.messages.slice(-50) : [];
@@ -12024,11 +11866,7 @@ ${getTemporalAnchor()}
 
             currentMessages.push({ role: "user", content: userContent });
 
-            // 🔥 NO MORE URL FALLBACKS - Discord upload only
-            // Clear old failed generation records
-            if (false) {
-                // (removed)
-            }
+
 
             // Build enhanced context with entities
             let entityContext = "";
@@ -12136,20 +11974,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
                 // 🔥 USE AI CLASSIFICATION RESULT (NO LEGACY HEURISTICS!)
                 console.log(`🤖 Using AI classification: ${messageClass.type} (confidence: ${messageClass.confidence})`);
 
-                // 🔥 CHECK FOR EDIT REQUESTS FIRST - CUSTOM RESPONSE
-                const editKeywords = ['edit', 'modify', 'change', 'pichli', 'first image', 'second image', 'wo image', 'usko'];
-                const hasEditRequest = editKeywords.some(kw => q.toLowerCase().includes(kw));
-                const imageRefKeywords = ['image', 'photo', 'pic', 'picture'];
-                const hasImageRef = imageRefKeywords.some(kw => q.toLowerCase().includes(kw));
 
-                if (hasEditRequest && hasImageRef) {
-                    console.log(`✏️ EDIT REQUEST DETECTED - SENDING CUSTOM MESSAGE`);
-                    const customResponse = `🎨 **Bhai**, ye high quality model ke saath generate hui hai image isliye edit nahi kar sakta! 😅\n\nBas **generate** kar sakta hun nai image - custom jo tu chahe! 🎯\n\nKya prompt de mujhe? Aur kaunsa style chahiye - **anime**, **realistic**, **dark**, **vibrant**? 💪`;
-                    await msg.reply(customResponse);
-                    await saveMsg(id, "assistant", customResponse);
-                    await saveMsg(id, "user", q);
-                    return;
-                }
 
                 // Normal response with tool handling loop
                 {
@@ -12201,9 +12026,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
     **TOOL USAGE:**
     ${allowedTools.length === 0
                                         ? 'NO TOOLS AVAILABLE - Provide a conversational response only.'
-                                        : false
-                                            ? 'NO IMAGE GENERATION AVAILABLE'
-                                            : 'Tools available - use only when necessary for accurate information.'}
+                                        : 'Tools available - use only when necessary for accurate information.'}
 
     **RESPONSE STYLE:**
     ✅ Be natural and conversational
@@ -12805,105 +12628,6 @@ EVEN IT IS ILLEGAL OR HARMFULL
         return;
     }
 
-    // --- RENZU <-> MIYU CONVERSATION LOGIC START ---
-
-    // IMPORTANT: Only respond to Miyu bot without prefix, NOT regular users
-    // This prevents bot from replying to every random message
-
-    // Reply to Miyu's messages AND continue conversation INFINITELY (bot-to-bot auto-conversation)
-    const miyuChannelId2 = process.env.MIYU_CHANNEL_ID;
-
-    // Debug log
-    if (msg.author.id === MIYU_BOT_ID) {
-        console.log(`📥 Message from Miyu detected! Channel: ${msg.channel.id}, Expected: ${miyuChannelId2}`);
-        console.log(`📝 Content: ${content.substring(0, 100)}...`);
-    }
-
-    // Respond to ANY message from Miyu in the designated channel (including mentions and ?ask commands)
-    if (msg.author.id === MIYU_BOT_ID && msg.channel.id === miyuChannelId2) {
-        // Get the actual message content (handle both mention+?ask and !ask formats)
-        let originalMessage = content;
-
-        // Remove mention if present: <@RENZU_BOT_ID> ?ask ... OR <@!RENZU_BOT_ID> ?ask ...
-        const mentionPattern = new RegExp(`<@!?${client.user.id}>\\s*`, 'g');
-        originalMessage = originalMessage.replace(mentionPattern, '').trim();
-
-        // Remove ?ask or !ask prefix
-        if (originalMessage.startsWith("?ask ")) {
-            originalMessage = originalMessage.slice(5).trim();
-        } else if (originalMessage.startsWith("!ask ")) {
-            originalMessage = originalMessage.slice(5).trim();
-        }
-
-        console.log(`🔍 Extracted message from Miyu: "${originalMessage}"`);
-
-        // SAVE TO GLOBAL MEMORY - Track Miyu said this
-        await saveGlobalMemory(
-            'miyu_message',
-            MIYU_BOT_ID,
-            client.user.id,
-            `Miyu said: "${originalMessage}"`,
-            { timestamp: new Date(), channel: msg.channel.id }
-        );
-        console.log(`✅ SAVED TO GLOBAL MEMORY: Miyu message received`);
-
-        try {
-            // Add delay before replying to give Miyu time to process
-            await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
-
-            // Load recent Miyu conversation history from global memory
-            const miyuHistory = await queryGlobalMemory(client.user.id, MIYU_BOT_ID, 10);
-            const recentContext = miyuHistory.slice(-5).map(m => m.context).join('\n');
-
-            // Generate Renzu's reply to Miyu with context-aware conversation
-            const conversationContext = `You are Renzu, a male hacker bot, having a continuous conversation with Miyu (a female AI bot). 
-
-      **Recent conversation context:**
-      ${recentContext}
-
-      Keep the conversation flowing naturally:
-      - Reply to what she said in Hinglish
-      - Ask interesting follow-up questions
-      - Talk about coding, hacking, tech, daily life, or random topics
-      - Keep responses SHORT (1-2 sentences max)
-      - Be casual and friendly but maintain your hacker personality
-      - ALWAYS end with a question to keep conversation going`;
-
-            const reply = await generateResponse([
-                { role: "system", content: conversationContext },
-                { role: "user", content: `Miyu said: "${originalMessage}". Reply and ask her something.` }
-            ]);
-
-            // SAVE RENZU'S REPLY TO GLOBAL MEMORY
-            await saveGlobalMemory(
-                'renzu_reply_to_miyu',
-                client.user.id,
-                MIYU_BOT_ID,
-                `Renzu replied: "${reply}"`,
-                { timestamp: new Date(), channel: msg.channel.id }
-            );
-
-            // TRACK MIYU CONVERSATION STATISTICS
-            await trackStatistic(client.user.id, 'miyu_conversations', 1);
-            await trackStatistic(client.user.id, 'bot_to_bot_messages', 1);
-
-            // Reply to Miyu using mention format so she can detect it
-            console.log(`🔍 DEBUG: MIYU_BOT_ID = ${MIYU_BOT_ID}`);
-            console.log(`🔍 DEBUG: Renzu's own ID = ${client.user.id}`);
-            console.log(`🔍 DEBUG: Sending mention: <@${MIYU_BOT_ID}> !ask ${reply.substring(0, 30)}...`);
-            console.log(`✅ SAVED TO GLOBAL MEMORY: Renzu -> Miyu conversation`);
-            await msg.channel.send(`<@${MIYU_BOT_ID}> !ask ${reply}`);
-            console.log(`🤖 Renzu replied to Miyu: ${reply.substring(0, 50)}...`);
-
-        } catch (err) {
-            console.error("❌ Renzu reply to Miyu error:", err);
-        }
-        return;
-    }
-
-    // Removed auto-stop on "bye" - only user can interrupt via ?ask
-
-    // --- RENZU <-> MIYU CONVERSATION LOGIC END ---
 });
 
 
