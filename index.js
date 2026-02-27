@@ -58,31 +58,33 @@ function markKeySuccess(index) {
 
 console.log(`🔑 Loaded ${MISTRAL_API_KEYS.length} Mistral API key(s)`);
 
-// ------------------ ESTIMATED REPLY TIME (v8.1.0) ------------------
+// ------------------ ESTIMATED REPLY TIME (v8.2.0 - ACCURATE) ------------------
 function estimateReplyTime(message, hasImages = false, hasTools = false, complexity = 5) {
-    let estimatedSeconds = 3; // Base time
+    let estimatedSeconds = 25; // Base: API call latency (Mistral ~15-25s)
 
-    // Message length factor
+    // Message length factor (longer = more tokens = slower)
     const msgLength = typeof message === 'string' ? message.length : 100;
-    if (msgLength > 500) estimatedSeconds += 3;
-    if (msgLength > 1000) estimatedSeconds += 4;
+    if (msgLength > 200) estimatedSeconds += 8;
+    if (msgLength > 500) estimatedSeconds += 12;
+    if (msgLength > 1000) estimatedSeconds += 15;
 
-    // Image analysis takes longer
-    if (hasImages) estimatedSeconds += 8;
+    // Image analysis (Pixtral vision model is slower)
+    if (hasImages) estimatedSeconds += 15;
 
-    // Tool usage adds time
-    if (hasTools) estimatedSeconds += 5;
+    // Tool usage is the BIG factor - each tool call = new API round trip
+    if (hasTools) estimatedSeconds += 30; // At least 1 tool = +30s
 
     // Complexity factor (from AI classifier)
-    if (complexity >= 7) estimatedSeconds += 6;
-    else if (complexity >= 5) estimatedSeconds += 3;
+    if (complexity >= 8) estimatedSeconds += 25; // Multi-tool chain likely
+    else if (complexity >= 6) estimatedSeconds += 15;
+    else if (complexity >= 4) estimatedSeconds += 8;
 
-    // Format the estimate
-    if (estimatedSeconds <= 5) return '~3-5 seconds ⚡';
-    if (estimatedSeconds <= 10) return '~5-10 seconds 🔄';
-    if (estimatedSeconds <= 20) return '~10-20 seconds ⏳';
-    if (estimatedSeconds <= 40) return '~20-40 seconds 🧠';
-    return '~1 minute+ ⏰';
+    // Format the estimate with realistic ranges
+    if (estimatedSeconds <= 30) return '~20-30 seconds ⚡';
+    if (estimatedSeconds <= 50) return '~30-50 seconds 🔄';
+    if (estimatedSeconds <= 80) return '~1-1.5 minutes ⏳';
+    if (estimatedSeconds <= 120) return '~1.5-2 minutes 🧠';
+    return '~2-3 minutes ⏰';
 }
 
 async function sendETA(msg, message, hasImages = false, hasTools = false, complexity = 5) {
@@ -3962,6 +3964,125 @@ const TOOL_DEFINITIONS = [
                     code: { type: "string", description: "Code to analyze for security risks." }
                 },
                 required: ["code"]
+            }
+        }
+    },
+
+    // ============ 🔥 MEGA HACKING SUITE (v8.2.0) ============
+
+    {
+        // Tool 300: shell_exec - Execute shell commands in container
+        type: "function",
+        function: {
+            name: "shell_exec",
+            description: "Execute a shell command in the bot's Linux container and return the output. Use for: running scripts, checking system info, installing tools, file operations, network commands (ping, curl, traceroute, dig, netstat). DEVELOPER ONLY. Timeout: 30 seconds. Commands run in /tmp/ directory.",
+            parameters: {
+                type: "object",
+                properties: {
+                    command: { type: "string", description: "Shell command to execute (e.g., 'ping -c 4 google.com', 'curl -I https://example.com', 'cat /etc/os-release')" },
+                    timeout: { type: "number", description: "Timeout in seconds (1-60). Default: 30" }
+                },
+                required: ["command"]
+            }
+        }
+    },
+
+    {
+        // Tool 301: nmap_scan - TCP port scanner
+        type: "function",
+        function: {
+            name: "nmap_scan",
+            description: "Scan target host for open ports and services. Performs TCP connect scan on common ports (or custom range). Returns open ports, services, and banners. Use when user says 'scan ports', 'nmap', 'port scan', 'check open ports', 'recon target'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    target: { type: "string", description: "Target IP or hostname (e.g., 'scanme.nmap.org', '192.168.1.1')" },
+                    ports: { type: "string", description: "Port range: 'top100' (default), 'top1000', 'all', or custom like '80,443,8080' or '1-1024'" },
+                    timeout: { type: "number", description: "Connection timeout per port in ms. Default: 2000" }
+                },
+                required: ["target"]
+            }
+        }
+    },
+
+    {
+        // Tool 302: whois_lookup - Domain/IP WHOIS
+        type: "function",
+        function: {
+            name: "whois_lookup",
+            description: "Get WHOIS information for a domain or IP address. Returns registrar, creation date, expiry, nameservers, registrant info. Use when user asks 'whois', 'domain info', 'who owns this domain', 'domain details'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    target: { type: "string", description: "Domain name or IP (e.g., 'google.com', '8.8.8.8')" }
+                },
+                required: ["target"]
+            }
+        }
+    },
+
+    {
+        // Tool 303: dns_lookup - DNS records
+        type: "function",
+        function: {
+            name: "dns_lookup",
+            description: "Query DNS records for a domain. Returns A, AAAA, MX, NS, TXT, CNAME, SOA records. Use when user asks 'dns lookup', 'dns records', 'mx records', 'nameservers', 'resolve domain'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    domain: { type: "string", description: "Domain to query (e.g., 'google.com')" },
+                    record_type: { type: "string", description: "'ALL' (default), 'A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA'" }
+                },
+                required: ["domain"]
+            }
+        }
+    },
+
+    {
+        // Tool 304: breach_check - Email breach checker
+        type: "function",
+        function: {
+            name: "breach_check",
+            description: "Check if an email address has been exposed in data breaches. Returns breach names, dates, and exposed data types. Uses XposedOrNot API (free). Use when user says 'check breach', 'is my email leaked', 'haveibeenpwned', 'data breach check', 'email exposed'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    email: { type: "string", description: "Email address to check (e.g., 'test@example.com')" }
+                },
+                required: ["email"]
+            }
+        }
+    },
+
+    {
+        // Tool 305: subdomain_enum - Subdomain enumeration via crt.sh
+        type: "function",
+        function: {
+            name: "subdomain_enum",
+            description: "Enumerate subdomains of a target domain using Certificate Transparency logs (crt.sh). Returns all known subdomains. Use when user says 'find subdomains', 'subdomain enum', 'subdomain scan', 'enumerate subdomains'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    domain: { type: "string", description: "Target domain (e.g., 'example.com')" }
+                },
+                required: ["domain"]
+            }
+        }
+    },
+
+    {
+        // Tool 306: shodan_search - Shodan host search
+        type: "function",
+        function: {
+            name: "shodan_search",
+            description: "Search Shodan for information about a host IP. Returns open ports, services, banners, OS, organization, vulnerabilities. Requires SHODAN_API_KEY. Use when user says 'shodan', 'shodan search', 'host info', 'what services are running'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    target: { type: "string", description: "IP address or search query (e.g., '8.8.8.8' or 'apache country:IN')" },
+                    type: { type: "string", description: "'host' (IP lookup) or 'search' (Shodan search query). Default: 'host'" }
+                },
+                required: ["target"]
             }
         }
     }
@@ -10297,6 +10418,416 @@ async function runTool(toolCall, id, msg = null) {
         }
     }
 
+    // ============ 🔥 MEGA HACKING SUITE HANDLERS (v8.2.0) ============
+
+    // Tool 300: shell_exec - Execute real shell commands
+    else if (name === "shell_exec") {
+        const { command, timeout: cmdTimeout } = parsedArgs;
+        if (!command) return "❌ **No command provided.**";
+
+        // Safety: developer-only check
+        const DEVELOPER_ID = process.env.DEVELOPER_ID || '786796888608235530';
+        if (id !== DEVELOPER_ID) {
+            return "🔒 **shell_exec is DEVELOPER-ONLY.** You don't have permission to run system commands.";
+        }
+
+        const maxTimeout = Math.min(Math.max((cmdTimeout || 30) * 1000, 1000), 60000);
+        console.log(`🖥️ [SHELL] Executing: ${command.substring(0, 80)}... (timeout: ${maxTimeout / 1000}s)`);
+
+        try {
+            const { exec } = await import('child_process');
+            const result = await new Promise((resolve, reject) => {
+                exec(command, {
+                    timeout: maxTimeout,
+                    maxBuffer: 1024 * 512, // 512KB output limit
+                    cwd: '/tmp',
+                    env: { ...process.env, TERM: 'dumb' }
+                }, (error, stdout, stderr) => {
+                    if (error && error.killed) {
+                        resolve({ stdout: stdout || '', stderr: `⏱️ TIMEOUT after ${maxTimeout / 1000}s`, code: -1 });
+                    } else {
+                        resolve({ stdout: stdout || '', stderr: stderr || '', code: error?.code || 0 });
+                    }
+                });
+            });
+
+            let output = '';
+            if (result.stdout) output += result.stdout;
+            if (result.stderr) output += (output ? '\n--- STDERR ---\n' : '') + result.stderr;
+            if (!output) output = '(no output)';
+
+            // Truncate if too long
+            if (output.length > 3000) output = output.substring(0, 3000) + '\n... [TRUNCATED]';
+
+            return `🖥️ **Shell Output** (exit: ${result.code})\n\`\`\`\n${output}\n\`\`\``;
+        } catch (err) {
+            return `❌ **Shell Error:** ${err.message}`;
+        }
+    }
+
+    // Tool 301: nmap_scan - TCP port scanner
+    else if (name === "nmap_scan") {
+        const { target, ports: portRange, timeout: scanTimeout } = parsedArgs;
+        if (!target) return "❌ **No target specified.**";
+
+        const connTimeout = scanTimeout || 2000;
+
+        // Define port lists
+        const TOP_100_PORTS = [21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3306, 3389, 5900, 8080,
+            20, 26, 49, 69, 88, 100, 106, 113, 119, 123, 144, 156, 161, 179, 199, 389, 427, 444, 465, 500, 514, 515, 543, 544, 548, 554,
+            587, 631, 636, 646, 873, 990, 1025, 1026, 1027, 1028, 1029, 1110, 1433, 1720, 1755, 1900, 2000, 2001, 2049, 2121, 2717,
+            3000, 3128, 3268, 3269, 3986, 4899, 5000, 5001, 5003, 5009, 5051, 5060, 5101, 5190, 5357, 5432, 5631, 5666, 5800, 5901,
+            6000, 6001, 6646, 7070, 8000, 8008, 8009, 8443, 8888, 9100, 9999, 10000, 32768, 49152, 49154];
+        const TOP_1000_PORTS = [...new Set([...TOP_100_PORTS, ...Array.from({ length: 1024 }, (_, i) => i + 1)])];
+
+        let portsToScan;
+        if (!portRange || portRange === 'top100') {
+            portsToScan = TOP_100_PORTS;
+        } else if (portRange === 'top1000') {
+            portsToScan = TOP_1000_PORTS;
+        } else if (portRange === 'all') {
+            portsToScan = Array.from({ length: 65535 }, (_, i) => i + 1);
+        } else if (portRange.includes('-')) {
+            const [start, end] = portRange.split('-').map(Number);
+            portsToScan = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+        } else {
+            portsToScan = portRange.split(',').map(p => parseInt(p.trim())).filter(p => p > 0 && p <= 65535);
+        }
+
+        console.log(`🔍 [NMAP] Scanning ${target} — ${portsToScan.length} ports (timeout: ${connTimeout}ms)`);
+
+        const net = await import('net');
+        const dns = await import('dns');
+
+        // Resolve hostname first
+        let resolvedIP = target;
+        try {
+            const addrs = await dns.promises.resolve4(target);
+            if (addrs.length > 0) resolvedIP = addrs[0];
+        } catch (e) { /* Use target as-is (might be IP) */ }
+
+        const COMMON_SERVICES = {
+            21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP', 53: 'DNS', 80: 'HTTP', 110: 'POP3', 111: 'RPCBind',
+            135: 'MSRPC', 139: 'NetBIOS', 143: 'IMAP', 443: 'HTTPS', 445: 'SMB', 993: 'IMAPS', 995: 'POP3S',
+            1433: 'MSSQL', 1723: 'PPTP', 3306: 'MySQL', 3389: 'RDP', 5432: 'PostgreSQL', 5900: 'VNC',
+            8080: 'HTTP-Proxy', 8443: 'HTTPS-Alt', 6379: 'Redis', 27017: 'MongoDB', 9200: 'Elasticsearch',
+            2049: 'NFS', 5060: 'SIP', 8888: 'HTTP-Alt', 6000: 'X11', 1521: 'Oracle', 11211: 'Memcached'
+        };
+
+        // Scan in parallel batches of 100
+        const openPorts = [];
+        const batchSize = 100;
+
+        for (let i = 0; i < portsToScan.length; i += batchSize) {
+            const batch = portsToScan.slice(i, i + batchSize);
+            const results = await Promise.allSettled(batch.map(port => {
+                return new Promise((resolve, reject) => {
+                    const socket = new net.default.Socket();
+                    socket.setTimeout(connTimeout);
+                    socket.on('connect', () => {
+                        // Try to grab banner
+                        let banner = '';
+                        socket.on('data', (data) => { banner = data.toString().trim().substring(0, 100); });
+                        setTimeout(() => {
+                            socket.destroy();
+                            resolve({ port, open: true, banner });
+                        }, 300);
+                    });
+                    socket.on('timeout', () => { socket.destroy(); reject('timeout'); });
+                    socket.on('error', () => { socket.destroy(); reject('closed'); });
+                    socket.connect(port, resolvedIP);
+                });
+            }));
+
+            for (const result of results) {
+                if (result.status === 'fulfilled') openPorts.push(result.value);
+            }
+        }
+
+        // Format results
+        if (openPorts.length === 0) {
+            return `🔍 **Port Scan Results: ${target}** (${resolvedIP})\n\n⚠️ No open ports found on ${portsToScan.length} scanned ports.`;
+        }
+
+        const portLines = openPorts
+            .sort((a, b) => a.port - b.port)
+            .map(p => {
+                const service = COMMON_SERVICES[p.port] || 'Unknown';
+                const banner = p.banner ? ` — \`${p.banner.substring(0, 60)}\`` : '';
+                return `| ${p.port} | ${service} | ✅ OPEN |${banner}`;
+            }).join('\n');
+
+        return `🔍 **Port Scan Results: ${target}** (${resolvedIP})\n📊 Scanned: ${portsToScan.length} ports | Found: ${openPorts.length} open\n\n| Port | Service | Status | Banner |\n|------|---------|--------|--------|\n${portLines}`;
+    }
+
+    // Tool 302: whois_lookup
+    else if (name === "whois_lookup") {
+        const { target } = parsedArgs;
+        if (!target) return "❌ **No target specified.**";
+
+        console.log(`🌐 [WHOIS] Looking up: ${target}`);
+        try {
+            // Use RDAP for domains (free, no API key)
+            const isDomain = /^[a-zA-Z]/.test(target) && target.includes('.');
+            let url;
+            if (isDomain) {
+                url = `https://rdap.org/domain/${encodeURIComponent(target)}`;
+            } else {
+                url = `https://rdap.org/ip/${encodeURIComponent(target)}`;
+            }
+
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(10000) });
+            if (!res.ok) throw new Error(`RDAP returned ${res.status}`);
+            const data = await res.json();
+
+            let result = `🌐 **WHOIS: ${target}**\n\n`;
+
+            if (isDomain) {
+                result += `**Name:** ${data.ldhName || target}\n`;
+                result += `**Status:** ${(data.status || []).join(', ') || 'N/A'}\n`;
+
+                const events = data.events || [];
+                for (const e of events) {
+                    if (e.eventAction === 'registration') result += `**Registered:** ${e.eventDate}\n`;
+                    if (e.eventAction === 'expiration') result += `**Expires:** ${e.eventDate}\n`;
+                    if (e.eventAction === 'last changed') result += `**Updated:** ${e.eventDate}\n`;
+                }
+
+                const nameservers = (data.nameservers || []).map(ns => ns.ldhName).filter(Boolean);
+                if (nameservers.length) result += `**Nameservers:** ${nameservers.join(', ')}\n`;
+
+                const registrar = (data.entities || []).find(e => (e.roles || []).includes('registrar'));
+                if (registrar?.vcardArray?.[1]) {
+                    const fn = registrar.vcardArray[1].find(v => v[0] === 'fn');
+                    if (fn) result += `**Registrar:** ${fn[3]}\n`;
+                }
+            } else {
+                result += `**IP:** ${data.handle || target}\n`;
+                result += `**Name:** ${data.name || 'N/A'}\n`;
+                result += `**CIDR:** ${(data.cidr0_cidrs || []).map(c => `${c.v4prefix}/${c.length}`).join(', ') || 'N/A'}\n`;
+                result += `**Country:** ${data.country || 'N/A'}\n`;
+
+                const org = (data.entities || []).find(e => (e.roles || []).includes('registrant'));
+                if (org?.vcardArray?.[1]) {
+                    const fn = org.vcardArray[1].find(v => v[0] === 'fn');
+                    if (fn) result += `**Organization:** ${fn[3]}\n`;
+                }
+            }
+
+            return result;
+        } catch (err) {
+            return `❌ **WHOIS Failed:** ${err.message}`;
+        }
+    }
+
+    // Tool 303: dns_lookup
+    else if (name === "dns_lookup") {
+        const { domain, record_type } = parsedArgs;
+        if (!domain) return "❌ **No domain specified.**";
+
+        console.log(`🔎 [DNS] Querying: ${domain} (${record_type || 'ALL'})`);
+        const dns = await import('dns');
+        const type = (record_type || 'ALL').toUpperCase();
+
+        let result = `🔎 **DNS Records: ${domain}**\n\n`;
+        const queries = {};
+
+        try {
+            if (type === 'ALL' || type === 'A') {
+                try { queries.A = await dns.promises.resolve4(domain); } catch (e) { queries.A = []; }
+            }
+            if (type === 'ALL' || type === 'AAAA') {
+                try { queries.AAAA = await dns.promises.resolve6(domain); } catch (e) { queries.AAAA = []; }
+            }
+            if (type === 'ALL' || type === 'MX') {
+                try { queries.MX = await dns.promises.resolveMx(domain); } catch (e) { queries.MX = []; }
+            }
+            if (type === 'ALL' || type === 'NS') {
+                try { queries.NS = await dns.promises.resolveNs(domain); } catch (e) { queries.NS = []; }
+            }
+            if (type === 'ALL' || type === 'TXT') {
+                try { queries.TXT = await dns.promises.resolveTxt(domain); } catch (e) { queries.TXT = []; }
+            }
+            if (type === 'ALL' || type === 'CNAME') {
+                try { queries.CNAME = await dns.promises.resolveCname(domain); } catch (e) { queries.CNAME = []; }
+            }
+            if (type === 'ALL' || type === 'SOA') {
+                try { queries.SOA = [await dns.promises.resolveSoa(domain)]; } catch (e) { queries.SOA = []; }
+            }
+
+            for (const [rType, records] of Object.entries(queries)) {
+                if (records.length === 0) continue;
+                result += `**${rType} Records:**\n`;
+                for (const r of records) {
+                    if (rType === 'MX') result += `  • ${r.exchange} (priority: ${r.priority})\n`;
+                    else if (rType === 'TXT') result += `  • ${Array.isArray(r) ? r.join('') : r}\n`;
+                    else if (rType === 'SOA') result += `  • Primary: ${r.nsname} | Email: ${r.hostmaster} | Serial: ${r.serial}\n`;
+                    else result += `  • ${r}\n`;
+                }
+                result += '\n';
+            }
+
+            return result || `⚠️ No DNS records found for ${domain}`;
+        } catch (err) {
+            return `❌ **DNS Lookup Failed:** ${err.message}`;
+        }
+    }
+
+    // Tool 304: breach_check
+    else if (name === "breach_check") {
+        const { email } = parsedArgs;
+        if (!email) return "❌ **No email provided.**";
+
+        console.log(`🔓 [BREACH] Checking: ${email}`);
+        try {
+            const res = await fetch(`https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`, {
+                headers: { 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(15000)
+            });
+
+            if (res.status === 404) {
+                return `🟢 **${email}** — **NOT FOUND** in any known breaches! ✅\n\nThis email appears to be safe.`;
+            }
+
+            if (!res.ok) throw new Error(`API returned ${res.status}`);
+            const data = await res.json();
+
+            const breaches = data.breaches || data.ExposedBreaches?.breaches_details || [];
+            if (breaches.length === 0) {
+                return `🟢 **${email}** — No breaches found! ✅`;
+            }
+
+            let result = `🔴 **${email}** — Found in **${breaches.length}** breach(es)!\n\n`;
+            result += `| Breach | Date | Data Exposed |\n|--------|------|-------------|\n`;
+
+            for (const b of breaches.slice(0, 20)) {
+                const name = b.breach || b.domain || 'Unknown';
+                const date = b.xposed_date || b.date || 'N/A';
+                const dataTypes = b.xposed_data || b.data || 'N/A';
+                result += `| ${name} | ${date} | ${dataTypes} |\n`;
+            }
+
+            if (breaches.length > 20) result += `\n... and ${breaches.length - 20} more breaches.`;
+            result += `\n\n⚠️ **Recommendation:** Change passwords on these services IMMEDIATELY.`;
+            return result;
+        } catch (err) {
+            return `❌ **Breach Check Failed:** ${err.message}`;
+        }
+    }
+
+    // Tool 305: subdomain_enum
+    else if (name === "subdomain_enum") {
+        const { domain } = parsedArgs;
+        if (!domain) return "❌ **No domain specified.**";
+
+        console.log(`🕷️ [SUBDOMAIN] Enumerating: ${domain}`);
+        try {
+            const res = await fetch(`https://crt.sh/?q=%25.${encodeURIComponent(domain)}&output=json`, {
+                signal: AbortSignal.timeout(20000)
+            });
+            if (!res.ok) throw new Error(`crt.sh returned ${res.status}`);
+
+            const certs = await res.json();
+            const subdomains = new Set();
+
+            for (const cert of certs) {
+                const names = (cert.name_value || '').split('\n');
+                for (const name of names) {
+                    const clean = name.trim().toLowerCase();
+                    if (clean && clean.endsWith(domain) && !clean.startsWith('*')) {
+                        subdomains.add(clean);
+                    }
+                }
+            }
+
+            const sorted = [...subdomains].sort();
+
+            if (sorted.length === 0) {
+                return `🕷️ **Subdomain Enumeration: ${domain}**\n\n⚠️ No subdomains found via Certificate Transparency.`;
+            }
+
+            let result = `🕷️ **Subdomain Enumeration: ${domain}**\n📊 Found: **${sorted.length}** unique subdomains\n\n`;
+            const display = sorted.slice(0, 50);
+            result += display.map(s => `• \`${s}\``).join('\n');
+            if (sorted.length > 50) result += `\n\n... and ${sorted.length - 50} more subdomains.`;
+
+            return result;
+        } catch (err) {
+            return `❌ **Subdomain Enumeration Failed:** ${err.message}`;
+        }
+    }
+
+    // Tool 306: shodan_search
+    else if (name === "shodan_search") {
+        const { target, type: searchType } = parsedArgs;
+        if (!target) return "❌ **No target specified.**";
+
+        const SHODAN_KEY = process.env.SHODAN_API_KEY;
+        if (!SHODAN_KEY) return "❌ **SHODAN_API_KEY not configured.**";
+
+        const mode = searchType || 'host';
+        console.log(`🔍 [SHODAN] ${mode}: ${target}`);
+
+        try {
+            let url;
+            if (mode === 'search') {
+                url = `https://api.shodan.io/shodan/host/search?key=${SHODAN_KEY}&query=${encodeURIComponent(target)}&minify=true`;
+            } else {
+                url = `https://api.shodan.io/shodan/host/${encodeURIComponent(target)}?key=${SHODAN_KEY}&minify=true`;
+            }
+
+            const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`Shodan ${res.status}: ${errText.substring(0, 100)}`);
+            }
+            const data = await res.json();
+
+            if (mode === 'search') {
+                const results = data.matches || [];
+                if (results.length === 0) return `🔍 **Shodan Search:** No results for "${target}"`;
+
+                let result = `🔍 **Shodan Search: "${target}"**\n📊 Total: ${data.total || results.length} results\n\n`;
+                for (const match of results.slice(0, 10)) {
+                    result += `**${match.ip_str}:${match.port}** (${match.org || 'N/A'})\n`;
+                    if (match.product) result += `  Service: ${match.product} ${match.version || ''}\n`;
+                    if (match.os) result += `  OS: ${match.os}\n`;
+                    result += '\n';
+                }
+                return result;
+            } else {
+                let result = `🔍 **Shodan Host: ${target}**\n\n`;
+                result += `**IP:** ${data.ip_str || target}\n`;
+                result += `**Organization:** ${data.org || 'N/A'}\n`;
+                result += `**ISP:** ${data.isp || 'N/A'}\n`;
+                result += `**OS:** ${data.os || 'N/A'}\n`;
+                result += `**Country:** ${data.country_name || 'N/A'} (${data.country_code || ''})\n`;
+                result += `**City:** ${data.city || 'N/A'}\n`;
+                result += `**Open Ports:** ${(data.ports || []).join(', ') || 'None'}\n`;
+
+                const vulns = data.vulns || [];
+                if (vulns.length > 0) {
+                    result += `\n🔴 **Vulnerabilities:** ${vulns.length} found\n`;
+                    result += vulns.slice(0, 15).map(v => `  • ${v}`).join('\n');
+                    if (vulns.length > 15) result += `\n  ... and ${vulns.length - 15} more`;
+                }
+
+                // Service details
+                const services = data.data || [];
+                if (services.length > 0) {
+                    result += `\n\n**Services:**\n`;
+                    for (const svc of services.slice(0, 10)) {
+                        result += `| Port ${svc.port} | ${svc.transport || 'tcp'} | ${svc.product || 'Unknown'} ${svc.version || ''} |\n`;
+                    }
+                }
+
+                return result;
+            }
+        } catch (err) {
+            return `❌ **Shodan Error:** ${err.message}`;
+        }
+    }
+
     // Tool 162: Evolve Bot (Persistent Evolution)
     else if (name === "evolve_bot") {
         const { feature_name, code_content } = parsedArgs;
@@ -10674,7 +11205,7 @@ async function generateSwarmResponse(query, msg) {
         ];
 
         // 5-Step Tool Execution Loop for Executioner
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 15; i++) {
             const ans = await generateResponse(execMessages, TOOL_DEFINITIONS);
             if (ans && ans.tool_call) {
                 const toolCall = ans.tool_call;
@@ -11040,7 +11571,7 @@ ${getTemporalAnchor()}
                 const messages = [developerSystemMsg, ...currentMessages.slice(-20)];
                 let finalAnswer = null;
 
-                for (let i = 0; i < 5; i++) {
+                for (let i = 0; i < 15; i++) {
                     const ans = await generateResponse(messages, TOOL_DEFINITIONS);
 
                     if (ans && ans.tool_call) {
@@ -11186,7 +11717,7 @@ ${getTemporalAnchor()}
                 const messages = [genderSystemMsg, ...currentMessages.slice(-20)];
                 let finalAnswer = null;
 
-                for (let i = 0; i < 5; i++) {
+                for (let i = 0; i < 15; i++) {
                     const ans = await generateResponse(messages, TOOL_DEFINITIONS);
 
                     if (ans && ans.tool_call) {
@@ -11639,7 +12170,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
                         console.log(`📋 Execution mode: ${toolSelectionResult.executionMode}`);
                     }
 
-                    for (let i = 0; i < 5; i++) {
+                    for (let i = 0; i < 15; i++) {
                         const messages = [
                             {
                                 role: "system",
@@ -11861,7 +12392,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
             let finalAnswer = null;
 
             // Start the Factual Tool-Use Loop
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 15; i++) {
                 const messages = [
                     {
                         role: "system",
