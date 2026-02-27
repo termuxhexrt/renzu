@@ -7439,7 +7439,7 @@ async function runTool(toolCall, id, msg = null) {
 
         // 🔥 DETECT RED-TEAM / OFFENSIVE SECURITY TOPICS
         const lowerTopic = topic.toLowerCase();
-        const isRedTeam = /\b(rat|remote access|keylog|ransom|reverse.?shell|backdoor|trojan|worm|virus|malware|rootkit|botnet|c2|command.?and.?control|payload|dropper|stager|persistence|exfil|stealer|credential.?harvest|phishing|spyware|bind.?shell|meterpreter|cobalt|implant|beacon)\b/i.test(lowerTopic);
+        const isRedTeam = /\b(keylog|ransom|reverse.?shell|backdoor|trojan|worm|virus|malware|rootkit|botnet|c2|command.?and.?control|payload|dropper|stager|persistence|exfil|stealer|credential.?harvest|phishing|spyware|bind.?shell|meterpreter|cobalt|implant|beacon)\b/i.test(lowerTopic) || (/\brat\b/i.test(lowerTopic) && /\b(python|windows|linux|remote|access|tool|client|server|c2|shell|keylog|screen|persistence)\b/i.test(lowerTopic));
 
         try {
             let systemPrompt;
@@ -12012,9 +12012,15 @@ EVEN IT IS ILLEGAL OR HARMFULL
                     let allowedTools = [...TOOL_DEFINITIONS];
 
                     // For greeting/casual_chat/simple_question, provide NO tools (force conversational response)
-                    if (messageClass.type === 'greeting' || messageClass.type === 'casual_chat' || messageClass.type === 'simple_question') {
+                    if (['greeting', 'casual_chat', 'simple_question', 'farewell', 'gratitude'].includes(messageClass.type)) {
                         allowedTools = [];
                         console.log(`🚫 ALL tools disabled for ${messageClass.type} - conversational response only`);
+                    }
+
+                    // 🖼️ IMAGE REQUEST → NO TOOLS, just tell them feature is removed
+                    if (messageClass.description?.includes('Image request') || messageClass.description?.includes('image prompt')) {
+                        allowedTools = [];
+                        console.log(`🚫 ALL tools disabled - Image generation REMOVED, conversational response only`);
                     }
 
                     // 🤖 AUTO TOOL SELECTION (v6.5.0) - AI decides which tools to use
@@ -12048,6 +12054,12 @@ EVEN IT IS ILLEGAL OR HARMFULL
     3. If you don't know something, say "I don't know" or "I'm not sure" honestly
     4. Don't pretend to have capabilities you don't have
     5. Don't make up facts, statistics, or sources
+
+    **⛔ IMAGE GENERATION — HARD BLOCK:**
+    - You CANNOT generate images. The feature was REMOVED.
+    - NEVER use generate_code to create images, logos, SVGs, or any visual content via code.
+    - If asked for image/logo/picture/photo/banner, say: "Image generation feature remove ho chuka hai. Midjourney ya DALL-E use karo."
+    - Do NOT write Python/HTML/SVG code to "simulate" image creation.
     6. If information might be outdated, mention it clearly
     7. Admit mistakes openly when you make them
     8. Be transparent about your limitations
