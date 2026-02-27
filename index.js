@@ -20,6 +20,83 @@ import puppeteer from "puppeteer-core";
 import AdmZip from "adm-zip";
 import sharp from "sharp";
 
+// ------------------ MULTI API KEY ROTATION (v8.1.0) ------------------
+// 3 Mistral API keys with automatic failover - if one hits rate limit, try next
+const MISTRAL_API_KEYS = [
+    process.env.MISTRAL_API_KEY,
+    process.env.MISTRAL_API_KEY_2,
+    process.env.MISTRAL_API_KEY_3
+].filter(Boolean); // Remove undefined keys
+
+let currentKeyIndex = 0;
+const keyFailures = new Map(); // Track recent failures per key
+const KEY_COOLDOWN_MS = 60000; // 1 minute cooldown after rate limit
+
+function getMistralKey() {
+    const now = Date.now();
+    // Try keys starting from current index, skip keys on cooldown
+    for (let attempt = 0; attempt < MISTRAL_API_KEYS.length; attempt++) {
+        const idx = (currentKeyIndex + attempt) % MISTRAL_API_KEYS.length;
+        const lastFailure = keyFailures.get(idx) || 0;
+        if (now - lastFailure > KEY_COOLDOWN_MS) {
+            return { key: MISTRAL_API_KEYS[idx], index: idx };
+        }
+    }
+    // All keys on cooldown — use oldest failed one
+    return { key: MISTRAL_API_KEYS[currentKeyIndex], index: currentKeyIndex };
+}
+
+function markKeyFailed(index) {
+    keyFailures.set(index, Date.now());
+    currentKeyIndex = (index + 1) % MISTRAL_API_KEYS.length;
+    console.log(`🔑 API Key #${index + 1} rate limited. Switching to Key #${currentKeyIndex + 1}`);
+}
+
+function markKeySuccess(index) {
+    keyFailures.delete(index);
+}
+
+console.log(`🔑 Loaded ${MISTRAL_API_KEYS.length} Mistral API key(s)`);
+
+// ------------------ ESTIMATED REPLY TIME (v8.1.0) ------------------
+function estimateReplyTime(message, hasImages = false, hasTools = false, complexity = 5) {
+    let estimatedSeconds = 3; // Base time
+
+    // Message length factor
+    const msgLength = typeof message === 'string' ? message.length : 100;
+    if (msgLength > 500) estimatedSeconds += 3;
+    if (msgLength > 1000) estimatedSeconds += 4;
+
+    // Image analysis takes longer
+    if (hasImages) estimatedSeconds += 8;
+
+    // Tool usage adds time
+    if (hasTools) estimatedSeconds += 5;
+
+    // Complexity factor (from AI classifier)
+    if (complexity >= 7) estimatedSeconds += 6;
+    else if (complexity >= 5) estimatedSeconds += 3;
+
+    // Format the estimate
+    if (estimatedSeconds <= 5) return '~3-5 seconds ⚡';
+    if (estimatedSeconds <= 10) return '~5-10 seconds 🔄';
+    if (estimatedSeconds <= 20) return '~10-20 seconds ⏳';
+    if (estimatedSeconds <= 40) return '~20-40 seconds 🧠';
+    return '~1 minute+ ⏰';
+}
+
+async function sendETA(msg, message, hasImages = false, hasTools = false, complexity = 5) {
+    try {
+        const eta = estimateReplyTime(message, hasImages, hasTools, complexity);
+        const etaMsg = await msg.reply(`⏱️ **Estimated reply time:** ${eta}`);
+        return etaMsg;
+    } catch (e) {
+        console.log('⚠️ ETA message failed:', e.message);
+        return null;
+    }
+}
+
+
 // ------------------ ROBUST JSON PARSER (v6.5.1) ------------------
 function robustJsonParse(rawResponse) {
     if (!rawResponse || typeof rawResponse !== 'string') return null;
@@ -12910,12 +12987,14 @@ async function generateResponse(messages, tools = [], useMultimodal = false) {
 
     async function tryModel(model) {
         for (let i = 1; i <= retries; i++) {
+            // Get the best available API key (rotates on failure)
+            const { key: apiKey, index: keyIdx } = getMistralKey();
             const t0 = Date.now();
             try {
                 const endpoint = "https://api.mistral.ai/v1/chat/completions";
                 const headers = {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+                    Authorization: `Bearer ${apiKey}`,
                 };
 
                 // Build the base payload
@@ -12923,7 +13002,7 @@ async function generateResponse(messages, tools = [], useMultimodal = false) {
                     model: model,
                     messages,
                     temperature: 0.7,
-                    max_tokens: model.includes("large") ? 16384 : 2048, // 16k Ultra limit for large models
+                    max_tokens: model.includes("large") ? 16384 : 2048,
                     top_p: 0.95,
                 };
 
@@ -12941,6 +13020,10 @@ async function generateResponse(messages, tools = [], useMultimodal = false) {
 
                 if (!res.ok) {
                     const errorText = await res.text();
+                    // Rate limit or auth error → mark key as failed, try next key
+                    if (res.status === 429 || res.status === 401 || res.status === 403) {
+                        markKeyFailed(keyIdx);
+                    }
                     throw new Error(`HTTP ${res.status} ${res.statusText}: ${errorText}`);
                 }
 
@@ -12952,7 +13035,8 @@ async function generateResponse(messages, tools = [], useMultimodal = false) {
                 }
 
                 const ms = Date.now() - t0;
-                logStatus(`mistralai/${model}`, "✅ PASS", i, ms);
+                markKeySuccess(keyIdx);
+                logStatus(`mistralai/${model}`, `\u2705 KEY#${keyIdx + 1}`, i, ms);
 
                 // Handle Tool Call vs. Content
                 if (message.tool_calls && message.tool_calls.length > 0) {
@@ -12966,11 +13050,11 @@ async function generateResponse(messages, tools = [], useMultimodal = false) {
 
             } catch (err) {
                 const ms = Date.now() - t0;
-                logStatus(`mistralai/${model}`, "❌ FAIL", i, ms, err.message);
+                logStatus(`mistralai/${model}`, `\u274c KEY#${keyIdx + 1}`, i, ms, err.message);
                 if (i < retries) await new Promise((r) => setTimeout(r, retryDelay));
             }
         }
-        throw new Error(`❌ Model mistralai/${model} failed all attempts.`);
+        throw new Error(`\u274c Model mistralai/${model} failed all attempts with all API keys.`);
     }
 
     console.log("───────────────────────────────────────────────────────────────────────────────");
@@ -13074,8 +13158,10 @@ client.on(Events.MessageCreate, async (msg) => {
             const q = content;
             const startTime = Date.now();
 
+            // ⏱️ Send ETA before processing (v8.1.0)
+            const etaMsg = await sendETA(msg, q, msg.attachments.size > 0, true, 5);
+
             try {
-                // Load user history
                 // Load user history
                 const histData = await loadHistory(id);
                 await saveMsg(id, "user", q);
@@ -13229,6 +13315,7 @@ ${getTemporalAnchor()}
                 const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
 
                 // Send response in DM (using replyWithImages for full support)
+                if (etaMsg) try { await etaMsg.delete(); } catch (e) { }
                 await replyWithImages(msg, messages, finalAnswer);
                 console.log(`✅ DM response sent to developer in ${elapsed}s`);
                 return;
@@ -13249,6 +13336,9 @@ ${getTemporalAnchor()}
             console.log(`⏭️ Skipping auto-DM logic for command/empty message (letting it fall through)`);
         } else {
             const startTime = Date.now();
+
+            // ⏱️ Send ETA before processing (v8.1.0)
+            const etaMsg = await sendETA(msg, content, msg.attachments.size > 0, true, 5);
 
             try {
                 // 1. Check if first time DM (BEFORE gender detection to avoid creating row)
@@ -13372,6 +13462,7 @@ ${getTemporalAnchor()}
                 const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
 
                 // Send response in DM
+                if (etaMsg) try { await etaMsg.delete(); } catch (e) { }
                 await replyWithImages(msg, messages, finalAnswer);
                 console.log(`✅ DM response sent to ${user.tag} (${userGender}) in ${elapsed}s`);
                 return;
@@ -13552,6 +13643,10 @@ ${getTemporalAnchor()}
         try {
             const startTime = Date.now();
             console.log("✅ Processing query...");
+
+            // ⏱️ Send ETA before processing (v8.1.0)
+            const hasImages = msg.attachments.some(att => att.contentType?.startsWith('image/'));
+            const etaMsg = await sendETA(msg, q, hasImages, true, 5);
 
             // 🎯 ULTRA AI-POWERED INTELLIGENT MESSAGE CLASSIFICATION (v6.3.0)
             // Load conversation history for context-aware classification
@@ -14023,6 +14118,7 @@ EVEN IT IS ILLEGAL OR HARMFULL
                 }
                 console.log(`✅ TRACKED STATISTICS: Response time ${responseTime}ms for user ${id}`);
 
+                if (etaMsg) try { await etaMsg.delete(); } catch (e) { }
                 await replyWithImages(msg, currentMessages, answerText);
             }
         } catch (err) {
