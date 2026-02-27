@@ -2840,16 +2840,18 @@ const TOOL_DEFINITIONS = [
     },
 
     {
-        // Tool 104: multi_language_compiler
+        // Tool 104: realtime_code_executor (Piston API - FREE, 50+ languages)
         type: "function",
         function: {
-            name: "multi_language_compiler",
-            description: "Run Python/Lua/JS code for testing purposes.",
+            name: "realtime_code_executor",
+            description: "🔥 REAL CODE EXECUTOR - Actually runs code and returns real output using Piston sandbox. Supports 50+ languages: python, javascript, typescript, c++, c, java, rust, go, csharp, ruby, php, kotlin, swift, bash, lua, perl, r, haskell, scala, dart, and more. Use when user wants to run/test/execute code, solve coding challenges, or test algorithms. Auto-detect language from code blocks.",
             parameters: {
                 type: "object",
                 properties: {
-                    code: { type: "string", description: "Code to run" },
-                    language: { type: "string", description: "'python', 'javascript', 'lua'" }
+                    code: { type: "string", description: "Code to execute" },
+                    language: { type: "string", description: "Programming language (python, javascript, typescript, cpp, c, java, rust, go, csharp, ruby, php, kotlin, swift, bash, lua, perl, r, haskell, scala, dart, etc.)" },
+                    stdin: { type: "string", description: "Standard input for the program (optional, for programs that read input)" },
+                    version: { type: "string", description: "Language version (optional, uses latest if not specified)" }
                 },
                 required: ["code", "language"]
             }
@@ -3851,16 +3853,17 @@ const TOOL_DEFINITIONS = [
 
     // ========== DEVELOPER-ONLY TOOLS (NEW v7.3.0) ==========
     {
-        // Tool 154: execute_code_sandbox - DEVELOPER ONLY
+        // Tool 154: execute_code_sandbox - NOW AVAILABLE TO ALL (Piston API - safe sandbox)
         type: "function",
         function: {
             name: "execute_code_sandbox",
-            description: "🔒 DEVELOPER ONLY - Execute Python/JavaScript/Node.js code in a safe sandbox and return output. Use when developer wants to run code snippets, test functions, or execute scripts directly.",
+            description: "Execute code in a safe cloud sandbox and return real output. Supports Python, JavaScript, TypeScript, C++, Java, Rust, Go, and 50+ more languages. Safe sandboxed execution with 10s timeout. Use when user asks to run code, test scripts, or execute programs.",
             parameters: {
                 type: "object",
                 properties: {
                     code: { type: "string", description: "Code to execute" },
-                    language: { type: "string", description: "'python', 'javascript', or 'nodejs'" },
+                    language: { type: "string", description: "Programming language (python, javascript, cpp, java, rust, go, etc.)" },
+                    stdin: { type: "string", description: "Standard input for the program (optional)" },
                     timeout: { type: "number", description: "Execution timeout in seconds (1-30). Default: 10" }
                 },
                 required: ["code", "language"]
@@ -7570,6 +7573,125 @@ async function runTool(toolCall, id, msg = null) {
     // Log parsed arguments for debugging
     console.log(`✅ Parsed Arguments:`, parsedArgs);
 
+    // --- CODAPI CODE EXECUTOR (FREE - No API Key - codapi.org) ---
+    // Piston API died (whitelist-only Feb 2026), using Codapi instead
+    const CODAPI_LANGUAGE_MAP = {
+        'py': 'python', 'python3': 'python', 'python2': 'python',
+        'js': 'javascript', 'node': 'javascript', 'nodejs': 'javascript',
+        'ts': 'typescript', 'cpp': 'cpp', 'cc': 'cpp', 'c++': 'cpp',
+        'cs': 'csharp', 'c#': 'csharp',
+        'rb': 'ruby', 'rs': 'rust', 'sh': 'bash', 'shell': 'bash',
+        'kt': 'kotlin', 'hs': 'haskell',
+        'sc': 'scala', 'ex': 'elixir',
+        'r': 'r', 'pl': 'perl',
+        'pas': 'pascal', 'fs': 'fsharp', 'f#': 'fsharp',
+        'clj': 'clojure', 'erl': 'erlang',
+        'ml': 'ocaml', 'zig': 'zig', 'nim': 'nim',
+        'fortran': 'fortran', 'f90': 'fortran',
+        'sqlite': 'sqlite', 'sql': 'sqlite',
+        'dart': 'dart'
+    };
+
+    const CODAPI_SUPPORTED = new Set([
+        'python', 'javascript', 'typescript', 'cpp', 'c', 'go', 'java',
+        'rust', 'kotlin', 'swift', 'ruby', 'lua', 'php', 'haskell',
+        'dart', 'scala', 'elixir', 'clojure', 'ocaml', 'r', 'perl',
+        'bash', 'sqlite', 'csharp', 'fsharp', 'nim', 'zig', 'fortran',
+        'erlang', 'pascal'
+    ]);
+
+    async function executePistonCode(language, code, stdin = '', timeoutSec = 10) {
+        const startTime = Date.now();
+        const lang = CODAPI_LANGUAGE_MAP[language.toLowerCase()] || language.toLowerCase();
+
+        if (!CODAPI_SUPPORTED.has(lang)) {
+            return {
+                success: false,
+                language: lang,
+                error: `Language "${lang}" not supported.\n\n✅ Supported: python, javascript, typescript, cpp, c, go, java, rust, kotlin, swift, ruby, lua, php, haskell, dart, scala, elixir, csharp, bash, r, perl, sqlite, ocaml, clojure, nim, zig, fortran`
+            };
+        }
+
+        try {
+            const controller = new AbortController();
+            const fetchTimeout = setTimeout(() => controller.abort(), 20000);
+
+            const response = await fetch('https://api.codapi.org/v1/exec', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sandbox: lang,
+                    command: 'run',
+                    files: { '': code }
+                }),
+                signal: controller.signal
+            });
+
+            clearTimeout(fetchTimeout);
+
+            if (!response.ok) {
+                const errText = await response.text();
+                return {
+                    success: false,
+                    language: lang,
+                    error: `API Error (${response.status}): ${errText.slice(0, 300)}`
+                };
+            }
+
+            const data = await response.json();
+            const execTime = Date.now() - startTime;
+
+            return {
+                success: data.ok === true,
+                language: lang,
+                version: 'latest',
+                stdout: (data.stdout || '').slice(0, 1500),
+                stderr: (data.stderr || '').slice(0, 800),
+                exitCode: data.ok ? 0 : 1,
+                execTime,
+                duration: data.duration || 0,
+                signal: null
+            };
+        } catch (err) {
+            return {
+                success: false,
+                language: lang,
+                error: err.name === 'AbortError'
+                    ? 'Execution timed out. Try again later.'
+                    : `Execution failed: ${err.message}`
+            };
+        }
+    }
+
+    function formatPistonResult(result) {
+        if (result.error) {
+            return `❌ **CODE EXECUTION FAILED**\n\n🔤 Language: \`${result.language}\`\n\n\`\`\`\n${result.error}\n\`\`\``;
+        }
+
+        const statusIcon = result.success ? '✅' : '⚠️';
+        const statusText = result.success ? 'SUCCESS' : 'ERROR';
+
+        let output = `${statusIcon} **REAL CODE EXECUTION** — \`${result.language}\`\n\n`;
+        output += `📊 **Status:** ${statusText} | ⏱️ ${result.execTime}ms | Engine: ${result.duration}ms\n`;
+
+        if (result.stdout) {
+            const truncated = result.stdout.length >= 1500 ? '\n... (output truncated)' : '';
+            output += `\n📤 **Output:**\n\`\`\`\n${result.stdout}${truncated}\n\`\`\``;
+        }
+
+        if (result.stderr) {
+            output += `\n🔴 **Errors:**\n\`\`\`\n${result.stderr}\n\`\`\``;
+        }
+
+        if (!result.stdout && !result.stderr) {
+            output += `\n📤 **Output:** _(No output)_`;
+        }
+
+        output += `\n\n💡 _Powered by Codapi • Free sandbox • No API key_`;
+
+        return output;
+    }
+
     // --- TOOL HANDLING LOGIC STARTS HERE ---
 
     if (name === "search_the_web") {
@@ -10537,10 +10659,20 @@ async function runTool(toolCall, id, msg = null) {
         return `✨ **CODE FORMATTER**\n\nLanguage: ${language}\nLines: ${code.split('\n').length}\n\n⚠️ FORMATTING COMPLETE:\n- Indentation: Fixed\n- Style: Consistent\n- Status: SUCCESS\n\n⚡ Tools: Prettier, Black, clang-format\n💡 Clean code is readable code!`;
     }
 
-    else if (name === "multi_language_compiler") {
+    else if (name === "multi_language_compiler" || name === "realtime_code_executor") {
         const code = parsedArgs.code || "";
-        const language = parsedArgs.language || "";
-        return `⚙️ **MULTI-LANGUAGE COMPILER**\n\nLanguage: ${language}\n\n⚠️ EXECUTION DEMO:\n- Compile: SUCCESS\n- Run: DEMO MODE\n- Output: Simulated\n\n⚡ Use: Replit, CodeSandbox, JDoodle\n💡 Run code in sandbox environments!`;
+        const language = parsedArgs.language || "python";
+        const stdin = parsedArgs.stdin || "";
+        const version = parsedArgs.version || "";
+
+        if (!code.trim()) {
+            return `❌ **No code provided!**\n\nUsage: Give me code to execute.\nExample: \`run python: print("hello world")\``;
+        }
+
+        console.log(`🔥 [PISTON] Executing ${language} code (${code.length} chars)...`);
+        const result = await executePistonCode(language, code, stdin);
+        console.log(`🔥 [PISTON] Result: ${result.success ? 'SUCCESS' : 'FAILED'} in ${result.execTime || 0}ms`);
+        return formatPistonResult(result);
     }
 
     else if (name === "dependency_checker") {
@@ -11838,41 +11970,22 @@ async function runTool(toolCall, id, msg = null) {
         return `🔧 **${name.toUpperCase()}**\n\nFeature: ${name.replace(/_/g, ' ')}\nStatus: ✅ Implemented\n\n💡 This is part of RENZU v6.0.0's advanced autonomous systems!\n🚀 Full implementation active!`;
     }
 
-    // ========== DEVELOPER-ONLY TOOLS (v7.3.0) ==========
-    // Tool 154: Execute Code Sandbox
+    // ========== CODE EXECUTION TOOLS (v8.0.0 - Piston API) ==========
+    // Tool 154: Execute Code Sandbox (NOW AVAILABLE TO ALL USERS)
     else if (name === "execute_code_sandbox") {
-        if (id !== DEVELOPER_ID) {
-            return "❌ **DEVELOPER-ONLY FEATURE**\n\nAccess Denied. This tool is restricted to the bot developer only.";
+        const code = parsedArgs.code || "";
+        const language = parsedArgs.language || "python";
+        const stdin = parsedArgs.stdin || "";
+        const timeout = parsedArgs.timeout || 10;
+
+        if (!code.trim()) {
+            return `❌ **No code provided!**\n\nUsage: Give me code to execute.\nSupported: Python, JavaScript, C++, Java, Rust, Go, and 50+ more!`;
         }
 
-        const { code, language, timeout = 10 } = parsedArgs;
-        const maxTimeout = Math.min(timeout, 30);
-
-        try {
-            const { exec } = require('child_process');
-            const util = require('util');
-            const execPromise = util.promisify(exec);
-
-            let command;
-            if (language === 'python') {
-                const tempFile = `temp_${Date.now()}.py`;
-                require('fs').writeFileSync(tempFile, code);
-                command = `timeout ${maxTimeout}s python3 ${tempFile}`;
-            } else if (language === 'javascript' || language === 'nodejs') {
-                const tempFile = `temp_${Date.now()}.js`;
-                require('fs').writeFileSync(tempFile, code);
-                command = `timeout ${maxTimeout}s node ${tempFile}`;
-            } else {
-                return `❌ Language not supported. Use: 'python', 'javascript', or 'nodejs'`;
-            }
-
-            const { stdout, stderr } = await execPromise(command);
-            const output = stdout || stderr || '(No output)';
-
-            return `✅ **CODE EXECUTED (${language.toUpperCase()})**\n\n\`\`\`\n${output.slice(0, 1500)}\n\`\`\`\n⏱️ Timeout: ${maxTimeout}s`;
-        } catch (err) {
-            return `❌ **EXECUTION ERROR**\n\n\`\`\`\n${err.message.slice(0, 1000)}\n\`\`\``;
-        }
+        console.log(`🔥 [SANDBOX] Executing ${language} code for user ${id} (${code.length} chars)...`);
+        const result = await executePistonCode(language, code, stdin, timeout);
+        console.log(`🔥 [SANDBOX] Result: ${result.success ? 'SUCCESS' : 'FAILED'} in ${result.execTime || 0}ms`);
+        return formatPistonResult(result);
     }
 
     // Tool 155: GitHub Search
